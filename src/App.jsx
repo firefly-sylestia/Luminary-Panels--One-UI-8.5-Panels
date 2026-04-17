@@ -40,9 +40,9 @@ const BLEND_MODES = [
 ];
 
 const LAYOUTS = {
-  "Standard Pill": { w: 600, h: 180, r: 90,  cx: 0,   cy: 0    },
-  "Vertical Card": { w: 300, h: 500, r: 24,  cx: 150, cy: -120 },
-  "Square Post":   { w: 500, h: 500, r: 0,   cx: 250, cy: -50  },
+  "Standard Pill": { w: 600, h: 180, r: 90,  cx: 0, cy: 0    },
+  "Vertical Card": { w: 300, h: 500, r: 24,  cx: 0, cy: -120 },
+  "Square Post":   { w: 500, h: 500, r: 0,   cx: 0, cy: -50  },
 };
 
 const EMOJIS = ["✨","🌸","🦋","💎","🎀","💫","🦇","🌙","🔪","🩸"];
@@ -340,7 +340,7 @@ export default function LuminaryStudio() {
         });
       }
     } catch (_) {}
-    if (document.fonts?.ready) document.fonts.ready.then(() => setFontsOk(true));
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => setFontsOk(true));
     else setFontsOk(true);
   }, []);
 
@@ -407,7 +407,7 @@ export default function LuminaryStudio() {
     if (!editMode) return;
     e.preventDefault();
     const pos = getCanvasPos(e);
-    const overlays = (liveState ?? s).overlays;
+    const overlays = (liveState !== null ? liveState : s).overlays;
     for (let i = overlays.length - 1; i >= 0; i--) {
       const ov = overlays[i];
       if (ov.locked) continue;
@@ -425,14 +425,14 @@ export default function LuminaryStudio() {
     if (!draggingId || !editMode) return;
     e.preventDefault();
     const pos  = getCanvasPos(e);
-    const base = dragOverlaysRef.current ?? (liveState ?? s).overlays;
+    const base = dragOverlaysRef.current !== null ? dragOverlaysRef.current : (liveState !== null ? liveState : s).overlays;
     const newOverlays = base.map(ov =>
       ov.id === draggingId
         ? { ...ov, x:pos.x+dragOffset.current.x, y:pos.y+dragOffset.current.y }
         : ov
     );
     dragOverlaysRef.current = newOverlays;
-    setLiveState(prev => ({ ...(prev ?? s), overlays:newOverlays }));
+    setLiveState(prev => ({ ...(prev !== null ? prev : s), overlays:newOverlays }));
   }, [draggingId, editMode, s, liveState, getCanvasPos]);
 
   const onPointerUp = useCallback(() => {
@@ -461,12 +461,15 @@ export default function LuminaryStudio() {
     canvas.height = H * dpr;
     ctx.scale(dpr, dpr);
 
-    const pillR   = Math.min(displayS.pillR, H/2);
+    const minDim  = Math.min(W, H);
+    const pillR   = Math.min(displayS.pillR, minDim/2);
     const PAD     = 20;
-    const baseAvR = pillR > PAD ? pillR - PAD : pillR;
+    
+    // Fix: Calculate radius based on constant minDim so it doesn't shrink when corner radius decreases
+    const baseAvR = (minDim/2) > PAD ? (minDim/2) - PAD : (minDim/2);
     const avR     = baseAvR * (displayS.circScale/100);
-    const avCX    = pillR + displayS.circX;
-    const avCY    = H/2   + displayS.circY;
+    const avCX    = (minDim/2) + displayS.circX; 
+    const avCY    = (H/2) + displayS.circY;
 
     ctx.clearRect(0,0,W,H);
 
@@ -576,6 +579,7 @@ export default function LuminaryStudio() {
   const textDim      = isCute?"rgba(245,200,216,0.38)":"#a1a1a6";
   const controlBg    = isCute?"rgba(255,255,255,0.05)":"#2c2c2e";
   const controlBorder= isCute?"rgba(245,200,216,0.18)":"#3a3a3c";
+  const navBg        = isCute?"rgba(13,5,25,0.97)":"rgba(10,10,10,0.97)";
 
   const inputH   = vp.isMobile ? 48 : 40;
   const inputSt  = { display:"block", width:"100%", background:controlBg, border:`1px solid ${controlBorder}`, borderRadius:10, color:isCute?"#f0d8e8":"#fff", padding:vp.isMobile?"13px 14px":"10px 14px", fontSize:vp.isMobile?15:14, outline:"none", fontFamily:"inherit", minHeight:inputH };
@@ -586,8 +590,8 @@ export default function LuminaryStudio() {
   // ── Panel content blocks ──────────
   const panelAssets = (
     <React.Fragment>
-      <input ref={avFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>setAvRawSrc(ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
-      <input ref={bgFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>setBgRawSrc(ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
+      <input ref={avFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;if(!f)return;const r=new FileReader();r.onload=ev=>setAvRawSrc(ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
+      <input ref={bgFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;if(!f)return;const r=new FileReader();r.onload=ev=>setBgRawSrc(ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
       <Card label="Asset Upload" {...cp}>
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>avFileRef.current?.click()} style={outlineBtn}>🖼 Avatar</button>
@@ -770,7 +774,7 @@ export default function LuminaryStudio() {
   const panelLayers = (
     <div style={{background:cardBg,border:`1px solid ${cardBorder}`,borderRadius:18,padding:16}}>
       <p style={{fontSize:11,fontWeight:600,color:textDim,textTransform:"uppercase",letterSpacing:0.5,marginBottom:14}}>Overlays & Layers</p>
-      <input ref={fileLoaderRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>addOverlay("image",ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
+      <input ref={fileLoaderRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;if(!f)return;const r=new FileReader();r.onload=ev=>addOverlay("image",ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
       <div style={{display:"flex",gap:8,marginBottom:12,overflowX:"auto",paddingBottom:6}}>
         {EMOJIS.map(em=>(
           <button key={em} onClick={()=>addOverlay("emoji",em)}
@@ -778,7 +782,7 @@ export default function LuminaryStudio() {
             {em}
           </button>
         ))}
-        <button onClick={()=>fileLoaderRef.current?.click()}
+        <button onClick={()=>{ if (fileLoaderRef.current) fileLoaderRef.current.click(); }}
           style={{fontSize:12,background:controlBg,border:`1px solid ${controlBorder}`,color:textPrimary,borderRadius:8,padding:"8px 12px",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,minHeight:44}}>
           + Image
         </button>
@@ -839,7 +843,6 @@ export default function LuminaryStudio() {
           color:isCute?"#1a0830":"#fff", fontWeight:700, fontSize:15, cursor:"pointer",
         }}>✦ Export PNG</button>
       </div>
-      {/* DPR info chip */}
       <div style={{fontSize:10,color:textDim,opacity:0.6}}>
         {displayS.pillW}×{displayS.pillH}px · {vp.safeDpr}× DPR · {vp.w}×{vp.h} viewport
       </div>
@@ -1065,7 +1068,7 @@ export default function LuminaryStudio() {
     );
   }
 
-  // ── TABLET layout (2-col: sidebar + canvas) ───────────────────────────────
+  // ── TABLET layout (2-col) ────────────────────────────────────────────────
   if (vp.isTablet) {
     return (
       <React.Fragment>
@@ -1122,7 +1125,7 @@ export default function LuminaryStudio() {
     );
   }
 
-  // ── DESKTOP layout (3-col) ────────────────────────────────────────────────
+  // ── DESKTOP layout ────────────────────────────────────────────────
   return (
     <React.Fragment>
       <style>{`
@@ -1156,11 +1159,9 @@ export default function LuminaryStudio() {
         </header>
 
         <div style={{display:"grid",gridTemplateColumns:"300px 1fr 300px",gap:18,maxWidth:1400,margin:"0 auto",padding:"22px 14px 60px",alignItems:"start"}}>
-          {/* Left */}
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {panelAssets}
           </div>
-          {/* Centre */}
           <main style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14,minWidth:0}} ref={wrapRef}>
             <div style={{background:cardBg,borderRadius:28,padding:"32px 20px",width:"100%",display:"flex",flexDirection:"column",alignItems:"center",gap:24,border:`1px solid ${cardBorder}`}}>
               {canvasBlock}
@@ -1168,7 +1169,6 @@ export default function LuminaryStudio() {
             {panelBorder}
             {panelLayers}
           </main>
-          {/* Right */}
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {panelTypography}
           </div>
