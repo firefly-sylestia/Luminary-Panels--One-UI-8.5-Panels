@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const COMBINED_FONT_URL =
@@ -40,68 +40,36 @@ const BLEND_MODES = [
 ];
 
 const LAYOUTS = {
-  "Standard Pill": { w: 600, h: 180, r: 90,  cx: 0,   cy: 0    },
-  "Vertical Card": { w: 300, h: 500, r: 24,  cx: 0, cy: -120 },
-  "Square Post":   { w: 500, h: 500, r: 0,   cx: 0, cy: -50  },
+  "Standard Pill": { w: 600, h: 180, r: 90,  cx: 0, cy: 0,  showAv: true  },
+  "Vertical Card": { w: 300, h: 500, r: 24,  cx: 0, cy: -120, showAv: false },
+  "Square Post":   { w: 500, h: 500, r: 0,   cx: 0, cy: -50,  showAv: false },
+  "Quick Pill":    { w: 400, h: 130, r: 65,  cx: 0, cy: 0,  showAv: true  },
+  "Circle Toggle": { w: 160, h: 160, r: 80,  cx: 0, cy: 0,  showAv: true  },
 };
 
 const EMOJIS = ["✨","🌸","🦋","💎","🎀","💫","🦇","🌙","🔪","🩸"];
 
 const UI_ICONS = [
-  { name: "WiFi", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 21c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-4.5c-2.5 0-4.8-1-6.5-2.6L7 12.5c1.3 1.2 3 1.9 5 1.9s3.7-.7 5-1.9l1.4 1.4c-1.7 1.6-4 2.6-6.4 2.6zM12 12c-4 0-7.6-1.6-10.3-4.1l1.4-1.4C5.4 8.6 8.5 10 12 10s6.6-1.4 8.9-3.5l1.4 1.4C19.6 10.4 16 12 12 12zm0-4.5C6.8 7.5 2.1 5.5-1.4 2.1L0 .7C3.9 4.3 9.1 6.5 12 6.5s8.1-2.2 12-5.8l1.4 1.4c-3.5 3.4-8.2 5.4-13.4 5.4z'/></svg>"},
-  { name: "Bluetooth", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M17.7 7.7L12 2v6.6L7.3 3.9 5.9 5.3 10.6 10l-4.7 4.7 1.4 1.4L12 11.4V18l5.7-5.7L13.4 10l4.3-2.3zM14 5.8l1.9 1.9L14 9.6V5.8zm0 12.4v-3.8l1.9 1.9L14 18.2z'/></svg>"},
-  { name: "Airplane", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5L21 16z'/></svg>"},
-  { name: "Flash", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M6 2h12v3H6V2zm0 5l2 3v12h8V10l2-3H6zm6 7c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z'/></svg>"},
+  { name: "WiFi", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 21c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-4.5c-2.5 0-4.8-1-6.5-2.6L7 12.5c1.3 1.2 3 1.9 5 1.9s3.7-.7 5-1.9l1.4 1.4c-1.7 1.6-4 2.6-6.4 2.6z'/></svg>"},
   { name: "Moon", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z'/></svg>"},
-  { name: "Sun", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z'/></svg>"},
-  { name: "Mute", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.87v2.06c2.89.86 5 3.54 5 6.81zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z'/></svg>"},
-  { name: "Location", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z'/></svg>"},
-];
-
-const PAGES = [
-  { id: "base",       label: "Layout",   icon: "📐"  },
-  { id: "assets",     label: "Assets",   icon: "🖼"  },
-  { id: "border",     label: "Border",   icon: "💎"  },
-  { id: "typography", label: "Text",     icon: "Aa"  },
 ];
 
 // ── Viewport Hook ─────────────────────────────────────────────────────────────
 function useViewport() {
-  const [vp, setVp] = useState({ w: 1280, h: 800, dpr: 1 });
-
+  const [vp, setVp] = useState({ w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 });
   useEffect(() => {
-    const update = () => setVp({
-      w: window.innerWidth,
-      h: window.innerHeight,
-      dpr: window.devicePixelRatio || 1,
-    });
-    update();
+    const update = () => setVp({ w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 });
     window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", () => setTimeout(update, 150));
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-    };
+    return () => window.removeEventListener("resize", update);
   }, []);
-
-  return {
-    ...vp,
-    isMobile:  vp.w < 768,
-    isTablet:  vp.w >= 768 && vp.w < 1100,
-    isDesktop: vp.w >= 1100,
-    safeDpr: Math.min(vp.dpr, 3),
-  };
+  return { ...vp, isMobile: vp.w < 850, safeDpr: Math.min(vp.dpr, 3) };
 }
 
 // ── Math & Helpers ────────────────────────────────────────────────────────────
 function roundedRectPath(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y,     x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x,     y + h, r);
-  ctx.arcTo(x,     y + h, x,     y,     r);
-  ctx.arcTo(x,     y,     x + w, y,     r);
-  ctx.closePath();
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 
 function hexToRgba(hex, alpha) {
@@ -124,17 +92,17 @@ function shadeHex(hex, amt) {
 
 const getBorderControls = (id) => {
   switch (id) {
-    case "floral":  return { p1:"Density",       min1:6,  max1:40, p2:null };
-    case "pearls":  return { p1:"Pearl Count",   min1:10, max1:60, p2:null };
-    case "dashed":  return { p1:"Gap Spacing",   min1:1,  max1:20, p2:null };
-    case "dotted":  return { p1:"Gap Spacing",   min1:1,  max1:20, p2:null };
-    case "double":  return { p1:"Inner Gap",     min1:1,  max1:20, p2:null };
-    case "glow":    return { p1:"Glow Spread",   min1:1,  max1:50, p2:"3D Depth",   min2:0, max2:30  };
-    case "ribbon":  return { p1:"Wave Freq",     min1:2,  max1:30, p2:"Amplitude",  min2:1, max2:20  };
-    case "sparkle": return { p1:"Count",         min1:8,  max1:48, p2:null };
-    case "crystal": return { p1:"Count",         min1:10, max1:50, p2:null };
-    case "lace":    return { p1:"Knot Density",  min1:10, max1:40, p2:null };
-    case "emoji":   return { p1:"Count",         min1:4,  max1:60, p2:"Jitter", min2:0, max2:100, hasText:true };
+    case "floral":  return { p1:"Density",      min1:6,  max1:40, p2:null };
+    case "pearls":  return { p1:"Pearl Count",  min1:10, max1:60, p2:null };
+    case "dashed":  return { p1:"Gap Spacing",  min1:1,  max1:20, p2:null };
+    case "dotted":  return { p1:"Gap Spacing",  min1:1,  max1:20, p2:null };
+    case "double":  return { p1:"Inner Gap",    min1:1,  max1:20, p2:null };
+    case "glow":    return { p1:"Glow Spread",  min1:1,  max1:50, p2:"3D Depth",  min2:0, max2:30 };
+    case "ribbon":  return { p1:"Wave Freq",    min1:2,  max1:30, p2:"Amplitude", min2:1, max2:20 };
+    case "sparkle": return { p1:"Count",        min1:8,  max1:48, p2:null };
+    case "crystal": return { p1:"Count",        min1:10, max1:50, p2:null };
+    case "lace":    return { p1:"Knot Density", min1:10, max1:40, p2:null };
+    case "emoji":   return { p1:"Count",        min1:4,  max1:60, p2:"Jitter", min2:0, max2:100, hasText:true };
     default:        return { p1:null, p2:null };
   }
 };
@@ -159,56 +127,9 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
       ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2);
       ctx.fillStyle = g; ctx.shadowColor = color; ctx.shadowBlur = 10; ctx.fill();
     }
-  } else if (styleId === "pearls") {
-    const n = Math.floor(p1), or = R + 9*scale;
-    for (let i = 0; i < n; i++) {
-      const a = (i/n)*Math.PI*2, px = cx+Math.cos(a)*or, py = cy+Math.sin(a)*or, pr = 6*scale;
-      const g = ctx.createRadialGradient(px-pr*.35, py-pr*.35, pr*.05, px, py, pr);
-      g.addColorStop(0,"#fff"); g.addColorStop(.4,color); g.addColorStop(1,shadeHex(color,-25));
-      ctx.beginPath(); ctx.arc(px,py,pr,0,Math.PI*2);
-      ctx.fillStyle=g; ctx.shadowColor="rgba(255,255,255,.6)"; ctx.shadowBlur=8; ctx.fill();
-    }
-    ctx.beginPath(); ctx.arc(cx,cy,or,0,Math.PI*2);
-    ctx.strokeStyle=color+"44"; ctx.lineWidth=Math.max(1,thickness*0.3); ctx.stroke();
-  } else if (styleId === "lace") {
-    const n = Math.floor(p1); ctx.lineWidth=thickness*0.6; ctx.shadowColor=color; ctx.shadowBlur=6;
-    for (let i = 0; i < n; i++) {
-      const a1=(i/n)*Math.PI*2, a2=((i+1)/n)*Math.PI*2, am=(a1+a2)/2;
-      const lx1=cx+Math.cos(a1)*(R+4), ly1=cy+Math.sin(a1)*(R+4);
-      const lx2=cx+Math.cos(a2)*(R+4), ly2=cy+Math.sin(a2)*(R+4);
-      const cpx=cx+Math.cos(am)*(R+22*scale), cpy=cy+Math.sin(am)*(R+22*scale);
-      ctx.beginPath(); ctx.moveTo(lx1,ly1); ctx.quadraticCurveTo(cpx,cpy,lx2,ly2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(cpx,cpy,2.5*scale,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
-    }
-  } else if (styleId === "sparkle") {
-    const n = Math.floor(p1);
-    for (let i = 0; i < n; i++) {
-      const a=(i/n)*Math.PI*2, d=R+(8+(i%3)*10)*scale, sz=(3+(i%3)*3)*scale;
-      ctx.save(); ctx.translate(cx+Math.cos(a)*d, cy+Math.sin(a)*d); ctx.rotate(a+Math.PI/4); ctx.beginPath();
-      for (let pt=0; pt<4; pt++) {
-        const pa=(pt/4)*Math.PI*2, ip=pa+Math.PI/4;
-        pt===0 ? ctx.moveTo(Math.cos(pa)*sz,Math.sin(pa)*sz) : ctx.lineTo(Math.cos(pa)*sz,Math.sin(pa)*sz);
-        ctx.lineTo(Math.cos(ip)*sz*.28, Math.sin(ip)*sz*.28);
-      }
-      ctx.fillStyle=color; ctx.shadowColor=color; ctx.shadowBlur=14; ctx.globalAlpha=.85; ctx.fill(); ctx.restore();
-    }
-  } else if (styleId === "ribbon") {
-    const seg=100; ctx.lineWidth=thickness*1.5; ctx.shadowColor=color; ctx.shadowBlur=8; ctx.globalAlpha=.7; ctx.beginPath();
-    for (let i=0; i<=seg; i++) {
-      const a=(i/seg)*Math.PI*2, rv=R+14*scale+Math.sin(a*p1)*p2*scale;
-      i===0 ? ctx.moveTo(cx+Math.cos(a)*rv,cy+Math.sin(a)*rv) : ctx.lineTo(cx+Math.cos(a)*rv,cy+Math.sin(a)*rv);
-    }
-    ctx.stroke();
-  } else if (styleId === "crystal") {
-    const n=Math.floor(p1);
-    for (let i=0; i<n; i++) {
-      const a1=(i/n)*Math.PI*2, a2=((i+1)/n)*Math.PI*2, am=(a1+a2)/2;
-      const tip=i%3===0 ? R+28*scale : R+18*scale;
-      ctx.beginPath(); ctx.moveTo(cx+Math.cos(a1)*(R+4*scale),cy+Math.sin(a1)*(R+4*scale));
-      ctx.lineTo(cx+Math.cos(am)*tip,cy+Math.sin(am)*tip); ctx.lineTo(cx+Math.cos(a2)*(R+4*scale),cy+Math.sin(a2)*(R+4*scale));
-      ctx.fillStyle=color; ctx.globalAlpha=i%2===0?.55:.25; ctx.shadowColor=color; ctx.shadowBlur=10; ctx.fill();
-      ctx.strokeStyle="rgba(255,255,255,.4)"; ctx.lineWidth=Math.max(0.5,thickness*0.2); ctx.globalAlpha=.6; ctx.stroke();
-    }
+  } else if (styleId === "glow") {
+    ctx.shadowColor=color; ctx.shadowBlur=p1; ctx.shadowOffsetX=p2; ctx.shadowOffsetY=p2;
+    ctx.lineWidth=thickness/2; ctx.beginPath(); ctx.arc(cx,cy,R+(thickness/2),0,Math.PI*2); ctx.stroke();
   } else if (styleId === "emoji") {
     const emList = emojisStr ? Array.from(emojisStr) : ["✨"];
     if (!emList.length) emList.push("✨");
@@ -222,67 +143,304 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
     }
   } else {
     ctx.lineWidth=thickness; ctx.beginPath(); ctx.arc(cx,cy,R+(thickness/2),0,Math.PI*2);
-    if (styleId==="dashed")       { ctx.setLineDash([thickness*2,thickness*(p1/5)]); ctx.stroke(); }
-    else if (styleId==="dotted")  { ctx.setLineDash([0,thickness*(p1/5)]); ctx.stroke(); }
-    else if (styleId==="double")  { ctx.lineWidth=thickness/3; ctx.stroke(); ctx.beginPath(); ctx.arc(cx,cy,R+(thickness/2)+(thickness*(p1/10)),0,Math.PI*2); ctx.stroke(); }
-    else if (styleId==="glow")    { ctx.shadowColor=color; ctx.shadowBlur=p1; ctx.shadowOffsetX=p2; ctx.shadowOffsetY=p2; ctx.lineWidth=thickness/2; ctx.stroke(); }
-    else                          { ctx.stroke(); }
+    if (styleId==="dashed")      { ctx.setLineDash([thickness*2,thickness*(p1/5)]); ctx.stroke(); }
+    else if (styleId==="dotted") { ctx.setLineDash([0,thickness*(p1/5)]); ctx.stroke(); }
+    else if (styleId==="double") { ctx.lineWidth=thickness/3; ctx.stroke(); ctx.beginPath(); ctx.arc(cx,cy,R+(thickness/2)+(thickness*(p1/10)),0,Math.PI*2); ctx.stroke(); }
+    else                         { ctx.stroke(); }
   }
   ctx.restore();
 }
 
 // ── Default State Factory ─────────────────────────────────────────────────────
-const getLayoutDefaults = (layoutName, theme) => {
+const getLayoutDefaults = (layoutName, theme = "glass") => {
   let def = {
-    pillW: 400, pillH: 130, pillR: 65, circX: 0, circY: 0,
-    mainText: "Wi-Fi", subText: "", fontSize: 36, nudge: {x: 0, y: 0},
-    pillBgColor: "#2a2a2c", avBgColor: "#444446", textClr: "#ffffff",
-    glowClr: "transparent", font: FONTS[0].value, fontWeight: 600,
-    borderStyleId: "none", avBorderClr: "#ffffff"
+    pillW: 600, pillH: 180, pillR: 90, circX: 0, circY: 0, textX: 0, textY: 0,
+    mainText: "Moon Veil", subText: "Ultra HD Component", fontSize: 42,
+    bgStretch: true, bgScale: 100, bgImgX: 0, bgImgY: 0, bgBlur: 0, bgBlend: "source-over",
+    pillBorderWidth: 0, pillBorderClr: "#ffffff",
+    avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "🌸✨🦋",
+    circScale: 100, avScale: 100, avImgX: 0, avImgY: 0,
+    edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
   };
 
   if (theme === "cute") {
-    def = { ...def, pillBgColor: "#fbd0e4", avBgColor: "#fce4ec", textClr: "#3d0a5a", glowClr: "#ffb6c1", font: "'Great Vibes', cursive", fontWeight: 400, borderStyleId: "solid", avBorderClr: "#ffb3c6" };
+    def = { ...def, pillBgColor: "#fde8f0", avBgColor: "#fce4ec", textClr: "#d4af37", glowClr: "#ffd1dc", font: "'Cormorant Garamond', serif", fontWeight: 600, borderStyleId: "lace", avBorderClr: "#ffb3c6", pillBorderWidth: 1.5, pillBorderClr: "#ffb3c6" };
   } else if (theme === "glass") {
-    def = { ...def, pillBgColor: "rgba(255,255,255,0.15)", avBgColor: "rgba(255,255,255,0.2)", textClr: "#ffffff", glowClr: "rgba(255,255,255,0.5)", borderStyleId: "solid", avBorderClr: "rgba(255,255,255,0.8)" };
+    def = { ...def, pillBgColor: "rgba(255,255,255,0.15)", avBgColor: "rgba(255,255,255,0.25)", textClr: "#ffffff", glowClr: "rgba(255,255,255,0.8)", font: "'Inter', sans-serif", fontWeight: 700, borderStyleId: "glow", avBorderClr: "rgba(255,255,255,0.9)" };
   } else if (theme === "material") {
-    def = { ...def, pillBgColor: "#ffffff", avBgColor: "#e8def8", textClr: "#1d192b", glowClr: "transparent", font: "'Roboto', sans-serif", fontWeight: 500, borderStyleId: "none" };
+    def = { ...def, pillBgColor: "#ffffff", avBgColor: "#e8def8", textClr: "#1d192b", glowClr: "transparent", font: "'Roboto', sans-serif", fontWeight: 500, borderStyleId: "none", avBorderClr: "transparent" };
+  } else {
+    def = { ...def, pillBgColor: "#1c1c1e", avBgColor: "#2c2c2e", textClr: "#ffffff", glowClr: "transparent", font: "system-ui", fontWeight: 500, borderStyleId: "solid", avBorderClr: "#444" };
   }
 
-  switch (layoutName) {
-    case "Quick Pill":
-      return { ...def, pillW: 400, pillH: 130, pillR: 65, circX: 0, circY: 0, mainText: "Wi-Fi", subText: "", fontSize: 36, nudge: {x: 0, y: 0} };
-    case "Circle Toggle":
-      return { ...def, pillW: 160, pillH: 160, pillR: 80, circX: 0, circY: 0, mainText: "", subText: "", fontSize: 36, nudge: {x: 0, y: 0} };
-    case "Vertical Slider":
-      return { ...def, pillW: 130, pillH: 380, pillR: 65, circX: 0, circY: 125, mainText: "80", subText: "", fontSize: 44, nudge: {x: -100, y: -125} };
-    case "Container Panel":
-      return { ...def, pillBgColor: theme==="cute"?"#fde8f0":theme==="material"?"#f3edf7":theme==="glass"?"rgba(255,255,255,0.05)":"#1c1c1e", pillW: 600, pillH: 220, pillR: 40, circX: 0, circY: 0, mainText: "", subText: "", fontSize: 36, nudge: {x: 0, y: 0} };
-    default:
-      return def;
+  if (LAYOUTS[layoutName]) {
+    const l = LAYOUTS[layoutName];
+    def = { ...def, pillW: l.w, pillH: l.h, pillR: l.r, circX: l.cx, circY: l.cy, showAvatar: l.showAv };
   }
+  return def;
 };
 
-const generateDefaultState = (theme="simple", layout="Quick Pill") => {
-  const base = getLayoutDefaults(layout, theme);
-  const isCute = theme === "cute";
-  
-  return {
-    ...base,
-    bgStretch:true, bgScale:100, bgImgX:0, bgImgY:0, bgBlur:0, bgBlend:"source-over",
-    pillBorderWidth: isCute?1.5:0, pillBorderClr: isCute?"rgba(255,255,255,0.4)":"#ffffff",
-    avBorderWidth: isCute?3:2, avBorderGap:0,
-    avBorderParam1:20, avBorderParam2:0, avBorderEmojis:"🌸✨🦋",
-    circScale:100, avScale:100, avImgX:0, avImgY:0,
-    edgeBlur:0, edgeColor:"#000000",
-    overlays:[],
+// ─────────────────────────────────────────────────────────────────────────────
+// CropModal — manual crop with draggable circular crop region
+// ─────────────────────────────────────────────────────────────────────────────
+function CropModal({ src, onConfirm, onCancel }) {
+  const [imgDisplay, setImgDisplay]   = useState({ w: 0, h: 0 });
+  const [imgNatural, setImgNatural]   = useState({ w: 0, h: 0 });
+  const [crop, setCrop]               = useState({ x: 0, y: 0, size: 150 });
+  const dragRef = useRef(null);
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  const onImgLoad = (e) => {
+    const img = e.currentTarget;
+    const MAX_W = Math.min(window.innerWidth - 48, 440);
+    const MAX_H = Math.min(Math.floor(window.innerHeight * 0.52), 360);
+    const scale = Math.min(MAX_W / img.naturalWidth, MAX_H / img.naturalHeight, 1);
+    const dw = Math.round(img.naturalWidth  * scale);
+    const dh = Math.round(img.naturalHeight * scale);
+    const initSz = Math.round(Math.min(dw, dh) * 0.65);
+    setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
+    setImgDisplay({ w: dw, h: dh });
+    setCrop({ x: Math.round((dw - initSz) / 2), y: Math.round((dh - initSz) / 2), size: initSz });
   };
-};
+
+  const handlePointerDown = (e, mode) => {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { mode, px: e.clientX, py: e.clientY, snap: { ...crop } };
+  };
+
+  const handlePointerMove = (e) => {
+    if (!dragRef.current) return;
+    const { mode, px, py, snap } = dragRef.current;
+    const dx = e.clientX - px, dy = e.clientY - py;
+    if (mode === "move") {
+      setCrop(c => ({
+        ...c,
+        x: clamp(snap.x + dx, 0, imgDisplay.w - snap.size),
+        y: clamp(snap.y + dy, 0, imgDisplay.h - snap.size),
+      }));
+    } else if (mode === "resize") {
+      const delta = Math.round((dx + dy) / 2);
+      const maxSz  = Math.min(imgDisplay.w - snap.x, imgDisplay.h - snap.y);
+      setCrop(c => ({ ...c, size: clamp(snap.size + delta, 40, maxSz) }));
+    }
+  };
+
+  const handlePointerUp = () => { dragRef.current = null; };
+
+  const confirmCrop = () => {
+    if (!imgDisplay.w) return;
+    const scX = imgNatural.w / imgDisplay.w;
+    const scY = imgNatural.h / imgDisplay.h;
+    const sx = Math.round(crop.x * scX);
+    const sy = Math.round(crop.y * scY);
+    const sw = Math.round(crop.size * scX);
+    const sh = Math.round(crop.size * scY);
+    const sz = Math.max(sw, sh);
+    const cvs = document.createElement("canvas");
+    cvs.width = sz; cvs.height = sz;
+    const ctx = cvs.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sz, sz);
+      onConfirm(cvs.toDataURL("image/png"));
+    };
+    img.src = src;
+  };
+
+  return (
+    <div style={{
+      position:"fixed", inset:0, zIndex:9999,
+      background:"rgba(0,0,0,0.92)", display:"flex",
+      alignItems:"center", justifyContent:"center", padding:16,
+    }}>
+      <div style={{
+        background:"#1c1c1e", borderRadius:20, padding:20,
+        width:"100%", maxWidth:480,
+        display:"flex", flexDirection:"column", gap:14,
+        boxShadow:"0 24px 64px rgba(0,0,0,0.6)",
+      }}>
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <h3 style={{ color:"#fff", fontSize:18, fontWeight:700, margin:0 }}>Crop Avatar</h3>
+          <button onClick={onCancel} style={{
+            background:"rgba(255,255,255,0.1)", border:"none",
+            color:"#fff", borderRadius:"50%", width:32, height:32,
+            fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+          }}>✕</button>
+        </div>
+        <p style={{ color:"rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
+          Drag circle to reposition · Drag blue handle ◉ to resize
+        </p>
+
+        {/* Image + crop overlay */}
+        <div
+          style={{
+            position:"relative", display:"flex", justifyContent:"center",
+            background:"#000", borderRadius:12, overflow:"hidden",
+            userSelect:"none", touchAction:"none", minHeight:80,
+          }}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
+          <img
+            src={src}
+            onLoad={onImgLoad}
+            draggable={false}
+            style={{ display:"block", width: imgDisplay.w || "auto", height: imgDisplay.h || "auto", maxWidth:"100%", pointerEvents:"none" }}
+          />
+          {imgDisplay.w > 0 && (
+            <>
+              {/* Darken mask — 4 surrounding rects */}
+              <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+                <div style={{ position:"absolute", top:0, left:0, right:0, height: crop.y, background:"rgba(0,0,0,0.65)" }} />
+                <div style={{ position:"absolute", top: crop.y + crop.size, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.65)" }} />
+                <div style={{ position:"absolute", top: crop.y, left:0, width: crop.x, height: crop.size, background:"rgba(0,0,0,0.65)" }} />
+                <div style={{ position:"absolute", top: crop.y, left: crop.x + crop.size, right:0, height: crop.size, background:"rgba(0,0,0,0.65)" }} />
+              </div>
+              {/* Draggable crop circle */}
+              <div
+                onPointerDown={e => handlePointerDown(e, "move")}
+                style={{
+                  position:"absolute",
+                  left: crop.x, top: crop.y,
+                  width: crop.size, height: crop.size,
+                  border:"2.5px solid #0a84ff",
+                  borderRadius:"50%",
+                  cursor:"move",
+                  touchAction:"none",
+                  boxSizing:"border-box",
+                  boxShadow:"0 0 0 1px rgba(0,0,0,0.4)",
+                }}
+              >
+                {/* Crosshair guides */}
+                <div style={{ position:"absolute", top:"50%", left:6, right:6, height:1, background:"rgba(255,255,255,0.3)", transform:"translateY(-50%)", pointerEvents:"none" }} />
+                <div style={{ position:"absolute", left:"50%", top:6, bottom:6, width:1, background:"rgba(255,255,255,0.3)", transform:"translateX(-50%)", pointerEvents:"none" }} />
+                {/* Resize handle */}
+                <div
+                  onPointerDown={e => handlePointerDown(e, "resize")}
+                  style={{
+                    position:"absolute", bottom:-10, right:-10,
+                    width:22, height:22,
+                    background:"#0a84ff", borderRadius:"50%",
+                    cursor:"se-resize", touchAction:"none",
+                    border:"2px solid #fff",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    fontSize:9, color:"#fff", fontWeight:700,
+                    boxShadow:"0 2px 8px rgba(0,0,0,0.5)",
+                  }}
+                >◉</div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Size readout */}
+        {imgDisplay.w > 0 && (
+          <p style={{ color:"rgba(255,255,255,0.35)", fontSize:11, textAlign:"center", margin:0 }}>
+            Crop: {Math.round(crop.size)}×{Math.round(crop.size)}px display
+            {" · "}
+            Output: ~{Math.round(crop.size * (imgNatural.w / imgDisplay.w))}px
+          </p>
+        )}
+
+        {/* Buttons */}
+        <div style={{ display:"flex", gap:10 }}>
+          <button onClick={onCancel} style={{
+            flex:1, padding:"13px", background:"rgba(255,255,255,0.08)",
+            border:"none", borderRadius:12, color:"#fff",
+            fontSize:15, fontWeight:600, cursor:"pointer",
+          }}>Cancel</button>
+          <button onClick={confirmCrop} style={{
+            flex:2, padding:"13px", background:"#0a84ff",
+            border:"none", borderRadius:12, color:"#fff",
+            fontSize:15, fontWeight:700, cursor:"pointer",
+          }}>✓ Apply Crop</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ExportModal — fallback for Android when direct download is blocked
+// ─────────────────────────────────────────────────────────────────────────────
+function ExportModal({ dataUrl, onClose }) {
+  return (
+    <div style={{
+      position:"fixed", inset:0, zIndex:9999,
+      background:"rgba(0,0,0,0.93)", display:"flex",
+      alignItems:"center", justifyContent:"center", padding:16,
+    }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes pulseBorder {
+          0%,100% { box-shadow: 0 0 0 0 rgba(10,132,255,0.6); }
+          50%      { box-shadow: 0 0 0 6px rgba(10,132,255,0); }
+        }
+      `}} />
+      <div style={{
+        background:"#1c1c1e", borderRadius:20, padding:20,
+        width:"100%", maxWidth:460,
+        display:"flex", flexDirection:"column", gap:14,
+        boxShadow:"0 24px 64px rgba(0,0,0,0.7)",
+      }}>
+        {/* Header */}
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <h3 style={{ color:"#fff", fontSize:18, fontWeight:700, margin:0 }}>💾 Save Image</h3>
+          <button onClick={onClose} style={{
+            background:"rgba(255,255,255,0.1)", border:"none", color:"#fff",
+            borderRadius:"50%", width:32, height:32, fontSize:16, cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center",
+          }}>✕</button>
+        </div>
+
+        {/* Instruction */}
+        <div style={{
+          background:"rgba(10,132,255,0.12)", border:"1px solid rgba(10,132,255,0.3)",
+          borderRadius:12, padding:"10px 14px",
+        }}>
+          <p style={{ color:"#fff", fontSize:14, fontWeight:600, margin:"0 0 4px" }}>
+            👆 Hold your finger on the image for ~1 second
+          </p>
+          <p style={{ color:"rgba(255,255,255,0.55)", fontSize:12, margin:0 }}>
+            Then choose <strong style={{ color:"#fff" }}>"Save image"</strong> or <strong style={{ color:"#fff" }}>"Download"</strong> from the menu.
+          </p>
+        </div>
+
+        {/* Image — pulsing border cues the user to long-press here */}
+        <div style={{
+          borderRadius:14, overflow:"hidden", background:"#000",
+          border:"2px solid rgba(10,132,255,0.5)",
+          animation:"pulseBorder 1.8s ease-in-out infinite",
+        }}>
+          <img
+            src={dataUrl}
+            alt="export"
+            draggable={false}
+            style={{
+              display:"block", width:"100%", height:"auto",
+              userSelect:"none", WebkitUserSelect:"none",
+              WebkitTouchCallout:"default", // KEEP default so long-press context menu fires
+              pointerEvents:"auto",
+            }}
+          />
+        </div>
+
+        <button onClick={onClose} style={{
+          padding:"13px", background:"rgba(255,255,255,0.08)", border:"none",
+          borderRadius:12, color:"#fff", fontSize:15, fontWeight:600, cursor:"pointer",
+        }}>Close</button>
+      </div>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
-export default function LuminaryStudio() {
+export default function LuminaryPanels() {
   const vp = useViewport();
 
   const canvasRef     = useRef(null);
@@ -291,27 +449,33 @@ export default function LuminaryStudio() {
   const bgFileRef     = useRef(null);
   const fileLoaderRef = useRef(null);
 
-  const [fontsOk, setFontsOk]           = useState(false);
-  const [theme, setTheme]               = useState("simple");
-  const [layoutMode, setLayoutMode]     = useState("Quick Pill");
+  const [fontsOk, setFontsOk]         = useState(false);
+  const [pillStyle, setPillStyle]     = useState("glass");
+  const [layoutMode, setLayoutMode]   = useState("Standard Pill");
   const [advancedMode, setAdvancedMode] = useState(false);
-  const [editMode, setEditMode]         = useState(false);
-  const [pxScale, setPxScale]           = useState(1);
-  const [customFonts, setCustomFonts]   = useState([]);
-  const [newFontUrl, setNewFontUrl]     = useState("");
-  const [pageIndex, setPageIndex]       = useState(0); 
+  const [editMode, setEditMode]       = useState(false);
+  const [pxScale, setPxScale]         = useState(1);
+  const [customFonts, setCustomFonts] = useState([]);
+  const [newFontUrl, setNewFontUrl]   = useState("");
+  const [mobileTab, setMobileTab]     = useState("layout");
+
+  // Crop modal state
+  const [cropSrc, setCropSrc]         = useState(null);
+
+  // Export modal (Android fallback)
+  const [exportDataUrl, setExportDataUrl] = useState(null);
 
   // ── History ───────────────────────────────────────────────────────────────
-  const [history, setHistory] = useState([generateDefaultState("simple", "Quick Pill")]);
+  const [history, setHistory] = useState([getLayoutDefaults("Standard Pill", "glass")]);
   const [hIndex,  setHIndex]  = useState(0);
-  const s = history[hIndex] ? history[hIndex] : history[0];
+  const s = history[hIndex] ?? history[0];
 
   const pushState = (updates) => {
     setHistory(prev => {
-      const base = prev[hIndex] ? prev[hIndex] : prev[0];
+      const base = prev[hIndex] ?? prev[0];
       const next = { ...base, ...updates };
       let h = [...prev.slice(0, hIndex + 1), next];
-      if (h.length > 15) h = h.slice(h.length - 15);
+      if (h.length > 20) h = h.slice(h.length - 20);
       setHIndex(h.length - 1);
       return h;
     });
@@ -319,7 +483,7 @@ export default function LuminaryStudio() {
 
   const undo  = () => setHIndex(i => Math.max(0, i - 1));
   const redo  = () => setHIndex(i => Math.min(history.length - 1, i + 1));
-  const reset = () => pushState(generateDefaultState(theme, layoutMode));
+  const reset = () => pushState(getLayoutDefaults(layoutMode, pillStyle));
 
   // ── Images ────────────────────────────────────────────────────────────────
   const [bgRawSrc, setBgRawSrc]         = useState(null);
@@ -328,7 +492,7 @@ export default function LuminaryStudio() {
   const [avImg, setAvImg]               = useState(null);
   const [loadedImages, setLoadedImages] = useState({});
 
-  // ── 120fps Drag Engine ────────────────────────────────────────────────────
+  // ── Drag Engine ───────────────────────────────────────────────────────────
   const dragData = useRef(null);
 
   // ── Initialization ────────────────────────────────────────────────────────
@@ -336,25 +500,20 @@ export default function LuminaryStudio() {
     const l = document.createElement("link");
     l.rel = "stylesheet"; l.href = COMBINED_FONT_URL;
     try { document.head.appendChild(l); } catch (_) {}
-    
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => setFontsOk(true));
-    } else {
-      setFontsOk(true);
-    }
+    if (document.fonts?.ready) document.fonts.ready.then(() => setFontsOk(true));
+    else setFontsOk(true);
   }, []);
 
   const addFont = () => {
     const match = newFontUrl.match(/family=([^&:]+)/);
     if (!match) return;
-    const fontName = match[1].replace(/\+/g," ");
-    const newF = { label:fontName, value:`'${fontName}', sans-serif`, url:newFontUrl };
+    const fontName = match[1].replace(/\+/g, " ");
+    const newF = { label: fontName, value: `'${fontName}', sans-serif`, url: newFontUrl };
     setCustomFonts([...customFonts, newF]);
-    
-    const l = document.createElement("link"); l.rel="stylesheet"; l.href=newFontUrl;
-    try { document.head.appendChild(l); } catch(_){}
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.href = newFontUrl;
+    try { document.head.appendChild(l); } catch(_) {}
     setNewFontUrl("");
-    pushState({ font:newF.value });
+    pushState({ font: newF.value });
   };
 
   useEffect(() => {
@@ -364,295 +523,362 @@ export default function LuminaryStudio() {
       setPxScale(avail < s.pillW ? avail / s.pillW : 1);
     };
     measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, [s.pillW, vp.isMobile, vp.w]);
 
-  useEffect(() => {
-    if (bgRawSrc) { const i=new Image(); i.onload=()=>setBgImg(i); i.src=bgRawSrc; }
-  }, [bgRawSrc]);
-  useEffect(() => {
-    if (avRawSrc) { const i=new Image(); i.onload=()=>setAvImg(i); i.src=avRawSrc; }
-  }, [avRawSrc]);
+  useEffect(() => { if (bgRawSrc) { const i = new Image(); i.onload = () => setBgImg(i); i.src = bgRawSrc; } }, [bgRawSrc]);
+  useEffect(() => { if (avRawSrc) { const i = new Image(); i.onload = () => setAvImg(i); i.src = avRawSrc; } }, [avRawSrc]);
+
   useEffect(() => {
     s.overlays.forEach(ov => {
-      if (ov.type==="image" && !loadedImages[ov.id]) {
-        const i=new Image();
-        i.onload=()=>setLoadedImages(prev=>{ const n = {...prev}; n[ov.id] = i; return n; });
-        i.src=ov.content;
+      if (ov.type === "image" && !loadedImages[ov.id]) {
+        const i = new Image();
+        i.onload = () => setLoadedImages(prev => { const n = { ...prev }; n[ov.id] = i; return n; });
+        i.src = ov.content;
       }
     });
   }, [s.overlays, loadedImages]);
 
-  // ── Canvas helpers ────────────────────────────────────────────────────────
+  // ── Manual Crop handler ───────────────────────────────────────────────────
+  const handleAvatarFileChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => setCropSrc(ev.target.result);
+    r.readAsDataURL(f);
+    e.target.value = "";
+  };
+
+  const onCropConfirm = (croppedDataUrl) => {
+    setAvRawSrc(croppedDataUrl);
+    setCropSrc(null);
+  };
+
+  // ── Canvas Drag Helpers ───────────────────────────────────────────────────
   const getCanvasPos = (e) => {
-    if (!canvasRef.current) return {x:0,y:0};
-    const rect = canvasRef.current.getBoundingClientRect();
-    const scaleX = canvasRef.current.width  / rect.width / vp.safeDpr;
+    if (!canvasRef.current) return { x: 0, y: 0 };
+    const rect   = canvasRef.current.getBoundingClientRect();
+    const scaleX = canvasRef.current.width  / rect.width  / vp.safeDpr;
     const scaleY = canvasRef.current.height / rect.height / vp.safeDpr;
-    const src    = e.touches && e.touches.length > 0 ? e.touches[0] : e;
+    const src    = e.touches?.length > 0 ? e.touches[0] : e;
     return {
       x: (src.clientX - rect.left) * scaleX * vp.safeDpr,
       y: (src.clientY - rect.top)  * scaleY * vp.safeDpr,
     };
   };
 
-  // ── Drag Handlers ─────────────────────────────────────────────────────────
+  const getBaseGeometry = useCallback((W, H) => {
+    const isVertical = W < H;
+    const minDim = Math.min(W, H);
+    const pillR  = Math.min(s.pillR, minDim / 2);
+    const PAD    = 16;
+    const baseAvR = (minDim / 2) > PAD ? (minDim / 2) - PAD : (minDim / 2);
+    const avR     = baseAvR * (s.circScale / 100);
+    let baseAvCX, baseAvCY, baseTx, baseTy;
+    if (isVertical) {
+      baseAvCX = W / 2; baseAvCY = (W / 2) + 20;
+      baseTx   = W / 2; baseTy   = baseAvCY + avR + 40;
+    } else {
+      baseAvCX = minDim / 2; baseAvCY = H / 2;
+      baseTx   = baseAvCX + avR + 24; baseTy   = H / 2;
+    }
+    return { isVertical, pillR, avR, baseAvCX, baseAvCY, baseTx, baseTy };
+  }, [s.pillR, s.circScale]);
+
   const onPointerDown = (e) => {
     if (!editMode) return;
     e.preventDefault();
     const pos = getCanvasPos(e);
-    const overlays = s.overlays;
-    for (let i = overlays.length - 1; i >= 0; i--) {
-      const ov = overlays[i];
+
+    for (let i = s.overlays.length - 1; i >= 0; i--) {
+      const ov = s.overlays[i];
       if (ov.locked) continue;
-      const r = ov.size / 2;
-      if (pos.x > ov.x-r && pos.x < ov.x+r && pos.y > ov.y-r && pos.y < ov.y+r) {
-        dragData.current = {
-            id: ov.id,
-            x: ov.x,
-            y: ov.y,
-            offsetX: ov.x - pos.x,
-            offsetY: ov.y - pos.y
-        };
+      if (Math.hypot(pos.x - ov.x, pos.y - ov.y) < ov.size / 2) {
+        dragData.current = { id: ov.id, type: "overlay", startX: pos.x, startY: pos.y, startOffX: ov.x, startOffY: ov.y, currOffX: ov.x, currOffY: ov.y };
         return;
       }
+    }
+
+    const geo  = getBaseGeometry(s.pillW, s.pillH);
+    const avCX = geo.baseAvCX + s.circX;
+    const avCY = geo.baseAvCY + s.circY;
+    const tx   = geo.baseTx + s.textX;
+    const ty   = geo.baseTy + s.textY;
+
+    if (s.showAvatar && Math.hypot(pos.x - avCX, pos.y - avCY) <= geo.avR) {
+      dragData.current = { id: "avatar", type: "avatar", startX: pos.x, startY: pos.y, startOffX: s.circX, startOffY: s.circY, currOffX: s.circX, currOffY: s.circY };
+      return;
+    }
+    if (Math.abs(pos.x - tx) < 160 && Math.abs(pos.y - ty) < 60) {
+      dragData.current = { id: "text", type: "text", startX: pos.x, startY: pos.y, startOffX: s.textX, startOffY: s.textY, currOffX: s.textX, currOffY: s.textY };
     }
   };
 
   const onPointerMove = (e) => {
     if (!dragData.current || !editMode) return;
     e.preventDefault();
-    const pos  = getCanvasPos(e);
-    dragData.current.x = pos.x + dragData.current.offsetX;
-    dragData.current.y = pos.y + dragData.current.offsetY;
-    
-    // Request Animation Frame for true 120fps canvas rendering
-    requestAnimationFrame(drawCanvas);
+    const pos = getCanvasPos(e);
+    const d   = dragData.current;
+    d.currOffX = d.startOffX + (pos.x - d.startX);
+    d.currOffY = d.startOffY + (pos.y - d.startY);
+    const ctx = canvasRef.current.getContext("2d");
+    renderGraphics(ctx, s.pillW, s.pillH, vp.safeDpr, false);
   };
 
   const onPointerUp = () => {
     if (!dragData.current) return;
-    const { id, x, y } = dragData.current;
+    const d = dragData.current;
+    if (d.type === "overlay") {
+      pushState({ overlays: s.overlays.map(o => o.id === d.id ? { ...o, x: d.currOffX, y: d.currOffY } : o) });
+    } else if (d.type === "avatar") {
+      pushState({ circX: d.currOffX, circY: d.currOffY });
+    } else if (d.type === "text") {
+      pushState({ textX: d.currOffX, textY: d.currOffY });
+    }
     dragData.current = null;
-    
-    const newOverlays = s.overlays.map(ov => 
-        ov.id === id ? { ...ov, x, y } : ov
-    );
-    pushState({ overlays: newOverlays });
   };
 
-  const addOverlay    = (type, content) => pushState({ overlays:[...s.overlays,{ id:Date.now().toString(),type,content,x:s.pillW/2,y:s.pillH/2,size:80,locked:false }] });
-  const updateOverlay = (id, upd) => pushState({ overlays:s.overlays.map(o=>o.id===id?{...o,...upd}:o) });
-  const removeOverlay = (id)      => pushState({ overlays:s.overlays.filter(o=>o.id!==id) });
+  const addOverlay    = (type, content) => pushState({ overlays: [...s.overlays, { id: Date.now().toString(), type, content, x: s.pillW/2, y: s.pillH/2, size: 80, locked: false }] });
+  const updateOverlay = (id, upd) => pushState({ overlays: s.overlays.map(o => o.id === id ? { ...o, ...upd } : o) });
+  const removeOverlay = (id)      => pushState({ overlays: s.overlays.filter(o => o.id !== id) });
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  function drawCanvas() {
-    const canvas = canvasRef.current;
-    if (!canvas || !fontsOk) return;
-    const ctx  = canvas.getContext("2d");
-    const dpr  = vp.safeDpr;
-    const W    = s.pillW;
-    const H    = s.pillH;
+  // ── Rendering Engine ──────────────────────────────────────────────────────
+  const renderGraphics = useCallback((ctx, W, H, scaleMultiplier, isExport) => {
+    if (!fontsOk) return;
+    const geo = getBaseGeometry(W, H);
 
-    canvas.width  = W * dpr;
-    canvas.height = H * dpr;
-    ctx.scale(dpr, dpr);
+    let curCircX = s.circX, curCircY = s.circY;
+    let curTextX = s.textX, curTextY = s.textY;
 
-    const minDim  = Math.min(W, H);
-    const pillR   = Math.min(s.pillR, minDim/2);
-    
-    let avR, avCX, avCY;
-    
-    if (layoutMode === "Circle Toggle") {
-        avR = pillR;
-        avCX = W/2 + s.circX;
-        avCY = H/2 + s.circY;
-    } else if (layoutMode === "Vertical Slider") {
-        avR = pillR - 16;
-        avCX = W/2 + s.circX;
-        avCY = H - pillR + s.circY;
-    } else {
-        const PAD = 16;
-        const baseAvR = (minDim/2) > PAD ? (minDim/2) - PAD : (minDim/2);
-        avR = baseAvR * (s.circScale/100);
-        avCX = (minDim/2) + s.circX;
-        avCY = (H/2) + s.circY;
+    if (!isExport && dragData.current) {
+      const d = dragData.current;
+      if (d.type === "avatar") { curCircX = d.currOffX; curCircY = d.currOffY; }
+      if (d.type === "text")   { curTextX = d.currOffX; curTextY = d.currOffY; }
     }
 
-    ctx.clearRect(0,0,W,H);
+    const avCX = geo.baseAvCX + curCircX;
+    const avCY = geo.baseAvCY + curCircY;
+    const tx   = geo.baseTx + curTextX;
+    const ty   = geo.baseTy + curTextY;
 
-    // BG
-    ctx.save(); roundedRectPath(ctx,0,0,W,H,pillR); ctx.clip();
-    
-    if (theme === "glass") {
-      ctx.fillStyle = "rgba(255,255,255,0.1)"; 
-      ctx.fillRect(0,0,W,H);
-    } else {
-      ctx.fillStyle = s.pillBgColor; 
-      ctx.fillRect(0,0,W,H);
-    }
-    
+    ctx.textAlign = (geo.isVertical) ? "center" : "left";
+    ctx.clearRect(0, 0, W, H);
+
+    // ── Background ──
+    ctx.save();
+    roundedRectPath(ctx, 0, 0, W, H, geo.pillR);
+    ctx.clip();
+    ctx.fillStyle = s.pillBgColor || "#1c1c1e";
+    ctx.fillRect(0, 0, W, H);
+
     if (bgImg) {
-      if (s.bgBlur>0) ctx.filter=`blur(${s.bgBlur}px)`;
-      ctx.globalCompositeOperation=s.bgBlend;
+      if (s.bgBlur > 0) ctx.filter = `blur(${s.bgBlur}px)`;
+      ctx.globalCompositeOperation = s.bgBlend;
       if (s.bgStretch) {
-        ctx.drawImage(bgImg,0,0,W,H);
+        ctx.drawImage(bgImg, 0, 0, W, H);
       } else {
-        const ir=bgImg.width/bgImg.height, cr=W/H;
-        const bw=ir>cr?H*ir:W, bh=ir>cr?H:W/ir;
-        const fw=bw*(s.bgScale/100), fh=bh*(s.bgScale/100);
-        ctx.drawImage(bgImg,W/2-fw/2+s.bgImgX,H/2-fh/2+s.bgImgY,fw,fh);
+        const ir = bgImg.width / bgImg.height, cr = W / H;
+        const bw = ir > cr ? H * ir : W, bh = ir > cr ? H : W / ir;
+        const fw = bw * (s.bgScale / 100), fh = bh * (s.bgScale / 100);
+        ctx.drawImage(bgImg, W/2 - fw/2 + s.bgImgX, H/2 - fh/2 + s.bgImgY, fw, fh);
       }
-      ctx.globalCompositeOperation="source-over"; ctx.filter="none";
+      ctx.globalCompositeOperation = "source-over";
+      ctx.filter = "none";
     }
-    if (s.edgeBlur>0) {
-      const vig=ctx.createRadialGradient(W/2,H/2,Math.max(W,H)*0.1,W/2,H/2,Math.max(W,H)*0.8);
-      vig.addColorStop(0,"rgba(0,0,0,0)"); vig.addColorStop(1,hexToRgba(s.edgeColor,s.edgeBlur/100));
-      ctx.fillStyle=vig; ctx.fillRect(0,0,W,H);
-    }
-    ctx.restore();
-
-    // Avatar
-    ctx.save(); ctx.beginPath(); ctx.arc(avCX,avCY,avR,0,Math.PI*2); ctx.clip();
-    if (s.avBgColor !== "transparent") {
-      ctx.fillStyle = s.avBgColor; 
-      ctx.fillRect(avCX-avR,avCY-avR,avR*2,avR*2);
-    }
-    if (avImg) {
-      const d=avR*2, ir=avImg.width/avImg.height;
-      const dw=(ir>=1?d*ir:d)*(s.avScale/100);
-      const dh=(ir>=1?d:d/ir)*(s.avScale/100);
-      ctx.drawImage(avImg,avCX-dw/2+s.avImgX,avCY-dh/2+s.avImgY,dw,dh);
+    if (s.edgeBlur > 0) {
+      const vig = ctx.createRadialGradient(W/2, H/2, Math.max(W,H)*0.1, W/2, H/2, Math.max(W,H)*0.8);
+      vig.addColorStop(0, "rgba(0,0,0,0)");
+      vig.addColorStop(1, hexToRgba(s.edgeColor, s.edgeBlur / 100));
+      ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
 
-    // Border
-    drawDynamicBorder(ctx,avCX,avCY,avR,s.borderStyleId,s.avBorderClr,s.avBorderWidth,s.avBorderGap,s.avBorderParam1,s.avBorderParam2,s.avBorderEmojis);
+    // ── Avatar (only if showAvatar) ──
+    if (s.showAvatar) {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(avCX, avCY, geo.avR, 0, Math.PI*2); ctx.clip();
+      if (s.avBgColor && s.avBgColor !== "transparent") {
+        ctx.fillStyle = s.avBgColor;
+        ctx.fillRect(avCX - geo.avR, avCY - geo.avR, geo.avR*2, geo.avR*2);
+      }
+      if (avImg) {
+        const d  = geo.avR * 2, ir = avImg.width / avImg.height;
+        const dw = (ir >= 1 ? d * ir : d) * (s.avScale / 100);
+        const dh = (ir >= 1 ? d : d / ir) * (s.avScale / 100);
+        ctx.drawImage(avImg, avCX - dw/2 + s.avImgX, avCY - dh/2 + s.avImgY, dw, dh);
+      }
+      ctx.restore();
 
-    // Text
-    let tx = avCX + avR + 24 + s.nudge.x;
-    let ty = H/2 + s.nudge.y;
-
-    if (layoutMode === "Vertical Slider" || layoutMode === "Circle Toggle" || layoutMode === "Container Panel") {
-        tx = W/2 + s.nudge.x;
-        ctx.textAlign = "center";
-    } else {
-        ctx.textAlign = "left";
+      drawDynamicBorder(ctx, avCX, avCY, geo.avR, s.borderStyleId, s.avBorderClr, s.avBorderWidth, s.avBorderGap, s.avBorderParam1, s.avBorderParam2, s.avBorderEmojis);
     }
 
-    ctx.save(); roundedRectPath(ctx,0,0,W,H,pillR); ctx.clip();
-    ctx.font=`${s.fontWeight} ${s.fontSize}px ${s.font}`;
-    ctx.textBaseline="middle";
-    ctx.shadowColor=s.glowClr; ctx.shadowBlur=s.glowClr!=="transparent"?22:0;
-    ctx.fillStyle=s.textClr;
-    
-    const yOff = s.subText ? -(s.fontSize*0.25) : 0;
-    ctx.fillText(s.mainText, tx, ty+yOff);
+    // ── Text ──
+    ctx.save();
+    roundedRectPath(ctx, 0, 0, W, H, geo.pillR); ctx.clip();
+    ctx.font = `${s.fontWeight} ${s.fontSize}px ${s.font}`;
+    ctx.textBaseline = "middle";
+    ctx.shadowColor  = s.glowClr;
+    ctx.shadowBlur   = s.glowClr !== "transparent" ? 22 : 0;
+    ctx.fillStyle    = s.textClr;
+    const yOff = s.subText ? -(s.fontSize * 0.25) : 0;
+    ctx.fillText(s.mainText, tx, ty + yOff);
     if (s.subText) {
-      ctx.font=`400 ${Math.round(s.fontSize*0.55)}px ${s.font}`;
-      ctx.globalAlpha=0.7;
-      ctx.fillText(s.subText, tx, ty+s.fontSize*0.6);
+      ctx.font = `400 ${Math.round(s.fontSize * 0.55)}px ${s.font}`;
+      ctx.globalAlpha = 0.7;
+      ctx.fillText(s.subText, tx, ty + s.fontSize * 0.6);
     }
     ctx.restore();
 
-    // Pill outline
-    if (s.pillBorderWidth>0 && s.edgeBlur===0) {
-      ctx.save(); roundedRectPath(ctx,1,1,W-2,H-2,pillR>1?pillR-1:0);
-      ctx.strokeStyle=s.pillBorderClr; ctx.lineWidth=s.pillBorderWidth; ctx.stroke(); ctx.restore();
+    // ── Pill outline ──
+    if (s.pillBorderWidth > 0 && s.edgeBlur === 0) {
+      ctx.save();
+      roundedRectPath(ctx, 1, 1, W-2, H-2, geo.pillR > 1 ? geo.pillR - 1 : 0);
+      ctx.strokeStyle = s.pillBorderClr;
+      ctx.lineWidth   = s.pillBorderWidth;
+      ctx.stroke();
+      ctx.restore();
     }
 
-    // Overlays
-    ctx.save(); roundedRectPath(ctx,0,0,W,H,pillR); ctx.clip();
+    // ── Overlays ──
+    ctx.save();
+    roundedRectPath(ctx, 0, 0, W, H, geo.pillR); ctx.clip();
     s.overlays.forEach(ov => {
-      let drawX = ov.x;
-      let drawY = ov.y;
-      if (dragData.current && dragData.current.id === ov.id) {
-          drawX = dragData.current.x;
-          drawY = dragData.current.y;
+      let drawX = ov.x, drawY = ov.y;
+      if (!isExport && dragData.current?.id === ov.id) {
+        drawX = dragData.current.currOffX;
+        drawY = dragData.current.currOffY;
       }
-
-      if (ov.type==="emoji") {
-        ctx.font=`${ov.size}px sans-serif`; ctx.textAlign="center"; ctx.textBaseline="middle";
-        ctx.fillText(ov.content,drawX,drawY);
-      } else if (ov.type==="image" && loadedImages[ov.id]) {
-        ctx.drawImage(loadedImages[ov.id],drawX-ov.size/2,drawY-ov.size/2,ov.size,ov.size);
+      if (ov.type === "emoji") {
+        ctx.font = `${ov.size}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(ov.content, drawX, drawY);
+      } else if (ov.type === "image" && loadedImages[ov.id]) {
+        ctx.drawImage(loadedImages[ov.id], drawX - ov.size/2, drawY - ov.size/2, ov.size, ov.size);
       }
-      if (editMode && !ov.locked) {
-        ctx.strokeStyle="rgba(11,132,254,0.6)"; ctx.setLineDash([5,5]);
-        ctx.lineWidth=2/dpr; 
-        ctx.strokeRect(drawX-ov.size/2,drawY-ov.size/2,ov.size,ov.size);
+      if (!isExport && editMode && !ov.locked) {
+        ctx.strokeStyle = "rgba(10,132,254,0.7)";
+        ctx.setLineDash([5, 5]); ctx.lineWidth = 2 / scaleMultiplier;
+        ctx.strokeRect(drawX - ov.size/2, drawY - ov.size/2, ov.size, ov.size);
         ctx.setLineDash([]);
       }
     });
     ctx.restore();
-  }
+  }, [s, bgImg, avImg, fontsOk, loadedImages, editMode, getBaseGeometry]);
 
-  // Effect to re-render when state changes
-  useEffect(() => { drawCanvas(); }, [s, bgImg, avImg, fontsOk, loadedImages, editMode, layoutMode, vp.safeDpr]);
-
-  // ── Export ────────────────────────────────────────────────────────────────
-  const exportPNG = () => {
+  useEffect(() => {
     if (!canvasRef.current) return;
+    const ctx = canvasRef.current.getContext("2d");
+    canvasRef.current.width  = s.pillW * vp.safeDpr;
+    canvasRef.current.height = s.pillH * vp.safeDpr;
+    ctx.scale(vp.safeDpr, vp.safeDpr);
+    renderGraphics(ctx, s.pillW, s.pillH, vp.safeDpr, false);
+  }, [s, vp.safeDpr, renderGraphics]);
+
+  // ── Export — Android-safe ─────────────────────────────────────────────────
+  const isAndroidWebView = () => {
+    const ua = navigator.userAgent || "";
+    return !!(window.Capacitor || (ua.includes("Android") && ua.includes("wv")));
+  };
+
+  const exportPNG = () => {
     try {
-      canvasRef.current.toBlob(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.download = `UI_Element_${Date.now()}.png`;
-        a.href = url;
+      const MULT = 4;
+      const ec   = document.createElement("canvas");
+      ec.width   = s.pillW * MULT;
+      ec.height  = s.pillH * MULT;
+      const eCtx = ec.getContext("2d");
+      eCtx.scale(MULT, MULT);
+      renderGraphics(eCtx, s.pillW, s.pillH, MULT, true);
+
+      // Synchronous — no async, no invisible errors
+      const dataUrl = ec.toDataURL("image/png", 1.0);
+
+      // Android WebView / Capacitor: go straight to modal, skip blob anchor
+      // (anchor click is silently ignored in WebView — no error, no download)
+      if (isAndroidWebView()) {
+        setExportDataUrl(dataUrl);
+        return;
+      }
+
+      // Desktop: blob URL anchor download
+      try {
+        const byteStr = atob(dataUrl.split(",")[1]);
+        const ab = new ArrayBuffer(byteStr.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+        const blob = new Blob([ab], { type: "image/png" });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href     = url;
+        a.download = `Luminary_${Date.now()}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, "image/png");
-    } catch(_) { alert("Export failed — canvas may be tainted by external images."); }
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        return;
+      } catch (_) {}
+
+      // Final fallback: modal (covers desktop browsers that block blob downloads)
+      setExportDataUrl(dataUrl);
+    } catch (err) {
+      alert("Export failed: " + err.message);
+    }
   };
 
-  // ── UI Theme Engine ────────────────────────────────────────────────────────
-  const ALL_FONTS = [...FONTS, ...customFonts];
-  const bCtrl = getBorderControls(s.borderStyleId);
+  // ── UI theme values ───────────────────────────────────────────────────────
+  const ALL_FONTS  = [...FONTS, ...customFonts];
+  const bCtrl      = getBorderControls(s.borderStyleId);
+  const accent     = "#0a84ff";
+  const textPrimary = "#f2f2f7";
+  const textDim    = "rgba(255,255,255,0.45)";
+  const controlBg  = "rgba(255,255,255,0.07)";
+  const cardBg     = "rgba(255,255,255,0.04)";
+  const cardBorder = "rgba(255,255,255,0.1)";
+  const cardShadow = "0 8px 32px rgba(0,0,0,0.5)";
 
-  let appBg, cardBg, cardBorder, accent, textPrimary, textDim, controlBg, controlBorder, cardShadow, cardBackdrop;
+  const inputSt = {
+    display:"block", width:"100%",
+    background:controlBg, border:`1px solid ${cardBorder}`,
+    borderRadius:10, color:textPrimary,
+    padding:"11px 14px", fontSize:15, outline:"none", fontFamily:"inherit",
+  };
+  const colIn = {
+    display:"block", width:"100%", height:44,
+    border:`1px solid ${cardBorder}`, borderRadius:10,
+    cursor:"pointer", background:controlBg, padding:2,
+  };
+  const outlineBtn = {
+    flex:1, background:controlBg,
+    border:`1px solid ${cardBorder}`,
+    borderRadius:12, color:textPrimary,
+    padding:"11px", cursor:"pointer",
+    fontSize:14, fontWeight:500, transition:"all 0.15s",
+  };
+  const cp = { cardBg, cardBorder, textDim, accent, cardShadow };
 
-  if (theme === "simple") {
-    appBg = "#000000"; cardBg = "rgba(255,255,255,0.03)"; cardBorder = "rgba(255,255,255,0.05)"; accent = "#0b84fe";
-    textPrimary = "#ffffff"; textDim = "#8e8e93"; controlBg = "rgba(255,255,255,0.06)"; controlBorder = "transparent";
-    cardShadow = "none"; cardBackdrop = "none";
-  } else if (theme === "cute") {
-    appBg = "linear-gradient(155deg,#0d0519 0%,#160829 50%,#0d0519 100%)";
-    cardBg = "rgba(255,255,255,0.025)"; cardBorder = "rgba(245,200,216,0.09)"; accent = "#f5c8d8";
-    textPrimary = "#f5c8d8"; textDim = "rgba(245,200,216,0.38)"; controlBg = "rgba(255,255,255,0.05)"; controlBorder = "rgba(245,200,216,0.18)";
-    cardShadow = "none"; cardBackdrop = "none";
-  } else if (theme === "glass") {
-    appBg = "radial-gradient(circle at 15% 50%, rgba(30,60,114,1), rgba(42,82,152,1))";
-    cardBg = "rgba(255,255,255,0.08)"; cardBorder = "rgba(255,255,255,0.2)"; accent = "#ffffff";
-    textPrimary = "#ffffff"; textDim = "rgba(255,255,255,0.6)"; controlBg = "rgba(255,255,255,0.15)"; controlBorder = "rgba(255,255,255,0.25)";
-    cardShadow = "0 8px 32px 0 rgba(0,0,0,0.3)"; cardBackdrop = "blur(20px)";
-  } else if (theme === "material") {
-    appBg = "#f4eff4"; cardBg = "#ffffff"; cardBorder = "transparent"; accent = "#6750a4";
-    textPrimary = "#1d1b20"; textDim = "#49454f"; controlBg = "#e7e0ec"; controlBorder = "transparent";
-    cardShadow = "0 2px 6px rgba(0,0,0,0.08)"; cardBackdrop = "none";
-  }
+  // Computed avatar pixel size for display
+  const geoPreview = getBaseGeometry(s.pillW, s.pillH);
+  const avDiamPx   = Math.round(geoPreview.avR * 2);
 
-  const isCute = theme === "cute";
-  const inputSt = { display:"block", width:"100%", background:controlBg, border: controlBorder === "transparent" ? "none" : `1px solid ${controlBorder}`, borderRadius:12, color:textPrimary, padding:"14px 16px", fontSize:15, outline:"none", fontFamily:"inherit" };
-  const colIn = { display:"block", width:"100%", height:48, border: controlBorder === "transparent" ? "none" : `1px solid ${controlBorder}`, borderRadius:12, cursor:"pointer", background:controlBg, padding:2 };
-  const outlineBtn = { flex:1, background: theme === "material" ? controlBg : "rgba(255,255,255,0.05)", border: controlBorder === "transparent" ? "none" : `1px solid ${controlBorder}`, borderRadius:12, color:textPrimary, padding:"12px", cursor:"pointer", fontSize:13, fontWeight:500, transition:"0.2s" };
-  const cp = { cardBg, cardBorder, textDim, accent, cardShadow, cardBackdrop, theme };
-
-  // ── Panel content blocks ──────────
+  // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
-    <Card label="Base Configuration" {...cp}>
-      <div style={{display:"flex",gap:8}}>
+    <Card label="Geometry & Layout" {...cp}>
+      <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Width — ${s.pillW}px`} textDim={textDim}>
-          <input type="number" min={100} max={1200} value={s.pillW} onChange={e=>pushState({pillW:Math.max(100,Math.min(1200,+e.target.value))})} style={inputSt}/>
+          <input type="number" min={100} max={1600} value={s.pillW}
+            onChange={e => pushState({ pillW: Math.max(100, Math.min(1600, +e.target.value)) })}
+            style={inputSt} />
         </FRow>
         <FRow label={`Height — ${s.pillH}px`} textDim={textDim}>
-          <input type="number" min={100} max={1200} value={s.pillH} onChange={e=>pushState({pillH:Math.max(100,Math.min(1200,+e.target.value))})} style={inputSt}/>
+          <input type="number" min={100} max={1600} value={s.pillH}
+            onChange={e => pushState({ pillH: Math.max(100, Math.min(1600, +e.target.value)) })}
+            style={inputSt} />
         </FRow>
       </div>
       <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim}>
-        <input type="range" min={0} max={s.pillH/2} value={Math.min(s.pillR,s.pillH/2)} onChange={e=>pushState({pillR:+e.target.value})} />
+        <input type="range" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
+          value={Math.min(s.pillR, Math.floor(Math.min(s.pillW, s.pillH)/2))}
+          onChange={e => pushState({ pillR: +e.target.value })} />
       </FRow>
     </Card>
   );
@@ -660,54 +886,58 @@ export default function LuminaryStudio() {
   const panelEnvironment = (
     <Card label="Environment & Background" {...cp}>
       <FRow label="Pill Surface Color" textDim={textDim}>
-        <input type="color" value={s.pillBgColor} onChange={e=>pushState({pillBgColor:e.target.value})} style={colIn}/>
+        <input type="color" value={s.pillBgColor && s.pillBgColor.startsWith("#") ? s.pillBgColor : "#1c1c1e"}
+          onChange={e => pushState({ pillBgColor: e.target.value })} style={colIn} />
       </FRow>
-      <div style={{display:"flex",gap:8}}>
+      <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Pill Border — ${s.pillBorderWidth}px`} textDim={textDim}>
-          <input type="range" min={0} max={10} value={s.pillBorderWidth} onChange={e=>pushState({pillBorderWidth:+e.target.value})} />
+          <input type="range" min={0} max={10} value={s.pillBorderWidth}
+            onChange={e => pushState({ pillBorderWidth: +e.target.value })} />
         </FRow>
-        <FRow label="Color" textDim={textDim}>
-          <input type="color" value={s.pillBorderClr} onChange={e=>pushState({pillBorderClr:e.target.value})} style={colIn}/>
+        <FRow label="Border Color" textDim={textDim}>
+          <input type="color" value={s.pillBorderClr || "#ffffff"}
+            onChange={e => pushState({ pillBorderClr: e.target.value })} style={colIn} />
         </FRow>
       </div>
-      <div style={{borderTop:`1px solid ${cardBorder}`,margin:"10px 0"}}/>
-      <div style={{display:"flex",gap:8}}>
+      <Sep cardBorder={cardBorder} />
+      <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Image Blur — ${s.bgBlur}px`} textDim={textDim}>
-          <input type="range" min={0} max={60} value={s.bgBlur} onChange={e=>pushState({bgBlur:+e.target.value})} />
+          <input type="range" min={0} max={60} value={s.bgBlur}
+            onChange={e => pushState({ bgBlur: +e.target.value })} />
         </FRow>
         <FRow label="Img Mode" textDim={textDim}>
-          <select value={s.bgStretch} onChange={e=>pushState({bgStretch:e.target.value==="true"})} style={inputSt}>
+          <select value={String(s.bgStretch)} onChange={e => pushState({ bgStretch: e.target.value === "true" })} style={inputSt}>
             <option value="false">Contain</option>
             <option value="true">Stretch</option>
           </select>
         </FRow>
       </div>
       {!s.bgStretch && (
-        <div style={{display:"flex",gap:8}}>
+        <div style={{ display:"flex", gap:8 }}>
           <FRow label={`Img X (${s.bgImgX}px)`} textDim={textDim}>
-            <input type="range" min={-500} max={500} value={s.bgImgX} onChange={e=>pushState({bgImgX:+e.target.value})} />
+            <input type="range" min={-500} max={500} value={s.bgImgX} onChange={e => pushState({ bgImgX: +e.target.value })} />
           </FRow>
           <FRow label={`Img Y (${s.bgImgY}px)`} textDim={textDim}>
-            <input type="range" min={-500} max={500} value={s.bgImgY} onChange={e=>pushState({bgImgY:+e.target.value})} />
+            <input type="range" min={-500} max={500} value={s.bgImgY} onChange={e => pushState({ bgImgY: +e.target.value })} />
           </FRow>
         </div>
       )}
-      <div style={{display:"flex",gap:8}}>
+      <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Vignette — ${s.edgeBlur}%`} textDim={textDim}>
-          <input type="range" min={0} max={100} value={s.edgeBlur} onChange={e=>pushState({edgeBlur:+e.target.value})} />
+          <input type="range" min={0} max={100} value={s.edgeBlur} onChange={e => pushState({ edgeBlur: +e.target.value })} />
         </FRow>
         <FRow label="Vignette Tint" textDim={textDim}>
-          <input type="color" value={s.edgeColor} onChange={e=>pushState({edgeColor:e.target.value})} style={colIn}/>
+          <input type="color" value={s.edgeColor || "#000000"} onChange={e => pushState({ edgeColor: e.target.value })} style={colIn} />
         </FRow>
       </div>
-      <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:textPrimary,cursor:"pointer",minHeight:44}}>
-        <input type="checkbox" checked={advancedMode} onChange={e=>setAdvancedMode(e.target.checked)}/>
+      <label style={{ display:"flex", alignItems:"center", gap:10, fontSize:14, color:textPrimary, cursor:"pointer", minHeight:44 }}>
+        <input type="checkbox" checked={advancedMode} onChange={e => setAdvancedMode(e.target.checked)} />
         Advanced Image Blending
       </label>
       {advancedMode && (
         <FRow label="Blend Mode (Requires BG Color)" textDim={textDim}>
-          <select value={s.bgBlend} onChange={e=>pushState({bgBlend:e.target.value})} style={inputSt}>
-            {BLEND_MODES.map(m=><option key={m} value={m}>{m}</option>)}
+          <select value={s.bgBlend} onChange={e => pushState({ bgBlend: e.target.value })} style={inputSt}>
+            {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </FRow>
       )}
@@ -716,85 +946,136 @@ export default function LuminaryStudio() {
 
   const panelAvatar = (
     <Card label="Avatar & Element Geometry" {...cp}>
-      <FRow label="Surface Color" textDim={textDim}>
-        <input type="color" value={s.avBgColor} onChange={e=>pushState({avBgColor:e.target.value})} style={colIn}/>
-      </FRow>
-      <div style={{display:"flex",gap:8}}>
-        <FRow label={`Size % — ${s.circScale}`} textDim={textDim}>
-          <input type="range" min={20} max={150} value={s.circScale} onChange={e=>pushState({circScale:+e.target.value})} />
-        </FRow>
-        <FRow label={`Image Zoom — ${s.avScale}`} textDim={textDim}>
-          <input type="range" min={20} max={300} value={s.avScale} onChange={e=>pushState({avScale:+e.target.value})} />
-        </FRow>
+      {/* Show/hide avatar toggle */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+        <span style={{ fontSize:14, color:textPrimary, fontWeight:600 }}>Show Avatar Circle</span>
+        <button
+          onClick={() => pushState({ showAvatar: !s.showAvatar })}
+          style={{
+            width:52, height:28, borderRadius:14, border:"none", cursor:"pointer",
+            background: s.showAvatar ? accent : "rgba(255,255,255,0.15)",
+            position:"relative", transition:"background 0.2s",
+          }}
+        >
+          <span style={{
+            position:"absolute", top:3, left: s.showAvatar ? 26 : 2,
+            width:22, height:22, borderRadius:"50%",
+            background:"#fff", transition:"left 0.2s",
+            boxShadow:"0 1px 4px rgba(0,0,0,0.4)",
+          }} />
+        </button>
       </div>
-      <div style={{display:"flex",gap:8}}>
-        <FRow label={`Pos X (${s.circX}px)`} textDim={textDim}>
-          <input type="range" min={-200} max={400} value={s.circX} onChange={e=>pushState({circX:+e.target.value})} />
-        </FRow>
-        <FRow label={`Pos Y (${s.circY}px)`} textDim={textDim}>
-          <input type="range" min={-200} max={200} value={s.circY} onChange={e=>pushState({circY:+e.target.value})} />
-        </FRow>
-      </div>
+
+      {s.showAvatar && (
+        <>
+          <FRow label="Circle Fill Color" textDim={textDim}>
+            <input type="color" value={s.avBgColor && s.avBgColor.startsWith("#") ? s.avBgColor : "#2c2c2e"}
+              onChange={e => pushState({ avBgColor: e.target.value })} style={colIn} />
+          </FRow>
+          <div style={{ display:"flex", gap:8 }}>
+            <FRow label={`Circle Size — ${avDiamPx}px (${s.circScale}%)`} textDim={textDim}>
+              <input type="range" min={20} max={150} value={s.circScale}
+                onChange={e => pushState({ circScale: +e.target.value })} />
+            </FRow>
+            <FRow label={`Image Zoom — ${s.avScale}%`} textDim={textDim}>
+              <input type="range" min={20} max={300} value={s.avScale}
+                onChange={e => pushState({ avScale: +e.target.value })} />
+            </FRow>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <FRow label={`Pos X — ${Math.round(s.circX)}px`} textDim={textDim}>
+              <input type="range" min={-400} max={400} value={s.circX}
+                onChange={e => pushState({ circX: +e.target.value })} />
+            </FRow>
+            <FRow label={`Pos Y — ${Math.round(s.circY)}px`} textDim={textDim}>
+              <input type="range" min={-400} max={400} value={s.circY}
+                onChange={e => pushState({ circY: +e.target.value })} />
+            </FRow>
+          </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <FRow label={`Img Offset X — ${s.avImgX}`} textDim={textDim}>
+              <input type="range" min={-200} max={200} value={s.avImgX}
+                onChange={e => pushState({ avImgX: +e.target.value })} />
+            </FRow>
+            <FRow label={`Img Offset Y — ${s.avImgY}`} textDim={textDim}>
+              <input type="range" min={-200} max={200} value={s.avImgY}
+                onChange={e => pushState({ avImgY: +e.target.value })} />
+            </FRow>
+          </div>
+        </>
+      )}
     </Card>
   );
 
-  const panelBorder = (
+  const panelBorder = s.showAvatar ? (
     <Card label="Avatar Border" {...cp}>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:14}}>
-        {BORDERS.map(b=>(
-          <button key={b.id} onClick={()=>pushState({borderStyleId:b.id})}
-            style={{padding:"10px 2px",borderRadius:10,cursor:"pointer",border: controlBorder === "transparent" ? "none" : `1px solid ${controlBorder}`,display:"flex",flexDirection:"column",alignItems:"center",gap:4,color: theme==="material" ? (s.borderStyleId===b.id?"#fff":textPrimary) : textPrimary,background:s.borderStyleId===b.id?accent:controlBg,transition:"0.2s",minHeight:56}}>
-            <span style={{fontSize:15}}>{b.icon}</span>
-            <span style={{fontSize:9}}>{b.label}</span>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:14 }}>
+        {BORDERS.map(b => (
+          <button key={b.id} onClick={() => pushState({ borderStyleId: b.id })}
+            style={{
+              padding:"9px 2px", borderRadius:10, cursor:"pointer",
+              border: s.borderStyleId === b.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+              color: s.borderStyleId === b.id ? "#fff" : textPrimary,
+              background: s.borderStyleId === b.id ? `rgba(10,132,255,0.18)` : controlBg,
+              transition:"all 0.15s", minHeight:54,
+            }}>
+            <span style={{ fontSize:15 }}>{b.icon}</span>
+            <span style={{ fontSize:9.5 }}>{b.label}</span>
           </button>
         ))}
       </div>
       {s.borderStyleId !== "none" && (
         <React.Fragment>
-          <div style={{display:"flex",gap:8}}>
+          <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Thickness: ${s.avBorderWidth}px`} textDim={textDim}>
-              <input type="range" min={1} max={20} value={s.avBorderWidth} onChange={e=>pushState({avBorderWidth:+e.target.value})} />
+              <input type="range" min={1} max={20} value={s.avBorderWidth}
+                onChange={e => pushState({ avBorderWidth: +e.target.value })} />
             </FRow>
             <FRow label={`Gap: ${s.avBorderGap}px`} textDim={textDim}>
-              <input type="range" min={-10} max={30} value={s.avBorderGap} onChange={e=>pushState({avBorderGap:+e.target.value})} />
+              <input type="range" min={-10} max={30} value={s.avBorderGap}
+                onChange={e => pushState({ avBorderGap: +e.target.value })} />
             </FRow>
           </div>
-          {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e=>pushState({avBorderParam1:+e.target.value})} /></FRow>}
-          {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e=>pushState({avBorderParam2:+e.target.value})} /></FRow>}
-          {bCtrl.hasText && <FRow label="Emojis" textDim={textDim}><TxIn value={s.avBorderEmojis} onChange={v=>pushState({avBorderEmojis:v})} inputSt={inputSt}/></FRow>}
-          <FRow label="Color" textDim={textDim}>
-            <input type="color" value={s.avBorderClr} onChange={e=>pushState({avBorderClr:e.target.value})} style={colIn}/>
+          {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e => pushState({ avBorderParam1: +e.target.value })} /></FRow>}
+          {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} /></FRow>}
+          {bCtrl.hasText && <FRow label="Emojis" textDim={textDim}><TxIn value={s.avBorderEmojis} onChange={v => pushState({ avBorderEmojis: v })} inputSt={inputSt} /></FRow>}
+          <FRow label="Border Color" textDim={textDim}>
+            <input type="color" value={s.avBorderClr && s.avBorderClr.startsWith("#") ? s.avBorderClr : "#ffffff"}
+              onChange={e => pushState({ avBorderClr: e.target.value })} style={colIn} />
           </FRow>
         </React.Fragment>
       )}
     </Card>
-  );
+  ) : null;
 
   const panelTypography = (
     <Card label="Typography & Text" {...cp}>
       <FRow label="Primary Text" textDim={textDim}>
-        <TxIn value={s.mainText} onChange={v=>pushState({mainText:v})} inputSt={inputSt}/>
+        <TxIn value={s.mainText} onChange={v => pushState({ mainText: v })} inputSt={inputSt} />
       </FRow>
       <FRow label="Sub Text" textDim={textDim}>
-        <TxIn value={s.subText} onChange={v=>pushState({subText:v})} placeholder="Optional…" inputSt={inputSt}/>
+        <TxIn value={s.subText} onChange={v => pushState({ subText: v })} placeholder="Optional…" inputSt={inputSt} />
       </FRow>
       <FRow label="Import Font URL" textDim={textDim}>
-        <div style={{display:"flex",gap:6}}>
-          <input type="text" placeholder="Paste Google Fonts URL…" value={newFontUrl} onChange={e=>setNewFontUrl(e.target.value)} style={{...inputSt,flex:1}}/>
-          <button onClick={addFont} style={{...outlineBtn,flex:"none",width:"auto",padding:"0 14px"}}>+</button>
+        <div style={{ display:"flex", gap:6 }}>
+          <input type="text" placeholder="Paste Google Fonts URL…" value={newFontUrl}
+            onChange={e => setNewFontUrl(e.target.value)} style={{ ...inputSt, flex:1 }} />
+          <button onClick={addFont} style={{ ...outlineBtn, flex:"none", width:"auto", padding:"0 14px" }}>+</button>
         </div>
       </FRow>
       <FRow label="Font Family" textDim={textDim}>
-        <select value={s.font} onChange={e=>pushState({font:e.target.value})} style={inputSt}>
-          {ALL_FONTS.map((f,i)=><option key={i} value={f.value}>{f.label}</option>)}
+        <select value={s.font} onChange={e => pushState({ font: e.target.value })} style={inputSt}>
+          {ALL_FONTS.map((f, i) => <option key={i} value={f.value}>{f.label}</option>)}
         </select>
       </FRow>
-      <div style={{display:"flex",gap:8}}>
+      <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Size: ${s.fontSize}px`} textDim={textDim}>
-          <input type="range" min={16} max={150} value={s.fontSize} onChange={e=>pushState({fontSize:+e.target.value})} />
+          <input type="range" min={10} max={150} value={s.fontSize}
+            onChange={e => pushState({ fontSize: +e.target.value })} />
         </FRow>
         <FRow label={`Weight: ${s.fontWeight}`} textDim={textDim}>
-          <select value={s.fontWeight} onChange={e=>pushState({fontWeight:+e.target.value})} style={inputSt}>
+          <select value={s.fontWeight} onChange={e => pushState({ fontWeight: +e.target.value })} style={inputSt}>
             <option value={300}>Light</option>
             <option value={400}>Regular</option>
             <option value={500}>Medium</option>
@@ -803,20 +1084,44 @@ export default function LuminaryStudio() {
           </select>
         </FRow>
       </div>
-      <div style={{display:"flex",gap:8}}>
+      <div style={{ display:"flex", gap:8 }}>
         <FRow label="Text Color" textDim={textDim}>
-          <input type="color" value={s.textClr} onChange={e=>pushState({textClr:e.target.value})} style={colIn}/>
+          <input type="color" value={s.textClr && s.textClr.startsWith("#") ? s.textClr : "#ffffff"}
+            onChange={e => pushState({ textClr: e.target.value })} style={colIn} />
         </FRow>
-        <FRow label="Glow" textDim={textDim}>
-          <input type="color" value={s.glowClr!=="transparent"?s.glowClr:"#ffffff"} onChange={e=>pushState({glowClr:e.target.value})} style={colIn}/>
+        <FRow label="Glow Color" textDim={textDim}>
+          <input type="color"
+            value={s.glowClr && s.glowClr !== "transparent" && s.glowClr.startsWith("#") ? s.glowClr : "#ffffff"}
+            onChange={e => pushState({ glowClr: e.target.value })} style={colIn} />
         </FRow>
       </div>
-      <div style={{borderTop:`1px solid ${cardBorder}`,margin:"16px 0"}}/>
-      <p style={{fontSize:11,color:textDim,marginBottom:8,fontWeight:500,textAlign:"center"}}>Text Nudge Panel</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,padding:"6px 20px"}}>
-        {[{l:"↖",dx:-10,dy:-10},{l:"↑",dx:0,dy:-10},{l:"↗",dx:10,dy:-10},{l:"←",dx:-10,dy:0},{l:"⊙",dx:0,dy:0,r:true},{l:"→",dx:10,dy:0},{l:"↙",dx:-10,dy:10},{l:"↓",dx:0,dy:10},{l:"↘",dx:10,dy:10}].map((b,i)=>(
-          <button key={i} onClick={()=>pushState({nudge:{x:b.r?0:s.nudge.x+b.dx,y:b.r?0:s.nudge.y+b.dy}})}
-            style={{height:44,borderRadius:8,cursor:"pointer",border:"none",background:b.r?accent:controlBg,color:b.r?(theme==="material"?"#fff":"#000"):textPrimary,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>
+      <div style={{ display:"flex", gap:8 }}>
+        <FRow label={`Pos X — ${Math.round(s.textX)}px`} textDim={textDim}>
+          <input type="range" min={-400} max={400} value={s.textX}
+            onChange={e => pushState({ textX: +e.target.value })} />
+        </FRow>
+        <FRow label={`Pos Y — ${Math.round(s.textY)}px`} textDim={textDim}>
+          <input type="range" min={-400} max={400} value={s.textY}
+            onChange={e => pushState({ textY: +e.target.value })} />
+        </FRow>
+      </div>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textAlign:"center", textTransform:"uppercase", letterSpacing:0.7 }}>Nudge Grid</p>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, padding:"0 12px" }}>
+        {[
+          {l:"↖",dx:-10,dy:-10},{l:"↑",dx:0,dy:-10},{l:"↗",dx:10,dy:-10},
+          {l:"←",dx:-10,dy:0}, {l:"⊙",dx:0,dy:0,r:true},{l:"→",dx:10,dy:0},
+          {l:"↙",dx:-10,dy:10},{l:"↓",dx:0,dy:10},{l:"↘",dx:10,dy:10},
+        ].map((b, i) => (
+          <button key={i}
+            onClick={() => pushState({ textX: b.r ? 0 : s.textX + b.dx, textY: b.r ? 0 : s.textY + b.dy })}
+            style={{
+              height:42, borderRadius:8, cursor:"pointer",
+              border:`1px solid ${b.r ? accent : cardBorder}`,
+              background: b.r ? `rgba(10,132,255,0.18)` : controlBg,
+              color: b.r ? accent : textPrimary,
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:16,
+            }}>
             {b.l}
           </button>
         ))}
@@ -826,52 +1131,68 @@ export default function LuminaryStudio() {
 
   const panelAssetsAndLayers = (
     <Card label="Assets & Overlays" {...cp}>
-      <input ref={avFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;if(!f)return;const r=new FileReader();r.onload=ev=>setAvRawSrc(ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
-      <input ref={bgFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;if(!f)return;const r=new FileReader();r.onload=ev=>setBgRawSrc(ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
-      <div style={{display:"flex",gap:8, marginBottom:16}}>
-        <button onClick={()=>avFileRef.current?.click()} style={outlineBtn}>🖼 Set Avatar</button>
-        <button onClick={()=>bgFileRef.current?.click()} style={outlineBtn}>🌄 Set Background</button>
+      {/* File inputs — hidden */}
+      <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
+      <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+        const f = e.target.files?.[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => setBgRawSrc(ev.target.result);
+        r.readAsDataURL(f); e.target.value = "";
+      }} />
+      <input ref={fileLoaderRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+        const f = e.target.files?.[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => addOverlay("image", ev.target.result);
+        r.readAsDataURL(f); e.target.value = "";
+      }} />
+
+      <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+        <button onClick={() => avFileRef.current?.click()} style={outlineBtn}>🖼 Avatar (Crop)</button>
+        <button onClick={() => bgFileRef.current?.click()} style={outlineBtn}>🌄 Background</button>
       </div>
 
-      <div style={{borderTop:`1px solid ${cardBorder}`,margin:"16px 0"}}/>
-      <p style={{fontSize:11,color:textDim,marginBottom:8,fontWeight:500}}>One UI Icons</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:16 }}>
-        {(vp.isMobile ? UI_ICONS.slice(0,4) : UI_ICONS).map(ic => (
-           <button key={ic.name} onClick={()=>addOverlay('image', ic.src)} style={{ background:controlBg, border: controlBorder === "transparent" ? "none" : `1px solid ${controlBorder}`, borderRadius:8, padding:"8px", cursor:"pointer", display:"flex", justifyContent:"center" }}>
-             <img src={ic.src} alt="" style={{ width:20, height:20, filter: theme === "material" || theme === "simple" ? "invert(1)" : "invert(0.5) sepia(1) hue-rotate(300deg)" }} />
-           </button>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Quick Icons</p>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:16 }}>
+        {UI_ICONS.map(ic => (
+          <button key={ic.name} onClick={() => addOverlay("image", ic.src)}
+            style={{ background:controlBg, border:`1px solid ${cardBorder}`, borderRadius:8, padding:8, cursor:"pointer", display:"flex", justifyContent:"center", alignItems:"center", minHeight:40 }}>
+            <img src={ic.src} alt={ic.name} style={{ width:20, height:20, opacity:0.7 }} />
+          </button>
         ))}
       </div>
 
-      <p style={{fontSize:11,color:textDim,marginBottom:8,fontWeight:500}}>Add Overlay</p>
-      <input ref={fileLoaderRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const f=e.target.files && e.target.files.length > 0 ? e.target.files[0] : null;if(!f)return;const r=new FileReader();r.onload=ev=>addOverlay("image",ev.target.result);r.readAsDataURL(f);e.target.value="";}}/>
-      <div style={{display:"flex",gap:8,marginBottom:16,overflowX:"auto",paddingBottom:6}}>
-        {EMOJIS.map(em=>(
-          <button key={em} onClick={()=>addOverlay("emoji",em)}
-            style={{fontSize:20,background:controlBg,border: controlBorder === "transparent" ? "none" : `1px solid ${controlBorder}`,borderRadius:8,padding:"8px 12px",cursor:"pointer",flexShrink:0,minHeight:44}}>
+      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Add Overlay</p>
+      <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:6, marginBottom:14 }}>
+        {EMOJIS.map(em => (
+          <button key={em} onClick={() => addOverlay("emoji", em)}
+            style={{ fontSize:20, background:controlBg, border:`1px solid ${cardBorder}`, borderRadius:8, padding:"8px 12px", cursor:"pointer", flexShrink:0, minHeight:44 }}>
             {em}
           </button>
         ))}
-        <button onClick={()=>{ if(fileLoaderRef.current) fileLoaderRef.current.click(); }}
-          style={{fontSize:12,background:controlBg,border: controlBorder === "transparent" ? "none" : `1px solid ${controlBorder}`,color:textPrimary,borderRadius:8,padding:"8px 12px",cursor:"pointer",whiteSpace:"nowrap",flexShrink:0,minHeight:44}}>
+        <button onClick={() => fileLoaderRef.current?.click()}
+          style={{ fontSize:13, background:controlBg, border:`1px solid ${cardBorder}`, color:textPrimary, borderRadius:8, padding:"8px 12px", cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, minHeight:44, fontWeight:500 }}>
           + Image
         </button>
       </div>
-      
-      {s.overlays.length===0 ? (
-        <p style={{fontSize:12,color:textDim,fontStyle:"italic"}}>No elements yet.</p>
+
+      {s.overlays.length === 0 ? (
+        <p style={{ fontSize:13, color:textDim, fontStyle:"italic" }}>No overlays yet.</p>
       ) : (
-        <div style={{display:"flex",flexDirection:"column",gap:8}}>
-          {s.overlays.map(ov=>(
-            <div key={ov.id} style={{display:"flex",alignItems:"center",gap:10,background:controlBg,padding:"10px 12px",borderRadius:10,border: controlBorder === "transparent" ? "none" : `1px solid ${controlBorder}`}}>
-              <span style={{fontSize:18,width:28,flexShrink:0}}>{ov.type==="emoji"?ov.content:"🖼️"}</span>
-              <div style={{flex:1,display:"flex",alignItems:"center",gap:8}}>
-                <input type="range" min={20} max={300} value={ov.size} onChange={e=>updateOverlay(ov.id,{size:+e.target.value})} style={{flex:1}}/>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {s.overlays.map(ov => (
+            <div key={ov.id} style={{ display:"flex", alignItems:"center", gap:10, background:controlBg, padding:"10px 12px", borderRadius:10, border:`1px solid ${cardBorder}` }}>
+              <span style={{ fontSize:18, width:28, flexShrink:0 }}>{ov.type === "emoji" ? ov.content : "🖼️"}</span>
+              <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
+                <input type="range" min={20} max={300} value={ov.size}
+                  onChange={e => updateOverlay(ov.id, { size: +e.target.value })} style={{ flex:1 }} />
               </div>
-              <button onClick={()=>updateOverlay(ov.id,{locked:!ov.locked})} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:18,opacity:ov.locked?1:0.4,padding:4,minWidth:36}}>
-                {ov.locked?"🔒":"🔓"}
+              <button onClick={() => updateOverlay(ov.id, { locked: !ov.locked })}
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:18, opacity:ov.locked?1:0.4, padding:4, minWidth:36 }}>
+                {ov.locked ? "🔒" : "🔓"}
               </button>
-              <button onClick={()=>removeOverlay(ov.id)} style={{background:"transparent",border:"none",cursor:"pointer",fontSize:18,padding:4,minWidth:36}}>
+              <button onClick={() => removeOverlay(ov.id)}
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:18, padding:4, minWidth:36 }}>
                 🗑️
               </button>
             </div>
@@ -881,127 +1202,201 @@ export default function LuminaryStudio() {
     </Card>
   );
 
-  // ── Canvas preview block ──
+  // ── Canvas preview block ──────────────────────────────────────────────────
   const canvasBlock = (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,width:"100%"}} ref={wrapRef}>
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, width:"100%" }} ref={wrapRef}>
+
+      {/* Theme preset row */}
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
+        {[
+          { id:"glass",    label:"🧊 Glass" },
+          { id:"cute",     label:"🌸 Cute" },
+          { id:"material", label:"🎨 Material" },
+        ].map(t => (
+          <button key={t.id}
+            onClick={() => { setPillStyle(t.id); pushState(getLayoutDefaults(layoutMode, t.id)); }}
+            style={{
+              ...outlineBtn, flex:"none",
+              background: pillStyle === t.id ? accent : controlBg,
+              color: pillStyle === t.id ? "#fff" : textPrimary,
+              border: pillStyle === t.id ? `1px solid ${accent}` : `1px solid ${cardBorder}`,
+              fontWeight: pillStyle === t.id ? 700 : 500,
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Canvas container */}
       <div style={{
-        borderRadius:Math.min(s.pillR,s.pillH/2)*pxScale,
+        borderRadius: Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale,
         overflow:"hidden",
-        boxShadow: cp.cardShadow !== "none" ? cp.cardShadow : (isCute?"0 20px 60px rgba(0,0,0,.55)":"0 24px 48px rgba(0,0,0,0.6)"),
-        width:s.pillW*pxScale, height:s.pillH*pxScale,
-        flexShrink:0,
-        cursor:editMode?(draggingId?"grabbing":"grab"):"default",
-        touchAction:editMode?"none":"auto",
+        boxShadow: cardShadow,
+        width: s.pillW * pxScale,
+        height: s.pillH * pxScale,
+        maxWidth:"100%",
+        flexShrink: 0,
+        cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
+        touchAction: editMode ? "none" : "auto",
+        border: `1px solid ${cardBorder}`,
       }}>
         <canvas
           ref={canvasRef}
-          onPointerDown={onPointerDown} onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp} onPointerLeave={onPointerUp}
-          style={{display:"block", width:s.pillW*pxScale, height:s.pillH*pxScale}}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
+          style={{ display:"block", width:"100%", height:"100%" }}
         />
       </div>
-      
-      <div style={{display:"flex", alignItems:"center", background: theme==="material"?"#e7e0ec":"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px"}}>
-        <button onClick={()=>setEditMode(v=>!v)} style={{
-          background:"transparent", border:"none", padding:"10px 16px",
-          color:editMode?accent:textPrimary, cursor:"pointer", fontSize:14, fontWeight:600
-        }}>{editMode?"✅ Done":"🖱 Edit Elements"}</button>
-        <div style={{width: 1, height: 24, background: theme==="material"?"rgba(0,0,0,0.1)":"rgba(255,255,255,0.1)", margin: "0 4px"}} />
-        <button onClick={exportPNG} style={{
-          background:"transparent", border:"none", padding:"10px 16px",
-          color:textPrimary, cursor:"pointer", fontSize:14, fontWeight:600
-        }}>✦ Export PNG</button>
+
+      {/* Controls bar */}
+      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}` }}>
+        <button
+          onClick={() => setEditMode(v => !v)}
+          style={{ background:"transparent", border:"none", padding:"10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:600 }}>
+          {editMode ? "✅ Done Editing" : "🖱 Edit Elements"}
+        </button>
+        <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 4px" }} />
+        <button
+          onClick={exportPNG}
+          style={{ background:"transparent", border:"none", padding:"10px 16px", color: accent, cursor:"pointer", fontSize:14, fontWeight:700 }}>
+          ✦ Export Ultra HD
+        </button>
       </div>
     </div>
   );
 
-  // ── DESKTOP layout ────────────────────────────────────────────────
+  // ── Layout ────────────────────────────────────────────────────────────────
   return (
-    <div className="luminary-app">
-      <style dangerouslySetInnerHTML={{__html: `
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-        body{background:${appBg};overflow-x:hidden;}
-        ::-webkit-scrollbar{width:6px;}
-        ::-webkit-scrollbar-thumb{background:${controlBorder};border-radius:6px;}
-        input[type=range] { 
-          -webkit-appearance: none; height: 6px; border-radius: 6px; 
-          background: ${theme==="material"?"rgba(0,0,0,0.1)":"rgba(255,255,255,0.1)"}; width: 100%; outline: none; 
-        }
-        input[type=range]::-webkit-slider-thumb { 
-          -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; 
-          background: ${theme==="material"?accent:"#ffffff"}; box-shadow: 0 2px 6px rgba(0,0,0,0.4); cursor: pointer; 
-        }
-        select option{background:${isCute?"#1e0a35":"#1c1c1e"};}
+    <div style={{ width:"100%", overflowX:"hidden" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+        body { background: #09090b; overflow-x: hidden; }
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius:5px; }
+        input[type=range] { -webkit-appearance:none; height:5px; border-radius:5px; background:rgba(255,255,255,0.12); width:100%; outline:none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.4); cursor:pointer; }
+        input[type=checkbox] { width:16px; height:16px; accent-color: #0a84ff; cursor:pointer; }
+        select option { background:#1c1c1e; color:#f2f2f7; }
       `}} />
-      <div style={{minHeight:"100vh",color:"#f2f2f7",fontFamily:"system-ui,-apple-system,sans-serif"}}>
 
-        <header style={{position:"sticky",top:0,zIndex:100,background:theme==="glass"?"rgba(255,255,255,0.05)":theme==="material"?"rgba(244,239,244,0.9)":(isCute?"rgba(13,5,25,0.9)":"rgba(0,0,0,0.9)"),backdropFilter:theme==="material"?"none":"blur(15px)",borderBottom:theme==="material"?"1px solid rgba(0,0,0,0.05)":`1px solid ${cardBorder}`,padding:"12px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
-          <div style={{display:"flex",gap:10,alignItems:"center"}}>
-            <h1 style={{fontFamily:isCute?"'Pinyon Script',cursive":"inherit",fontSize:22,fontWeight:700,color:textPrimary,margin:0}}>UI Studio</h1>
-            <div style={{borderLeft:theme==="material"?"1px solid rgba(0,0,0,0.1)":`1px solid ${controlBorder}`,height:20,margin:"0 8px"}}/>
-            <select value={layoutMode} onChange={e=>{setLayoutMode(e.target.value);pushState(getLayoutDefaults(e.target.value, theme));}} style={{...inputSt,width:170,padding:"6px 10px", fontWeight: 600}}>
-              {Object.keys(LAYOUTS).map(k=><option key={k} value={k}>{k} Layout</option>)}
+      <div style={{ minHeight:"100vh", color:"#f2f2f7", fontFamily:"system-ui,-apple-system,sans-serif", background:"linear-gradient(160deg,#09090b 0%,#141416 100%)", paddingBottom: vp.isMobile ? 82 : 0 }}>
+
+        {/* Header */}
+        <header style={{ position:"sticky", top:0, zIndex:100, background:"rgba(9,9,11,0.88)", backdropFilter:"blur(16px)", borderBottom:`1px solid rgba(255,255,255,0.08)`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
+          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+            <h1 style={{ fontSize:20, fontWeight:700, color:"#f2f2f7", margin:0, letterSpacing:"-0.3px" }}>Luminary Panels</h1>
+            <div style={{ borderLeft:"1px solid rgba(255,255,255,0.1)", height:20, margin:"0 6px" }} />
+            <select value={layoutMode}
+              onChange={e => { setLayoutMode(e.target.value); pushState(getLayoutDefaults(e.target.value, pillStyle)); }}
+              style={{ ...inputSt, width:180, padding:"7px 10px", fontWeight:600, fontSize:13 }}>
+              {Object.keys(LAYOUTS).map(k => <option key={k} value={k}>{k}</option>)}
             </select>
           </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={undo} disabled={hIndex===0} style={{...outlineBtn,flex:"none",padding:"8px 14px",opacity:hIndex===0?0.3:1}}>↶ Undo</button>
-            <button onClick={redo} disabled={hIndex===history.length-1} style={{...outlineBtn,flex:"none",padding:"8px 14px",opacity:hIndex===history.length-1?0.3:1}}>↷ Redo</button>
-            <button onClick={reset} style={{...outlineBtn,flex:"none",padding:"8px 14px",color:"#ff5555"}}>↻ Reset</button>
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>{setTheme("simple");}} style={{...outlineBtn,flex:"none",padding:"8px 14px",background:theme==="simple"?accent:"transparent",color:theme==="simple"?"#fff":textPrimary,fontWeight:700}}>🌑 Simple</button>
-            <button onClick={()=>{setTheme("cute");}} style={{...outlineBtn,flex:"none",padding:"8px 14px",background:theme==="cute"?accent:"transparent",color:theme==="cute"?"#000":textPrimary,fontWeight:700}}>🌸 Cute</button>
-            <button onClick={()=>{setTheme("glass");}} style={{...outlineBtn,flex:"none",padding:"8px 14px",background:theme==="glass"?accent:"transparent",color:theme==="glass"?"#000":textPrimary,fontWeight:700}}>🧊 Glass</button>
-            <button onClick={()=>{setTheme("material");}} style={{...outlineBtn,flex:"none",padding:"8px 14px",background:theme==="material"?accent:"transparent",color:theme==="material"?"#fff":textPrimary,fontWeight:700}}>🎨 Material</button>
+          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            <button onClick={undo} disabled={hIndex === 0}
+              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", opacity: hIndex === 0 ? 0.3 : 1, fontSize:13 }}>↶ Undo</button>
+            <button onClick={redo} disabled={hIndex === history.length - 1}
+              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", opacity: hIndex === history.length - 1 ? 0.3 : 1, fontSize:13 }}>↷ Redo</button>
+            <button onClick={reset}
+              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", color:"#ff5555", borderColor:"rgba(255,85,85,0.3)", fontSize:13 }}>↻ Reset</button>
           </div>
         </header>
 
-        <div style={{display:"grid",gridTemplateColumns: vp.isMobile ? "1fr" : "320px 1fr 320px",gap:18,maxWidth:1400,margin:"0 auto",padding:"22px 14px 60px",alignItems:"start"}}>
-          
-          {(!vp.isMobile) && (
-            <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        {/* Main layout */}
+        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", gap:20, padding:"20px 14px", maxWidth:1600, margin:"0 auto" }}>
+
+          {!vp.isMobile && (
+            <div style={{ flex:"1 1 280px", maxWidth:340, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
               {panelBaseConfig}
               {panelEnvironment}
+              {panelAssetsAndLayers}
             </div>
           )}
 
-          <main style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,minWidth:0}}>
-            <div style={{background:cardBg,borderRadius:28,padding:"32px 20px",width:"100%",display:"flex",flexDirection:"column",alignItems:"center",gap:24,border:theme==="material"?"none":`1px solid ${cardBorder}`,boxShadow:cp.cardShadow,backdropFilter:cp.cardBackdrop}}>
+          <main style={{ flex:"2 1 400px", maxWidth: vp.isMobile ? "100%" : 660, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
+            <div style={{ background: cardBg, borderRadius:24, padding: vp.isMobile ? "20px 14px" : "28px 20px", width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:20, border:`1px solid ${cardBorder}`, boxShadow: cardShadow }}>
               {canvasBlock}
             </div>
-            {(!vp.isMobile) && panelAssetsAndLayers}
           </main>
 
-          {(!vp.isMobile) && (
-            <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          {!vp.isMobile && (
+            <div style={{ flex:"1 1 280px", maxWidth:340, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
               {panelAvatar}
               {panelBorder}
               {panelTypography}
             </div>
           )}
 
-          {/* Fallback for Mobile Flow */}
-          {(vp.isMobile) && (
-             <div style={{display:"flex",flexDirection:"column",gap:16}}>
-               {panelBaseConfig}
-               {panelEnvironment}
-               {panelAssetsAndLayers}
-               {panelAvatar}
-               {panelBorder}
-               {panelTypography}
-             </div>
+          {/* Mobile panels */}
+          {vp.isMobile && (
+            <div style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14 }}>
+              {mobileTab === "layout" && <>{panelBaseConfig}{panelEnvironment}</>}
+              {mobileTab === "assets" && panelAssetsAndLayers}
+              {mobileTab === "avatar" && <>{panelAvatar}{panelBorder}</>}
+              {mobileTab === "text"   && panelTypography}
+            </div>
           )}
         </div>
+
+        {/* Mobile bottom nav */}
+        {vp.isMobile && (
+          <nav style={{ position:"fixed", bottom:0, left:0, right:0, background:"rgba(9,9,11,0.94)", backdropFilter:"blur(16px)", borderTop:`1px solid rgba(255,255,255,0.08)`, display:"flex", padding:"6px 8px", paddingBottom:"calc(6px + env(safe-area-inset-bottom))", gap:4, zIndex:1000 }}>
+            {[
+              { id:"layout", icon:"📐", label:"Layout" },
+              { id:"assets", icon:"🖼️", label:"Assets" },
+              { id:"avatar", icon:"👤", label:"Avatar" },
+              { id:"text",   icon:"Aa", label:"Text"   },
+            ].map(t => (
+              <button key={t.id} onClick={() => setMobileTab(t.id)}
+                style={{
+                  flex:1, background: mobileTab === t.id ? "rgba(10,132,255,0.15)" : "transparent",
+                  color: mobileTab === t.id ? accent : textDim,
+                  border: mobileTab === t.id ? `1px solid rgba(10,132,255,0.3)` : "1px solid transparent",
+                  borderRadius:12, padding:"8px 4px",
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer",
+                  transition:"all 0.15s",
+                }}>
+                <span style={{ fontSize:19 }}>{t.icon}</span>
+                <span style={{ fontSize:10, fontWeight:600 }}>{t.label}</span>
+              </button>
+            ))}
+          </nav>
+        )}
       </div>
+
+      {/* Crop modal */}
+      {cropSrc && (
+        <CropModal
+          src={cropSrc}
+          onConfirm={onCropConfirm}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
+
+      {/* Export fallback modal (Android) */}
+      {exportDataUrl && (
+        <ExportModal
+          dataUrl={exportDataUrl}
+          onClose={() => setExportDataUrl(null)}
+        />
+      )}
     </div>
   );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, cardBackdrop }) {
+function Card({ label, children, cardBg, cardBorder, textDim, cardShadow }) {
   return (
-    <div style={{background:cardBg,borderRadius:24,padding:20,border:cardBorder==="transparent"?"none":`1px solid ${cardBorder}`,boxShadow:cardShadow||"none",backdropFilter:cardBackdrop||"none",WebkitBackdropFilter:cardBackdrop||"none"}}>
-      <p style={{fontSize:11,fontWeight:700,color:textDim,textTransform:"uppercase",letterSpacing:0.8,marginBottom:16}}>{label}</p>
+    <div style={{
+      background: cardBg,
+      borderRadius: 20,
+      padding: 18,
+      border: `1px solid ${cardBorder}`,
+      boxShadow: cardShadow || "none",
+    }}>
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:14 }}>{label}</p>
       {children}
     </div>
   );
@@ -1009,13 +1404,17 @@ function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, cardBa
 
 function FRow({ label, children, textDim }) {
   return (
-    <div style={{flex:1,marginBottom:12}}>
-      <label style={{display:"block",fontSize:12,color:textDim,marginBottom:6,fontWeight:500}}>{label}</label>
+    <div style={{ flex:1, marginBottom:11 }}>
+      <label style={{ display:"block", fontSize:12, color:textDim, marginBottom:5, fontWeight:500 }}>{label}</label>
       {children}
     </div>
   );
 }
 
 function TxIn({ value, onChange, placeholder, inputSt }) {
-  return <input type="text" value={value} placeholder={placeholder} onChange={e=>onChange(e.target.value)} style={inputSt}/>;
+  return <input type="text" value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} style={inputSt} />;
+}
+
+function Sep({ cardBorder }) {
+  return <div style={{ borderTop:`1px solid ${cardBorder}`, margin:"10px 0 14px" }} />;
 }
