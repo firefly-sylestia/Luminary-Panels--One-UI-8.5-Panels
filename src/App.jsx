@@ -365,73 +365,91 @@ function CropModal({ src, onConfirm, onCancel }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ExportModal — fallback for Android when direct download is blocked
+// ExportModal — full-screen save modal for Android WebView
 // ─────────────────────────────────────────────────────────────────────────────
 function ExportModal({ dataUrl, onClose }) {
   return (
     <div style={{
       position:"fixed", inset:0, zIndex:9999,
-      background:"rgba(0,0,0,0.93)", display:"flex",
-      alignItems:"center", justifyContent:"center", padding:16,
+      background:"rgba(0,0,0,0.97)",
+      display:"flex", flexDirection:"column",
+      alignItems:"center", justifyContent:"center",
+      padding:0,
     }}>
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes pulseBorder {
-          0%,100% { box-shadow: 0 0 0 0 rgba(10,132,255,0.6); }
-          50%      { box-shadow: 0 0 0 6px rgba(10,132,255,0); }
+        @keyframes glowPulse {
+          0%,100% { box-shadow: 0 0 20px 4px rgba(255,110,180,0.6), 0 0 60px 10px rgba(255,110,180,0.25); }
+          50%      { box-shadow: 0 0 40px 10px rgba(255,110,180,0.9),   0 0 100px 20px rgba(255,179,217,0.4); }
+        }
+        @keyframes fadeSlideUp {
+          from { opacity:0; transform:translateY(30px); }
+          to   { opacity:1; transform:translateY(0); }
         }
       `}} />
-      <div style={{
-        background:"#1c1c1e", borderRadius:20, padding:20,
-        width:"100%", maxWidth:460,
-        display:"flex", flexDirection:"column", gap:14,
-        boxShadow:"0 24px 64px rgba(0,0,0,0.7)",
-      }}>
-        {/* Header */}
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <h3 style={{ color:"#fff", fontSize:18, fontWeight:700, margin:0 }}>💾 Save Image</h3>
-          <button onClick={onClose} style={{
-            background:"rgba(255,255,255,0.1)", border:"none", color:"#fff",
-            borderRadius:"50%", width:32, height:32, fontSize:16, cursor:"pointer",
-            display:"flex", alignItems:"center", justifyContent:"center",
-          }}>✕</button>
-        </div>
 
-        {/* Instruction */}
+      {/* Top bar */}
+      <div style={{
+        width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center",
+        padding:"16px 20px",
+        background:"rgba(255,255,255,0.04)",
+        borderBottom:"1px solid rgba(255,255,255,0.08)",
+      }}>
+        <div>
+          <p style={{ color:"#fff", fontSize:17, fontWeight:700, margin:0 }}>💾 Save Image</p>
+          <p style={{ color:"rgba(255,255,255,0.45)", fontSize:12, margin:"3px 0 0" }}>Hold finger on image → "Save"</p>
+        </div>
+        <button onClick={onClose} style={{
+          background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.15)",
+          color:"#fff", borderRadius:"50%", width:36, height:36,
+          fontSize:17, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
+        }}>✕</button>
+      </div>
+
+      {/* Full-screen image with glow */}
+      <div style={{
+        flex:1, width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
+        padding:20,
+        animation:"fadeSlideUp 0.3s ease",
+      }}>
+        <img
+          src={dataUrl}
+          alt="Your creation"
+          draggable={false}
+          style={{
+            maxWidth:"100%", maxHeight:"100%",
+            borderRadius:16,
+            animation:"glowPulse 2s ease-in-out infinite",
+            userSelect:"none",
+            WebkitUserSelect:"none",
+            WebkitTouchCallout:"default",
+            pointerEvents:"auto",
+            objectFit:"contain",
+          }}
+        />
+      </div>
+
+      {/* Instruction pill */}
+      <div style={{
+        width:"100%", padding:"14px 20px 28px",
+        display:"flex", flexDirection:"column", gap:10, alignItems:"center",
+      }}>
         <div style={{
-          background:"rgba(10,132,255,0.12)", border:"1px solid rgba(10,132,255,0.3)",
-          borderRadius:12, padding:"10px 14px",
+          background:"linear-gradient(135deg, rgba(255,110,180,0.2), rgba(255,179,217,0.15))",
+          border:"1px solid rgba(255,110,180,0.5)",
+          borderRadius:16, padding:"12px 20px", width:"100%", textAlign:"center",
         }}>
           <p style={{ color:"#fff", fontSize:14, fontWeight:600, margin:"0 0 4px" }}>
-            👆 Hold your finger on the image for ~1 second
+            👆 Hold your finger on the image for ~1s
           </p>
-          <p style={{ color:"rgba(255,255,255,0.55)", fontSize:12, margin:0 }}>
-            Then choose <strong style={{ color:"#fff" }}>"Save image"</strong> or <strong style={{ color:"#fff" }}>"Download"</strong> from the menu.
+          <p style={{ color:"rgba(255,255,255,0.5)", fontSize:12, margin:0 }}>
+            Then tap <strong style={{ color:"#fff" }}>"Save image"</strong> or <strong style={{ color:"#fff" }}>"Download"</strong>
           </p>
         </div>
-
-        {/* Image — pulsing border cues the user to long-press here */}
-        <div style={{
-          borderRadius:14, overflow:"hidden", background:"#000",
-          border:"2px solid rgba(10,132,255,0.5)",
-          animation:"pulseBorder 1.8s ease-in-out infinite",
-        }}>
-          <img
-            src={dataUrl}
-            alt="export"
-            draggable={false}
-            style={{
-              display:"block", width:"100%", height:"auto",
-              userSelect:"none", WebkitUserSelect:"none",
-              WebkitTouchCallout:"default", // KEEP default so long-press context menu fires
-              pointerEvents:"auto",
-            }}
-          />
-        </div>
-
         <button onClick={onClose} style={{
-          padding:"13px", background:"rgba(255,255,255,0.08)", border:"none",
-          borderRadius:12, color:"#fff", fontSize:15, fontWeight:600, cursor:"pointer",
-        }}>Close</button>
+          padding:"13px 40px", background:"rgba(255,255,255,0.08)",
+          border:"1px solid rgba(255,255,255,0.12)",
+          borderRadius:14, color:"rgba(255,255,255,0.7)", fontSize:15, fontWeight:600, cursor:"pointer",
+        }}>Done</button>
       </div>
     </div>
   );
@@ -774,33 +792,36 @@ export default function LuminaryPanels() {
     renderGraphics(ctx, s.pillW, s.pillH, vp.safeDpr, false);
   }, [s, vp.safeDpr, renderGraphics]);
 
-  // ── Export — Android-safe ─────────────────────────────────────────────────
+  // ── Export helpers ────────────────────────────────────────────────────────
   const isAndroidWebView = () => {
     const ua = navigator.userAgent || "";
-    return !!(window.Capacitor || (ua.includes("Android") && ua.includes("wv")));
+    return !!(window.Capacitor || (ua.includes("Android") && (ua.includes("wv") || ua.includes("Version/"))));
   };
 
+  const buildCanvas = () => {
+    const MULT = 4;
+    const ec   = document.createElement("canvas");
+    ec.width   = s.pillW * MULT;
+    ec.height  = s.pillH * MULT;
+    const eCtx = ec.getContext("2d");
+    eCtx.scale(MULT, MULT);
+    renderGraphics(eCtx, s.pillW, s.pillH, MULT, true);
+    return ec;
+  };
+
+  // ── Save (Android: long-press modal | Desktop: download) ─────────────────
   const exportPNG = () => {
     try {
-      const MULT = 4;
-      const ec   = document.createElement("canvas");
-      ec.width   = s.pillW * MULT;
-      ec.height  = s.pillH * MULT;
-      const eCtx = ec.getContext("2d");
-      eCtx.scale(MULT, MULT);
-      renderGraphics(eCtx, s.pillW, s.pillH, MULT, true);
-
-      // Synchronous — no async, no invisible errors
+      const ec      = buildCanvas();
       const dataUrl = ec.toDataURL("image/png", 1.0);
 
-      // Android WebView / Capacitor: go straight to modal, skip blob anchor
-      // (anchor click is silently ignored in WebView — no error, no download)
+      // Android WebView/Capacitor: go straight to save modal
       if (isAndroidWebView()) {
         setExportDataUrl(dataUrl);
         return;
       }
 
-      // Desktop: blob URL anchor download
+      // Desktop: blob download
       try {
         const byteStr = atob(dataUrl.split(",")[1]);
         const ab = new ArrayBuffer(byteStr.length);
@@ -809,32 +830,71 @@ export default function LuminaryPanels() {
         const blob = new Blob([ab], { type: "image/png" });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement("a");
-        a.href     = url;
-        a.download = `Luminary_${Date.now()}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        a.href = url; a.download = `Luminary_${Date.now()}.png`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 2000);
         return;
       } catch (_) {}
 
-      // Final fallback: modal (covers desktop browsers that block blob downloads)
+      setExportDataUrl(dataUrl);
+    } catch (err) { alert("Save failed: " + err.message); }
+  };
+
+  // ── Share ─────────────────────────────────────────────────────────────────
+  const sharePNG = async () => {
+    try {
+      const ec      = buildCanvas();
+      const dataUrl = ec.toDataURL("image/png", 1.0);
+
+      // Try Capacitor Share plugin first
+      if (window.Capacitor) {
+        try {
+          const { Share }     = await import("@capacitor/share");
+          const { Filesystem, Directory } = await import("@capacitor/filesystem");
+          const fileName = `Luminary_${Date.now()}.png`;
+          const base64   = dataUrl.split(",")[1];
+          await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+          const fileResult = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
+          await Share.share({ title: "Luminary Panel", url: fileResult.uri, dialogTitle: "Share your panel" });
+          return;
+        } catch (capErr) {
+          if (capErr.name === "AbortError") return;
+          // fall through to Web Share
+        }
+      }
+
+      // Web Share API fallback
+      if (navigator.share) {
+        const byteStr = atob(dataUrl.split(",")[1]);
+        const ab = new ArrayBuffer(byteStr.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i);
+        const blob = new Blob([ab], { type: "image/png" });
+        const file = new File([blob], `Luminary_${Date.now()}.png`, { type: "image/png" });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ title: "Luminary Panel", files: [file] });
+          return;
+        }
+      }
+
+      // Final fallback: show modal
       setExportDataUrl(dataUrl);
     } catch (err) {
-      alert("Export failed: " + err.message);
+      if (err.name !== "AbortError") alert("Share failed: " + err.message);
     }
   };
 
   // ── UI theme values ───────────────────────────────────────────────────────
   const ALL_FONTS  = [...FONTS, ...customFonts];
   const bCtrl      = getBorderControls(s.borderStyleId);
-  const accent     = "#0a84ff";
+  const accent     = "#ff6eb4";
+  const accent2    = "#ffb3d9";
   const textPrimary = "#f2f2f7";
   const textDim    = "rgba(255,255,255,0.45)";
-  const controlBg  = "rgba(255,255,255,0.07)";
-  const cardBg     = "rgba(255,255,255,0.04)";
-  const cardBorder = "rgba(255,255,255,0.1)";
-  const cardShadow = "0 8px 32px rgba(0,0,0,0.5)";
+  const controlBg  = "rgba(255,255,255,0.06)";
+  const cardBg     = "rgba(255,110,180,0.04)";
+  const cardBorder = "rgba(255,110,180,0.15)";
+  const cardShadow = "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,110,180,0.08)";
 
   const inputSt = {
     display:"block", width:"100%",
@@ -1227,41 +1287,60 @@ export default function LuminaryPanels() {
         ))}
       </div>
 
-      {/* Canvas container */}
-      <div style={{
-        borderRadius: Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale,
-        overflow:"hidden",
-        boxShadow: cardShadow,
-        width: s.pillW * pxScale,
-        height: s.pillH * pxScale,
-        maxWidth:"100%",
-        flexShrink: 0,
-        cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
-        touchAction: editMode ? "none" : "auto",
-        border: `1px solid ${cardBorder}`,
-      }}>
-        <canvas
-          ref={canvasRef}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerUp}
-          style={{ display:"block", width:"100%", height:"100%" }}
-        />
+      {/* Canvas container — pulsing ring glow */}
+      <div style={{ position:"relative", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+        {/* Outer pulse ring */}
+        <div style={{
+          position:"absolute",
+          width: s.pillW * pxScale + 32,
+          height: s.pillH * pxScale + 32,
+          borderRadius: (Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale) + 16,
+          border:"1.5px solid rgba(255,110,180,0.45)",
+          pointerEvents:"none",
+          animation:"ringPulse 2.4s ease-in-out infinite",
+          maxWidth:"calc(100% + 32px)",
+        }} />
+        {/* Inner glow canvas wrapper */}
+        <div style={{
+          borderRadius: Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale,
+          overflow:"hidden",
+          animation:"canvasPulse 2.4s ease-in-out infinite",
+          width: s.pillW * pxScale,
+          height: s.pillH * pxScale,
+          maxWidth:"100%",
+          flexShrink: 0,
+          cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
+          touchAction: editMode ? "none" : "auto",
+          border: `1px solid rgba(255,110,180,0.35)`,
+        }}>
+          <canvas
+            ref={canvasRef}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+            style={{ display:"block", width:"100%", height:"100%" }}
+          />
+        </div>
       </div>
 
       {/* Controls bar */}
-      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}` }}>
+      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2 }}>
         <button
           onClick={() => setEditMode(v => !v)}
           style={{ background:"transparent", border:"none", padding:"10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:600 }}>
           {editMode ? "✅ Done Editing" : "🖱 Edit Elements"}
         </button>
-        <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 4px" }} />
+        <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
         <button
           onClick={exportPNG}
-          style={{ background:"transparent", border:"none", padding:"10px 16px", color: accent, cursor:"pointer", fontSize:14, fontWeight:700 }}>
-          ✦ Export Ultra HD
+          style={{ background:"linear-gradient(135deg,#ff6eb4,#ffb3d9)", border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
+          💾 Save
+        </button>
+        <button
+          onClick={sharePNG}
+          style={{ background:"linear-gradient(135deg,#ff6eb4,#ff9ecd)", border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
+          🔗 Share
         </button>
       </div>
     </div>
@@ -1274,19 +1353,31 @@ export default function LuminaryPanels() {
         *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
         body { background: #09090b; overflow-x: hidden; }
         ::-webkit-scrollbar { width:5px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius:5px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#ff6eb4,#ffb3d9); border-radius:5px; }
         input[type=range] { -webkit-appearance:none; height:5px; border-radius:5px; background:rgba(255,255,255,0.12); width:100%; outline:none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.4); cursor:pointer; }
-        input[type=checkbox] { width:16px; height:16px; accent-color: #0a84ff; cursor:pointer; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg,#ff6eb4,#ffb3d9); box-shadow:0 2px 8px rgba(255,110,180,0.5); cursor:pointer; }
+        input[type=checkbox] { width:16px; height:16px; accent-color: #ff6eb4; cursor:pointer; }
         select option { background:#1c1c1e; color:#f2f2f7; }
+        @keyframes headerGlow {
+          0%,100% { box-shadow: 0 1px 0 rgba(255,110,180,0.25), 0 4px 30px rgba(255,110,180,0.08); }
+          50%      { box-shadow: 0 1px 0 rgba(255,179,217,0.4), 0 4px 40px rgba(255,110,180,0.18); }
+        }
+        @keyframes canvasPulse {
+          0%,100% { box-shadow: 0 0 28px 4px rgba(255,110,180,0.28), 0 0 60px 12px rgba(255,110,180,0.1), 0 20px 60px rgba(0,0,0,0.7); }
+          50%      { box-shadow: 0 0 48px 14px rgba(255,110,180,0.48), 0 0 100px 30px rgba(255,179,217,0.2), 0 20px 60px rgba(0,0,0,0.7); }
+        }
+        @keyframes ringPulse {
+          0%,100% { opacity: 0.55; transform: scale(1); }
+          50%      { opacity: 1;    transform: scale(1.035); }
+        }
       `}} />
 
-      <div style={{ minHeight:"100vh", color:"#f2f2f7", fontFamily:"system-ui,-apple-system,sans-serif", background:"linear-gradient(160deg,#09090b 0%,#141416 100%)", paddingBottom: vp.isMobile ? 82 : 0 }}>
+      <div style={{ minHeight:"100vh", color:"#f2f2f7", fontFamily:"system-ui,-apple-system,sans-serif", background:"linear-gradient(160deg,#09090b 0%,#0d0d1a 50%,#09090b 100%)", paddingBottom: vp.isMobile ? 82 : 0 }}>
 
         {/* Header */}
-        <header style={{ position:"sticky", top:0, zIndex:100, background:"rgba(9,9,11,0.88)", backdropFilter:"blur(16px)", borderBottom:`1px solid rgba(255,255,255,0.08)`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10 }}>
+        <header style={{ position:"sticky", top:0, zIndex:100, background:"rgba(9,9,11,0.88)", backdropFilter:"blur(20px)", borderBottom:`1px solid rgba(255,110,180,0.18)`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <h1 style={{ fontSize:20, fontWeight:700, color:"#f2f2f7", margin:0, letterSpacing:"-0.3px" }}>Luminary Panels</h1>
+            <h1 style={{ fontSize:20, fontWeight:800, background:"linear-gradient(90deg,#ff6eb4,#ffb3d9,#ffd6ec)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ borderLeft:"1px solid rgba(255,255,255,0.1)", height:20, margin:"0 6px" }} />
             <select value={layoutMode}
               onChange={e => { setLayoutMode(e.target.value); pushState(getLayoutDefaults(e.target.value, pillStyle)); }}
@@ -1316,7 +1407,21 @@ export default function LuminaryPanels() {
           )}
 
           <main style={{ flex:"2 1 400px", maxWidth: vp.isMobile ? "100%" : 660, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
-            <div style={{ background: cardBg, borderRadius:24, padding: vp.isMobile ? "20px 14px" : "28px 20px", width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:20, border:`1px solid ${cardBorder}`, boxShadow: cardShadow }}>
+            {/* Sticky preview on mobile */}
+            <div style={{
+              background: cardBg, borderRadius:24,
+              padding: vp.isMobile ? "16px 14px" : "28px 20px",
+              width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:20,
+              border:`1px solid ${cardBorder}`, boxShadow: cardShadow,
+              ...(vp.isMobile ? {
+                position:"sticky", top:56, zIndex:50,
+                borderRadius:"0 0 24px 24px",
+                background:"rgba(9,9,11,0.92)",
+                backdropFilter:"blur(20px)",
+                borderTop:"none",
+                paddingTop:12,
+              } : {}),
+            }}>
               {canvasBlock}
             </div>
           </main>
@@ -1351,9 +1456,9 @@ export default function LuminaryPanels() {
             ].map(t => (
               <button key={t.id} onClick={() => setMobileTab(t.id)}
                 style={{
-                  flex:1, background: mobileTab === t.id ? "rgba(10,132,255,0.15)" : "transparent",
+                  flex:1, background: mobileTab === t.id ? "rgba(255,110,180,0.15)" : "transparent",
                   color: mobileTab === t.id ? accent : textDim,
-                  border: mobileTab === t.id ? `1px solid rgba(10,132,255,0.3)` : "1px solid transparent",
+                  border: mobileTab === t.id ? `1px solid rgba(255,110,180,0.25)` : "1px solid transparent",
                   borderRadius:12, padding:"8px 4px",
                   display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer",
                   transition:"all 0.15s",
