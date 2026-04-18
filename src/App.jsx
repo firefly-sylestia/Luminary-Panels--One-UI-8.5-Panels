@@ -64,6 +64,8 @@ const TEXTURES = [
   { id: "grain", label: "Fine Grain", css: "grain" },
   { id: "brushed", label: "Brushed Metal", css: "brushed" },
   { id: "velvet", label: "Soft Velvet", css: "velvet" },
+  { id: "mesh", label: "Mesh", css: "mesh" },
+  { id: "soft", label: "Soft Noise", css: "soft" },
 ];
 
 const EMOJIS = ["✨","🌸","🦋","💎","🎀","💫","🦇","🌙","🔪","🩸"];
@@ -860,6 +862,24 @@ export default function LuminaryPanels() {
           pct.fillRect(0, 0, 80, 80);
           pct.fillStyle = "rgba(255,255,255,0.04)";
           for (let i = 0; i < 70; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 1.2, 1.2);
+        } else if (texture.css === "mesh") {
+          pct.strokeStyle = "rgba(255,255,255,0.07)";
+          pct.lineWidth = 0.8;
+          for (let g = 0; g < 80; g += 10) {
+            pct.beginPath(); pct.moveTo(g, 0); pct.lineTo(g, 80); pct.stroke();
+            pct.beginPath(); pct.moveTo(0, g); pct.lineTo(80, g); pct.stroke();
+          }
+        } else if (texture.css === "soft") {
+          pct.fillStyle = "rgba(255,255,255,0.03)";
+          pct.fillRect(0, 0, 80, 80);
+          for (let i = 0; i < 4; i++) {
+            const x = Math.random() * 80, y = Math.random() * 80;
+            const gr = pct.createRadialGradient(x, y, 3, x, y, 22);
+            gr.addColorStop(0, "rgba(255,255,255,0.10)");
+            gr.addColorStop(1, "rgba(255,255,255,0)");
+            pct.fillStyle = gr;
+            pct.fillRect(0, 0, 80, 80);
+          }
         }
         const pattern = ctx.createPattern(p, "repeat");
         if (pattern) {
