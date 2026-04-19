@@ -173,6 +173,12 @@ async function saveProjectToLumNative(data) {
     recursive: true,
   });
   const fileResult = await Filesystem.getUri({ path: savePath, directory: Directory.Data });
+  await Filesystem.writeFile({
+    path: fileName,
+    data: base64,
+    directory: Directory.Documents,
+  });
+  const fileResult = await Filesystem.getUri({ path: fileName, directory: Directory.Documents });
   await Share.share({
     title: "Luminary Project",
     text: "Saved Luminary project file",
@@ -2267,7 +2273,10 @@ function Sep({ cardBorder }) {
 
 function ColorField({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#0891b2","#0284c7","#0d47a1","#111827","#f8fafc","#e0f2fe","#ccfbf1"];
+  const wheelRef = useRef(null);
+  const overlayRef = useRef(null);
+
+  const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#0891b2","#0284c7","#0d47a1","#000000","#ffffff","#e0f2fe","#ccfbf1"];
 
   const normalizeHex = useCallback((raw) => {
     if (!raw || typeof raw !== "string") return "#ffffff";
@@ -2285,23 +2294,79 @@ function ColorField({ value, onChange }) {
     return "#ffffff";
   }, []);
 
+  const hsvToHex = (h, s, v) => {
+    const f = (n, k = (n + h / 60) % 6) => v - (v * s) * Math.max(Math.min(k, 4 - k, 1), 0);
+    const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
+    return `#${toHex(f(5))}${toHex(f(3))}${toHex(f(1))}`;
+  };
+
+  const [cursorPos, setCursorPos] = useState({ x: 110, y: 110 });
+
+  const hexToHsv = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const d = max - min;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    const rgb = trimmed.match(/^rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})/i);
+    if (rgb) {
+      const clamp = (n) => Math.max(0, Math.min(255, Number(n) || 0));
+      const toHex = (n) => clamp(n).toString(16).padStart(2, "0");
+      return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
+    }
+    return "#ffffff";
+  }, []);
+
   const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
   const [hexInput, setHexInput] = useState(safeHex);
 
+  const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
+
   useEffect(() => {
-    setHexInput(safeHex);
-  }, [safeHex]);
+    if (open) {
+      const hsv = hexToHsv(safeHex);
+      const ang = (hsv.h * Math.PI) / 180;
+      const distance = Math.min(hsv.s * 110, 110);
+      const x = 110 + Math.cos(ang) * distance;
+      const y = 110 + Math.sin(ang) * distance;
+      setCursorPos({ x, y });
+    }
+  }, [open, safeHex]);
+
+  const setHueFromPoint = (clientX, clientY) => {
+    const rect = wheelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const ang = Math.atan2(clientY - cy, clientX - cx);
+    const hue = ((ang * 180) / Math.PI + 360) % 360;
+    const rad = Math.hypot(clientX - cx, clientY - cy);
+    const radius = rect.width / 2;
+    const saturation = Math.min(rad / radius, 1);
+    const x = 110 + Math.cos(ang) * (saturation * 110);
+    const y = 110 + Math.sin(ang) * (saturation * 110);
+    setCursorPos({ x, y });
+    onChange(hsvToHex(hue, saturation, 1));
+  };
 
   return (
     <div style={{ position: "relative" }}>
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
         style={{
-          width: "100%", height: 44, borderRadius: 12,
-          border: "1px solid rgba(255,255,255,0.18)",
+          width: "100%", height: 44, borderRadius: 999,
+          border: "2px solid rgba(255,255,255,0.18)",
           background: safeHex, cursor: "pointer",
-          boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.2), 0 2px 8px ${safeHex}44`,
-          transition: "all 0.2s",
+          boxShadow: `0 2px 12px ${safeHex}55`,
+          transition: "box-shadow 0.2s",
         }}
       />
       {open && (
@@ -2354,6 +2419,44 @@ function ColorField({ value, onChange }) {
               >
                 Set
               </button>
+              {/* Cursor indicator */}
+              <div style={{
+                position: "absolute",
+                width: 16, height: 16,
+                border: "3px solid white",
+                borderRadius: "50%",
+                left: cursorPos.x - 8,
+                top: cursorPos.y - 8,
+                boxShadow: "0 0 0 1px rgba(0,0,0,0.5)",
+                pointerEvents: "none",
+              }} />
+            </div>
+
+            {/* Current color + exact hex picker */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: safeHex, border: "2px solid rgba(255,255,255,0.18)", flexShrink: 0, boxShadow: `0 4px 16px ${safeHex}88` }} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 0, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600 }}>Exact Colour</p>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    type="color" value={safeHex}
+                    onChange={e => onChange(e.target.value)}
+                    style={{ width: 44, height: 44, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, background: "rgba(255,255,255,0.06)", cursor: "pointer", padding: 2 }}
+                  />
+                  <input
+                    type="text" value={safeHex} readOnly
+                    style={{ flex: 1, height: 44, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, color: "#fff", padding: "0 12px", fontFamily: "monospace", textTransform: "uppercase", cursor: "pointer" }}
+                    onClick={() => { navigator.clipboard.writeText(safeHex); }}
+                    title="Click to copy"
+                  />
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(safeHex); alert("Copied!"); }}
+                    style={{ height: 44, padding: "0 12px", background: "rgba(79,179,217,0.15)", border: "1px solid rgba(79,179,217,0.3)", borderRadius: 10, color: "#4fb3d9", cursor: "pointer", fontWeight: 600, fontSize: 12 }}
+                  >
+                    📋
+                  </button>
+                </div>
+              </div>
             </div>
 
             <p style={{ color: "rgba(148,163,184,0.8)", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700, marginBottom: 10 }}>
@@ -2368,6 +2471,8 @@ function ColorField({ value, onChange }) {
                     height: 38, borderRadius: 10, background: c,
                     border: safeHex === c ? "2px solid #f8fafc" : "1px solid rgba(148,163,184,0.35)",
                     cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 6px ${c}44`,
+                    height: 44, borderRadius: 12, background: c, border: safeHex === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.12)",
+                    cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 8px ${c}66`,
                   }}
                 />
               ))}
