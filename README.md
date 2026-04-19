@@ -1,16 +1,70 @@
-# React + Vite
+# ✨ Luminary Panels
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, aesthetic UI panel generator designed to create beautiful pill-style components, avatars, and stylized layouts with ease.
 
-Currently, two official plugins are available:
+Built for creators who care about **visual elegance, customization, and clean design systems**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 🌙 Overview
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Luminary Panels is a design tool that allows users to generate visually rich UI elements such as:
 
-## Expanding the ESLint configuration
+- Pill-style banners
+- Circular avatar panels
+- Stylized cards and layouts
+- Glassmorphism-inspired UI components
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The app focuses on combining **simplicity + aesthetic control**, making it easy to create polished visuals without complex design tools.
+
+---
+
+## ✨ Features
+
+- 🎨 Multiple styles  
+  - Glass  
+  - Cute  
+  - Material  
+
+- 🧩 Component Types  
+  - Standard Pill  
+  - Quick Pill  
+  - Circle Toggle  
+  - Vertical Card  
+  - Square Post  
+
+- 🖼️ Image Integration  
+  - Avatar cropping  
+  - Background blending  
+  - Soft blur effects  
+
+- 🔤 Typography Controls  
+  - Custom text input  
+  - Google Fonts support  
+  - Multiple font styles  
+
+- 📐 Layout Customization  
+  - Width & height control  
+  - Corner radius adjustment  
+  - Precise geometry tuning  
+
+- ✨ Overlays & Decorations  
+  - Emojis and icons  
+  - Visual embellishments  
+
+- ⚡ Utility Actions  
+  - Undo / Redo  
+  - Reset  
+  - Save & Share  
+
+---
+
+## 🧠 Design Philosophy
+
+Luminary Panels is built on three core ideas:
+
+- **Elegance over clutter**  
+- **Control without complexity**  
+- **Aesthetic consistency**
+
+Every element is designed to feel smooth, modern, and visually balanced.
