@@ -32,6 +32,9 @@ const BORDERS = [
   { id: "ribbon",  label: "Ribbon",  icon: "🎗️" },
   { id: "crystal", label: "Crystal", icon: "💎" },
   { id: "emoji",   label: "Emoji",   icon: "🤩" },
+  { id: "petal-crown", label: "Petal Crown", icon: "🌺" },
+  { id: "ornate-lace", label: "Ornate Lace", icon: "🪷" },
+  { id: "heart-gem", label: "Heart Gem", icon: "💗" },
 ];
 
 const BLEND_MODES = [
@@ -40,7 +43,7 @@ const BLEND_MODES = [
 ];
 
 const LAYOUTS = {
-  "Standard Pill": { w: 600, h: 200, r: 100,  cx: 0, cy: 0,  showAv: true  },
+  "Standard Pill": { w: 660, h: 220, r: 110,  cx: 0, cy: 0,  showAv: true  },
   "Vertical Card": { w: 300, h: 500, r: 24,  cx: 0, cy: -120, showAv: false },
   "Square Post":   { w: 500, h: 500, r: 0,   cx: 0, cy: -50,  showAv: false },
   "Circle Toggle": { w: 160, h: 160, r: 80,  cx: 0, cy: 0,  showAv: true  },
@@ -51,10 +54,10 @@ const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
 const UI_COLOR_PRESETS = [
-  { id: "aurora", label: "Aurora", uiAccent: "#74f2ff", uiBg: "linear-gradient(155deg,#03091c 0%,#0a1f46 38%,#31136a 100%)", uiText: "#e8f7ff" },
+  { id: "aurora", label: "Aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" },
   { id: "ios-26-liquid-gold", label: "Liquid Gold", uiAccent: "#ffd37a", uiBg: "linear-gradient(150deg,#130f0a 0%,#2b1f0d 40%,#3a1642 100%)", uiText: "#fff7e8" },
   { id: "ios-26-ultraviolet", label: "Ultraviolet", uiAccent: "#9a86ff", uiBg: "linear-gradient(145deg,#070612 0%,#1b1146 46%,#0f3a5e 100%)", uiText: "#f0edff" },
-  { id: "ios-26-arctic", label: "Arctic Glass", uiAccent: "#5ad0ff", uiBg: "linear-gradient(155deg,#08121f 0%,#12344f 45%,#193f66 100%)", uiText: "#ecfbff" },
+  { id: "ios-26-arctic", label: "Arctic Glass", uiAccent: "#8ad9ff", uiBg: "linear-gradient(160deg,#071521 0%,#0b2f47 48%,#7cc7ef 100%)", uiText: "#f3fdff" },
   { id: "rose-luxe", label: "Rose Luxe", uiAccent: "#ff7eb6", uiBg: "linear-gradient(145deg,#1a0c1a 0%,#412241 46%,#873c70 100%)", uiText: "#ffeef8" },
   { id: "mint-pop", label: "Mint Pop", uiAccent: "#63ffd7", uiBg: "linear-gradient(145deg,#081913 0%,#0d3a32 52%,#1d5f78 100%)", uiText: "#e9fff8" },
   { id: "sunset-fizz", label: "Sunset Fizz", uiAccent: "#ff9f6b", uiBg: "linear-gradient(145deg,#1d0e11 0%,#4d2034 44%,#7a3e2e 100%)", uiText: "#fff3ea" },
@@ -77,6 +80,7 @@ const DEFAULT_SETTINGS = {
   statusBarBoost: 18,
   uiGlassSaturation: 126,
   animationSmoothness: 100,
+  animationSpeed: 100,
   uiPreset: "aurora",
   lightBg: "linear-gradient(160deg,#fff8fb 0%,#f4f9ff 35%,#eff4ff 62%,#f7f0ff 100%)",
   lightText: "#253247",
@@ -112,6 +116,11 @@ const TEXTURES = [
   { id: "velvet",  label: "Soft Velvet",  css: "velvet" },
   { id: "mesh",    label: "Mesh",         css: "mesh" },
   { id: "soft",    label: "Soft Noise",   css: "soft" },
+  { id: "silk",    label: "Silk Flow",    css: "silk" },
+  { id: "marble",  label: "Rose Marble",  css: "marble" },
+  { id: "holo",    label: "Holo Prism",   css: "holo" },
+  { id: "glitter", label: "Diamond Dust", css: "glitter" },
+  { id: "bokeh",   label: "Dream Bokeh",  css: "bokeh" },
 ];
 
 const EMOJIS = ["✨","🌸","🦋","💎","🎀","💫","🦇","🌙","🔪","🩸"];
@@ -147,6 +156,47 @@ function roundedRectPath(ctx, x, y, w, h, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+function avatarClipPath(ctx, cx, cy, r, shape = "circle") {
+  ctx.beginPath();
+  if (shape === "hexagon") {
+    for (let i = 0; i < 6; i++) {
+      const a = ((Math.PI * 2) / 6) * i - Math.PI / 2;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+  } else if (shape === "diamond") {
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx + r, cy);
+    ctx.lineTo(cx, cy + r);
+    ctx.lineTo(cx - r, cy);
+    ctx.closePath();
+  } else if (shape === "squircle") {
+    const rr = r * 0.48;
+    roundedRectPath(ctx, cx - r, cy - r, r * 2, r * 2, rr);
+  } else if (shape === "lightning") {
+    ctx.moveTo(cx - r * 0.2, cy - r);
+    ctx.lineTo(cx + r * 0.08, cy - r * 0.24);
+    ctx.lineTo(cx - r * 0.5, cy - r * 0.2);
+    ctx.lineTo(cx + r * 0.06, cy + r);
+    ctx.lineTo(cx - r * 0.04, cy + r * 0.28);
+    ctx.lineTo(cx + r * 0.52, cy + r * 0.22);
+    ctx.closePath();
+  } else if (shape === "flower") {
+    for (let i = 0; i < 8; i++) {
+      const a = ((Math.PI * 2) / 8) * i;
+      const px = cx + Math.cos(a) * r * 0.52;
+      const py = cy + Math.sin(a) * r * 0.52;
+      ctx.moveTo(cx, cy);
+      ctx.arc(px, py, r * 0.48, a - Math.PI / 2.8, a + Math.PI / 2.8);
+    }
+    ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
+  } else {
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  }
 }
 
 function hexToRgba(hex, alpha) {
@@ -190,6 +240,9 @@ const getBorderControls = (id) => {
     case "crystal": return { p1:"Count",        min1:10, max1:50, p2:null };
     case "lace":    return { p1:"Knot Density", min1:10, max1:40, p2:null };
     case "emoji":   return { p1:"Count",        min1:4,  max1:60, p2:"Jitter", min2:0, max2:100, hasText:true };
+    case "petal-crown": return { p1:"Petal Count", min1:8, max1:42, p2:"Bloom", min2:2, max2:20 };
+    case "ornate-lace": return { p1:"Loops", min1:12, max1:60, p2:"Depth", min2:2, max2:20 };
+    case "heart-gem": return { p1:"Gem Count", min1:8, max1:36, p2:"Sparkle", min2:1, max2:20 };
     default:        return { p1:null, p2:null };
   }
 };
@@ -259,6 +312,46 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
   const scale = Math.max(0.5, thickness / 3);
   ctx.strokeStyle = color;
   ctx.lineCap = "round";
+  ctx.fillStyle = color;
+
+  if (styleId === "petal-crown" || styleId === "ornate-lace" || styleId === "heart-gem") {
+    const count = Math.max(6, Math.round(p1 || 18));
+    const depth = Math.max(1, Number(p2 || 8));
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      const x = cx + Math.cos(a) * (R + thickness * 0.9);
+      const y = cy + Math.sin(a) * (R + thickness * 0.9);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(a);
+      if (styleId === "petal-crown") {
+        ctx.globalAlpha = 0.78;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, thickness * 0.6, thickness * (0.95 + depth * 0.03), 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (styleId === "ornate-lace") {
+        ctx.globalAlpha = 0.62;
+        ctx.lineWidth = Math.max(1, thickness * 0.28);
+        ctx.beginPath();
+        ctx.arc(0, 0, thickness * (0.72 + (depth * 0.015)), 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.globalAlpha = 0.92;
+        ctx.font = `${Math.max(12, thickness * (2.1 + depth * 0.03))}px serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(i % 3 === 0 ? "💎" : "❤", 0, 0);
+      }
+      ctx.restore();
+    }
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = Math.max(1, thickness * 0.42);
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + thickness * 0.36, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
 
   if (styleId === "floral") {
     const n = Math.floor(p1);
@@ -400,16 +493,20 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
 // ── Default State Factory ─────────────────────────────────────────────────────
 const getLayoutDefaults = (layoutName, theme = "glass") => {
   let def = {
-    pillW: 600, pillH: 200, pillR: 100, circX: 0, circY: 0, textX: 0, textY: 0,
+    pillW: 660, pillH: 220, pillR: 110, circX: 0, circY: 0, textX: 0, textY: 0,
     mainText: "Quick Panel", subText: "Ultra HD Component", fontSize: 42,
     bgStretch: true, bgScale: 100, bgImgX: 0, bgImgY: 0, bgBlur: 0, bgBlend: "source-over",
+    bgBrightness: 100, bgSaturation: 100, bgContrast: 100,
     pillBorderWidth: 0, pillBorderClr: "#ffffff",
     avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "🌸✨🦋",
-    circScale: 100, avScale: 100, avImgX: 0, avImgY: 0,
+    circScale: 100, avScale: 100, avImgX: 0, avImgY: 0, avShape: "circle",
+    avBrightness: 100, avSaturation: 100, avContrast: 100,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
     textureId: "none", textureOpacity: 65,
+    textureTint: "#ffd8ef",
     pillBottomBlur: 0,
-    pillBgAlpha: 100, avBgAlpha: 100, textAlpha: 100, glowAlpha: 100, edgeAlpha: 100,
+    pillBgAlpha: 100, avBgAlpha: 100, textAlpha: 100, subTextAlpha: 100, glowAlpha: 100, edgeAlpha: 100,
+    subTextClr: "", subTextX: 0, subTextY: 0,
   };
 
   if (theme === "cute") {
@@ -432,11 +529,11 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
 // ─────────────────────────────────────────────────────────────────────────────
 // CropModal — manual crop with draggable rectangular crop region
 // ─────────────────────────────────────────────────────────────────────────────
-function CropModal({ src, onConfirm, onCancel }) {
+function CropModal({ src, onConfirm, onCancel, theme }) {
   const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
-  const [crop, setCrop] = useState({ x: 0, y: 0, w: 180, h: 180 });
-  const [ratio, setRatio] = useState("free");
+  const [crop, setCrop] = useState({ x: 0, y: 0, w: 220, h: 220 });
+  const [ratio, setRatio] = useState("1:3");
   const [customRatio, setCustomRatio] = useState("16:9");
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
@@ -460,8 +557,9 @@ function CropModal({ src, onConfirm, onCancel }) {
     const scale = Math.min(MAX_W / img.naturalWidth, MAX_H / img.naturalHeight, 1);
     const dw = Math.round(img.naturalWidth  * scale);
     const dh = Math.round(img.naturalHeight * scale);
-    const initW = Math.round(dw * 0.62);
-    const initH = Math.round(dh * 0.62);
+    const initRatio = 1 / 3;
+    const initH = Math.max(80, Math.round(dh * 0.84));
+    const initW = Math.max(56, Math.min(Math.round(initH * initRatio), Math.round(dw * 0.9)));
     setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
     setImgDisplay({ w: dw, h: dh });
     setCrop({ x: Math.round((dw - initW) / 2), y: Math.round((dh - initH) / 2), w: initW, h: initH });
@@ -473,6 +571,7 @@ function CropModal({ src, onConfirm, onCancel }) {
     if (ratio === "4:5") return 4 / 5;
     if (ratio === "16:9") return 16 / 9;
     if (ratio === "9:16") return 9 / 16;
+    if (ratio === "1:3") return 1 / 3;
     const parts = customRatio.split(":").map(Number);
     if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) return parts[0] / parts[1];
     return null;
@@ -512,6 +611,23 @@ function CropModal({ src, onConfirm, onCancel }) {
 
   const handlePointerUp = () => { dragRef.current = null; };
 
+  useEffect(() => {
+    if (!imgDisplay.w || !imgDisplay.h) return;
+    const ratioValue = parseRatio();
+    if (!ratioValue) return;
+    setCrop(prev => {
+      let nextW = Math.min(prev.w, imgDisplay.w);
+      let nextH = Math.round(nextW / ratioValue);
+      if (nextH > imgDisplay.h) {
+        nextH = imgDisplay.h;
+        nextW = Math.round(nextH * ratioValue);
+      }
+      const x = clamp(prev.x, 0, imgDisplay.w - nextW);
+      const y = clamp(prev.y, 0, imgDisplay.h - nextH);
+      return { x, y, w: Math.max(40, nextW), h: Math.max(40, nextH) };
+    });
+  }, [ratio, customRatio, imgDisplay.w, imgDisplay.h, parseRatio]);
+
   const confirmCrop = () => {
     if (!imgDisplay.w) return;
     const scX = imgNatural.w / imgDisplay.w;
@@ -547,27 +663,28 @@ function CropModal({ src, onConfirm, onCancel }) {
       alignItems:"center", justifyContent:"center", padding:16,
     }}>
       <div style={{
-        background:"#1c1c1e", borderRadius:20, padding:20,
+        background:theme?.cardBg || "#1c1c1e", borderRadius:20, padding:20,
         width:"100%", maxWidth:480,
         display:"flex", flexDirection:"column", gap:14,
-        boxShadow:"0 24px 64px rgba(0,0,0,0.6)",
+        boxShadow:theme?.cardShadow || "0 24px 64px rgba(0,0,0,0.6)",
+        border:`1px solid ${theme?.cardBorder || "rgba(255,255,255,0.14)"}`,
       }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <h3 style={{ color:"#fff", fontSize:18, fontWeight:700, margin:0 }}>Crop Avatar</h3>
+          <h3 style={{ color:theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>Crop Avatar</h3>
           <button onClick={onCancel} style={{
             background:"rgba(255,255,255,0.1)", border:"none",
-            color:"#fff", borderRadius:"50%", width:32, height:32,
+            color:theme?.textPrimary || "#fff", borderRadius:"50%", width:32, height:32,
             fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
           }}>✕</button>
         </div>
-        <p style={{ color:"rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
+        <p style={{ color:theme?.textDim || "rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
           Freeform crop with custom ratio · Drag to move, handle to resize
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {["free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
+          {["1:3", "free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
             <button key={opt} onClick={() => setRatio(opt)} style={{
               padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)",
-              background: ratio === opt ? "#0a84ff" : "rgba(255,255,255,0.08)", color: "#fff", cursor: "pointer",
+              background: ratio === opt ? (theme?.accent || "#0a84ff") : "rgba(255,255,255,0.08)", color: theme?.textPrimary || "#fff", cursor: "pointer",
             }}>{opt}</button>
           ))}
           {ratio === "custom" && (
@@ -587,12 +704,13 @@ function CropModal({ src, onConfirm, onCancel }) {
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
-          <img
-            src={src}
-            onLoad={onImgLoad}
-            draggable={false}
-            style={{ display:"block", width: imgDisplay.w || "auto", height: imgDisplay.h || "auto", maxWidth:"100%", pointerEvents:"none" }}
-          />
+          <div style={{ position:"relative", width:imgDisplay.w || "auto", height:imgDisplay.h || "auto", maxWidth:"100%" }}>
+            <img
+              src={src}
+              onLoad={onImgLoad}
+              draggable={false}
+              style={{ display:"block", width: imgDisplay.w || "auto", height: imgDisplay.h || "auto", maxWidth:"100%", pointerEvents:"none" }}
+            />
           {imgDisplay.w > 0 && (
             <>
               <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
@@ -607,7 +725,7 @@ function CropModal({ src, onConfirm, onCancel }) {
                   position:"absolute",
                   left: crop.x, top: crop.y,
                   width: crop.w, height: crop.h,
-                  border:"2.5px solid #0a84ff",
+                  border:`2.5px solid ${theme?.accent || "#0a84ff"}`,
                   borderRadius:"10px",
                   cursor:"move",
                   touchAction:"none",
@@ -622,7 +740,7 @@ function CropModal({ src, onConfirm, onCancel }) {
                   style={{
                     position:"absolute", bottom:-10, right:-10,
                     width:22, height:22,
-                    background:"#0a84ff", borderRadius:"50%",
+                    background:theme?.accent || "#0a84ff", borderRadius:"50%",
                     cursor:"nwse-resize", touchAction:"none",
                     border:"2px solid #fff",
                     display:"flex", alignItems:"center", justifyContent:"center",
@@ -633,20 +751,21 @@ function CropModal({ src, onConfirm, onCancel }) {
               </div>
             </>
           )}
+          </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1 }}>
-            <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Zoom {zoom}%</label>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11 }}>Zoom {zoom}%</label>
             <input type="range" step="1" min={50} max={180} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Rotate {rotation}°</label>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11 }}>Rotate {rotation}°</label>
             <input type="range" step="1" min={-180} max={180} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
           </div>
         </div>
         {imgDisplay.w > 0 && (
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Live Preview</label>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11 }}>Live Preview</label>
             <div style={{ width:"100%", height:140, borderRadius:12, overflow:"hidden", border:"1px solid rgba(255,255,255,0.2)", background:"#060607" }}>
               <img
                 src={src}
@@ -667,7 +786,7 @@ function CropModal({ src, onConfirm, onCancel }) {
         )}
 
         {imgDisplay.w > 0 && (
-          <p style={{ color:"rgba(255,255,255,0.35)", fontSize:11, textAlign:"center", margin:0 }}>
+          <p style={{ color:theme?.textDim || "rgba(255,255,255,0.35)", fontSize:11, textAlign:"center", margin:0 }}>
             Crop: {Math.round(crop.w)}×{Math.round(crop.h)}px display
             {" · "}
             Output: ~{Math.round(crop.w * (imgNatural.w / imgDisplay.w))}×{Math.round(crop.h * (imgNatural.h / imgDisplay.h))}px
@@ -677,11 +796,11 @@ function CropModal({ src, onConfirm, onCancel }) {
         <div style={{ display:"flex", gap:10 }}>
           <button onClick={onCancel} style={{
             flex:1, padding:"13px", background:"rgba(255,255,255,0.08)",
-            border:"none", borderRadius:12, color:"#fff",
+            border:"none", borderRadius:12, color:theme?.textPrimary || "#fff",
             fontSize:15, fontWeight:600, cursor:"pointer",
           }}>Cancel</button>
           <button onClick={confirmCrop} style={{
-            flex:2, padding:"13px", background:"#0a84ff",
+            flex:2, padding:"13px", background:theme?.accent || "#0a84ff",
             border:"none", borderRadius:12, color:"#fff",
             fontSize:15, fontWeight:700, cursor:"pointer",
           }}>✓ Apply Crop</button>
@@ -809,6 +928,9 @@ export default function LuminaryPanels() {
   const [isSliding, setIsSliding] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(72);
   const [previewDockHeight, setPreviewDockHeight] = useState(340);
+  const settingsSheetStartYRef = useRef(0);
+  const [settingsSheetDragY, setSettingsSheetDragY] = useState(0);
+  const [settingsSheetClosing, setSettingsSheetClosing] = useState(false);
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
@@ -1220,7 +1342,13 @@ export default function LuminaryPanels() {
     ctx.fillRect(0, 0, W, H);
 
     if (bgImg) {
-      if (s.bgBlur > 0) ctx.filter = `blur(${s.bgBlur}px)`;
+      const bgFilters = [
+        `blur(${Math.max(0, s.bgBlur || 0)}px)`,
+        `brightness(${Math.max(40, Math.min(200, s.bgBrightness ?? 100))}%)`,
+        `saturate(${Math.max(0, Math.min(220, s.bgSaturation ?? 100))}%)`,
+        `contrast(${Math.max(40, Math.min(220, s.bgContrast ?? 100))}%)`,
+      ];
+      ctx.filter = bgFilters.join(" ");
       ctx.globalCompositeOperation = s.bgBlend;
       if (s.bgStretch) {
         ctx.drawImage(bgImg, 0, 0, W, H);
@@ -1236,48 +1364,110 @@ export default function LuminaryPanels() {
 
     if (s.textureId && s.textureId !== "none") {
       const texture = TEXTURES.find(t => t.id === s.textureId);
-      const textureKey = `${texture?.css || "none"}-${s.textureOpacity || 0}`;
+      const textureKey = `${texture?.css || "none"}-${s.textureOpacity || 0}-${s.textureTint || "none"}`;
       if (texture?.css) {
         let cachedPattern = texturePatternCacheRef.current.get(textureKey);
         if (!cachedPattern) {
           const p = document.createElement("canvas");
-          p.width = 80; p.height = 80;
+          p.width = 140; p.height = 140;
           const pct = p.getContext("2d");
+          const tint = s.textureTint || "#ffd8ef";
           pct.fillStyle = "rgba(0,0,0,0)";
-          pct.fillRect(0, 0, 80, 80);
+          pct.fillRect(0, 0, 140, 140);
           pct.globalAlpha = s.textureOpacity / 100;
 
           if (texture.css === "grain") {
-            pct.fillStyle = "#ffffff";
-            for (let i = 0; i < 420; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 1.4, 1.4);
+            pct.fillStyle = withAlpha(tint, 82);
+            for (let i = 0; i < 1300; i++) pct.fillRect(Math.random() * 140, Math.random() * 140, 1.2, 1.2);
           } else if (texture.css === "brushed") {
-            for (let y = 0; y < 80; y += 1.5) {
-              pct.fillStyle = `rgba(255,255,255,${0.08 + (y % 3 ? 0.05 : 0.12)})`;
-              pct.fillRect(0, y, 80, 2);
+            for (let y = 0; y < 140; y += 1.2) {
+              pct.fillStyle = y % 6 === 0 ? withAlpha(tint, 28) : withAlpha(tint, 12);
+              pct.fillRect(0, y, 140, 1.4);
             }
           } else if (texture.css === "velvet") {
-            const grd = pct.createRadialGradient(20, 20, 2, 20, 20, 60);
-            grd.addColorStop(0, "rgba(255,255,255,0.5)");
-            grd.addColorStop(1, "rgba(255,255,255,0)");
+            const grd = pct.createRadialGradient(28, 28, 4, 28, 28, 95);
+            grd.addColorStop(0, withAlpha(tint, 66));
+            grd.addColorStop(1, withAlpha(tint, 0));
             pct.fillStyle = grd;
-            pct.fillRect(0, 0, 80, 80);
+            pct.fillRect(0, 0, 140, 140);
           } else if (texture.css === "mesh") {
-            pct.strokeStyle = "rgba(255,255,255,0.25)";
+            pct.strokeStyle = withAlpha(tint, 26);
             pct.lineWidth = 1.2;
-            for (let g = 0; g < 80; g += 8) {
-              pct.beginPath(); pct.moveTo(g, 0); pct.lineTo(g, 80); pct.stroke();
-              pct.beginPath(); pct.moveTo(0, g); pct.lineTo(80, g); pct.stroke();
+            for (let g = 0; g < 140; g += 10) {
+              pct.beginPath(); pct.moveTo(g, 0); pct.lineTo(g, 140); pct.stroke();
+              pct.beginPath(); pct.moveTo(0, g); pct.lineTo(140, g); pct.stroke();
             }
           } else if (texture.css === "soft") {
-            pct.fillStyle = "rgba(255,255,255,0.05)";
-            pct.fillRect(0, 0, 80, 80);
-            for (let i = 0; i < 4; i++) {
-              const x = Math.random() * 80, y = Math.random() * 80;
-              const gr = pct.createRadialGradient(x, y, 2, x, y, 25);
-              gr.addColorStop(0, "rgba(255,255,255,0.14)");
-              gr.addColorStop(1, "rgba(255,255,255,0)");
+            pct.fillStyle = withAlpha(tint, 7);
+            pct.fillRect(0, 0, 140, 140);
+            for (let i = 0; i < 8; i++) {
+              const x = Math.random() * 140, y = Math.random() * 140;
+              const gr = pct.createRadialGradient(x, y, 2, x, y, 36);
+              gr.addColorStop(0, withAlpha(tint, 19));
+              gr.addColorStop(1, withAlpha(tint, 0));
               pct.fillStyle = gr;
-              pct.fillRect(0, 0, 80, 80);
+              pct.fillRect(0, 0, 140, 140);
+            }
+          } else if (texture.css === "silk") {
+            const grd = pct.createLinearGradient(0, 0, 140, 140);
+            grd.addColorStop(0, withAlpha(tint, 26));
+            grd.addColorStop(0.5, withAlpha("#ffffff", 10));
+            grd.addColorStop(1, withAlpha(tint, 34));
+            pct.fillStyle = grd;
+            pct.fillRect(0, 0, 140, 140);
+            for (let y = 0; y < 140; y += 5) {
+              pct.strokeStyle = withAlpha("#ffffff", y % 10 === 0 ? 14 : 7);
+              pct.beginPath();
+              pct.moveTo(0, y + Math.sin(y * 0.08) * 3);
+              pct.quadraticCurveTo(70, y - 4, 140, y + Math.cos(y * 0.07) * 3);
+              pct.stroke();
+            }
+          } else if (texture.css === "marble") {
+            pct.fillStyle = withAlpha(tint, 16);
+            pct.fillRect(0, 0, 140, 140);
+            for (let i = 0; i < 22; i++) {
+              pct.strokeStyle = withAlpha(i % 3 ? "#ffffff" : tint, 18);
+              pct.lineWidth = 1 + (i % 3) * 0.5;
+              const sy = Math.random() * 140;
+              pct.beginPath();
+              pct.moveTo(0, sy);
+              pct.bezierCurveTo(40, sy + Math.random() * 20 - 10, 95, sy + Math.random() * 16 - 8, 140, sy + Math.random() * 24 - 12);
+              pct.stroke();
+            }
+          } else if (texture.css === "holo") {
+            const grd = pct.createLinearGradient(0, 0, 140, 140);
+            grd.addColorStop(0, "rgba(255,110,255,0.24)");
+            grd.addColorStop(0.25, "rgba(120,255,255,0.2)");
+            grd.addColorStop(0.6, "rgba(255,235,130,0.18)");
+            grd.addColorStop(1, "rgba(160,170,255,0.22)");
+            pct.fillStyle = grd;
+            pct.fillRect(0, 0, 140, 140);
+            for (let i = -140; i < 280; i += 11) {
+              pct.strokeStyle = "rgba(255,255,255,0.1)";
+              pct.beginPath();
+              pct.moveTo(i, 0);
+              pct.lineTo(i + 80, 140);
+              pct.stroke();
+            }
+          } else if (texture.css === "glitter") {
+            for (let i = 0; i < 210; i++) {
+              const x = Math.random() * 140;
+              const y = Math.random() * 140;
+              pct.fillStyle = i % 4 === 0 ? withAlpha("#ffffff", 88) : withAlpha(tint, 72);
+              pct.fillRect(x, y, 1.8, 1.8);
+            }
+          } else if (texture.css === "bokeh") {
+            for (let i = 0; i < 24; i++) {
+              const x = Math.random() * 140;
+              const y = Math.random() * 140;
+              const r = 6 + Math.random() * 20;
+              const g = pct.createRadialGradient(x, y, 1, x, y, r);
+              g.addColorStop(0, withAlpha(i % 2 ? "#ffffff" : tint, 28));
+              g.addColorStop(1, withAlpha(tint, 0));
+              pct.fillStyle = g;
+              pct.beginPath();
+              pct.arc(x, y, r, 0, Math.PI * 2);
+              pct.fill();
             }
           }
           cachedPattern = ctx.createPattern(p, "repeat");
@@ -1311,7 +1501,8 @@ export default function LuminaryPanels() {
     // ── Avatar ──
     if (s.showAvatar) {
       ctx.save();
-      ctx.beginPath(); ctx.arc(avCX, avCY, geo.avR, 0, Math.PI*2); ctx.clip();
+      avatarClipPath(ctx, avCX, avCY, geo.avR, s.avShape || "circle");
+      ctx.clip();
       if (s.avBgColor && s.avBgColor !== "transparent") {
         ctx.fillStyle = withAlpha(s.avBgColor, s.avBgAlpha);
         ctx.fillRect(avCX - geo.avR, avCY - geo.avR, geo.avR*2, geo.avR*2);
@@ -1320,7 +1511,9 @@ export default function LuminaryPanels() {
         const d  = geo.avR * 2, ir = avImg.width / avImg.height;
         const dw = (ir >= 1 ? d * ir : d) * (s.avScale / 100);
         const dh = (ir >= 1 ? d : d / ir) * (s.avScale / 100);
+        ctx.filter = `brightness(${Math.max(40, Math.min(220, s.avBrightness ?? 100))}%) saturate(${Math.max(0, Math.min(220, s.avSaturation ?? 100))}%) contrast(${Math.max(40, Math.min(220, s.avContrast ?? 100))}%)`;
         ctx.drawImage(avImg, avCX - dw/2 + s.avImgX, avCY - dh/2 + s.avImgY, dw, dh);
+        ctx.filter = "none";
       }
       ctx.restore();
 
@@ -1339,8 +1532,9 @@ export default function LuminaryPanels() {
     ctx.fillText(s.mainText, tx, ty + yOff);
     if (s.subText) {
       ctx.font = `400 ${Math.round(s.fontSize * 0.55)}px ${s.font}`;
-      ctx.globalAlpha = 0.7;
-      ctx.fillText(s.subText, tx, ty + s.fontSize * 0.6);
+      ctx.globalAlpha = Math.max(0, Math.min(1, (s.subTextAlpha ?? 100) / 100));
+      ctx.fillStyle = withAlpha(s.subTextClr || s.textClr, 100);
+      ctx.fillText(s.subText, tx + (s.subTextX || 0), ty + s.fontSize * 0.6 + (s.subTextY || 0));
     }
     ctx.restore();
 
@@ -1383,8 +1577,28 @@ export default function LuminaryPanels() {
         ctx.setLineDash([]);
       }
     });
+
+    if (pillStyle === "cute") {
+      const blossom = ["🌸", "🌷", "✨", "🦋"];
+      const baseCount = Math.max(4, Math.round((W + H) / 220));
+      for (let i = 0; i < baseCount; i++) {
+        const edge = i % 2 === 0;
+        const x = edge ? ((i / baseCount) * W) : (W - (i / baseCount) * W);
+        const y = edge ? 20 + ((i * 17) % Math.max(60, H - 40)) : H - (20 + ((i * 19) % Math.max(60, H - 40)));
+        const symbol = blossom[i % blossom.length];
+        ctx.save();
+        ctx.globalAlpha = 0.17 + ((i % 4) * 0.05);
+        ctx.translate(x, y);
+        ctx.rotate(((i % 8) * 18 * Math.PI) / 180);
+        ctx.font = `${Math.max(14, Math.min(34, Math.round(H * 0.12) - ((i % 3) * 3)))}px serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(symbol, 0, 0);
+        ctx.restore();
+      }
+    }
     ctx.restore();
-  }, [s, bgImg, avImg, fontsOk, loadedImages, editMode, getBaseGeometry]);
+  }, [s, bgImg, avImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -1527,10 +1741,12 @@ export default function LuminaryPanels() {
   const statusBoost = Math.max(0, Math.min(40, settings.statusBarBoost ?? 18));
   const uiSaturation = Math.max(105, Math.min(180, settings.uiGlassSaturation ?? 126));
   const animationSmoothness = Math.max(50, Math.min(170, settings.animationSmoothness ?? 100));
+  const animationSpeed = Math.max(40, Math.min(220, settings.animationSpeed ?? 100));
   const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 24) : uiBlurPxRaw;
   const shouldAnimate = !settings.performanceMode && settings.motionIntensity > 0;
-  const pulseDuration = `${Math.max(1.25, (2.4 / Math.max(0.35, settings.motionIntensity || 1)) * (animationSmoothness / 100))}s`;
-  const uiTransition = `${Math.max(0.14, (0.24 * (animationSmoothness / 100)).toFixed(2))}s cubic-bezier(0.22, 1, 0.36, 1)`;
+  const speedFactor = 100 / animationSpeed;
+  const pulseDuration = `${Math.max(0.7, (2.4 / Math.max(0.35, settings.motionIntensity || 1)) * (animationSmoothness / 100) * speedFactor)}s`;
+  const uiTransition = `${Math.max(0.11, (0.24 * (animationSmoothness / 100) * speedFactor).toFixed(2))}s cubic-bezier(0.22, 1, 0.36, 1)`;
   const creamControl = "rgba(255,255,255,0.9)";
   const creamCard = "rgba(255,255,255,0.84)";
   const creamBorder = "rgba(87,125,171,0.3)";
@@ -1576,6 +1792,22 @@ export default function LuminaryPanels() {
     setMobileTab(next);
   };
 
+  const closeSettingsSheet = useCallback(() => {
+    setSettingsSheetClosing(true);
+    setSettingsSheetDragY(0);
+    window.setTimeout(() => {
+      setSettingsOpen(false);
+      setSettingsSheetClosing(false);
+    }, 220);
+  }, []);
+
+  useEffect(() => {
+    if (settingsOpen) {
+      setSettingsSheetClosing(false);
+      setSettingsSheetDragY(0);
+    }
+  }, [settingsOpen]);
+
   // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
@@ -1584,11 +1816,29 @@ export default function LuminaryPanels() {
           <input type="number" max={GEOMETRY_LIMITS.maxW} value={s.pillW}
             onChange={e => pushState({ pillW: Math.min(GEOMETRY_LIMITS.maxW, Math.max(1, +e.target.value || 1)) })}
             style={inputSt} />
+          <input
+            type="range"
+            step="1"
+            min={GEOMETRY_LIMITS.minW}
+            max={GEOMETRY_LIMITS.maxW}
+            value={s.pillW}
+            onChange={e => pushState({ pillW: +e.target.value })}
+            style={{ marginTop:8 }}
+          />
         </FRow>
         <FRow label={`Height — ${s.pillH}px`} textDim={textDim} onReset={() => pushState({ pillH: getLayoutDefaults(layoutMode, pillStyle).pillH })}>
           <input type="number" min={GEOMETRY_LIMITS.minH} max={GEOMETRY_LIMITS.maxH} value={s.pillH}
             onChange={e => pushState({ pillH: Math.max(GEOMETRY_LIMITS.minH, Math.min(GEOMETRY_LIMITS.maxH, +e.target.value)) })}
             style={inputSt} />
+          <input
+            type="range"
+            step="1"
+            min={GEOMETRY_LIMITS.minH}
+            max={GEOMETRY_LIMITS.maxH}
+            value={s.pillH}
+            onChange={e => pushState({ pillH: +e.target.value })}
+            style={{ marginTop:8 }}
+          />
         </FRow>
       </div>
       <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim} onReset={() => pushState({ pillR: getLayoutDefaults(layoutMode, pillStyle).pillR })}>
@@ -1641,6 +1891,17 @@ export default function LuminaryPanels() {
           </div>
         </FRow>
       </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <FRow label={`Brightness — ${s.bgBrightness ?? 100}%`} textDim={textDim} onReset={() => pushState({ bgBrightness: 100 })}>
+          <input type="range" step="1" min={40} max={220} value={s.bgBrightness ?? 100} onChange={e => pushState({ bgBrightness: +e.target.value })} />
+        </FRow>
+        <FRow label={`Saturation — ${s.bgSaturation ?? 100}%`} textDim={textDim} onReset={() => pushState({ bgSaturation: 100 })}>
+          <input type="range" step="1" min={0} max={220} value={s.bgSaturation ?? 100} onChange={e => pushState({ bgSaturation: +e.target.value })} />
+        </FRow>
+      </div>
+      <FRow label={`Contrast — ${s.bgContrast ?? 100}%`} textDim={textDim} onReset={() => pushState({ bgContrast: 100 })}>
+        <input type="range" step="1" min={40} max={220} value={s.bgContrast ?? 100} onChange={e => pushState({ bgContrast: +e.target.value })} />
+      </FRow>
       {!s.bgStretch && (
         <div style={{ display:"flex", gap:8 }}>
           <FRow label={`Img X (${s.bgImgX}px)`} textDim={textDim}>
@@ -1675,7 +1936,12 @@ export default function LuminaryPanels() {
                         : t.id === "brushed"  ? "repeating-linear-gradient(0deg,rgba(255,255,255,0.08) 0px,rgba(255,255,255,0.02) 2px,transparent 3px)"
                         : t.id === "velvet"   ? "radial-gradient(ellipse at 30% 30%,rgba(255,255,255,0.22),rgba(255,255,255,0.03))"
                         : t.id === "mesh"     ? "repeating-linear-gradient(0deg,transparent,transparent 8px,rgba(255,255,255,0.09) 9px),repeating-linear-gradient(90deg,transparent,transparent 8px,rgba(255,255,255,0.09) 9px)"
-                        : "radial-gradient(circle at 20% 20%,rgba(255,255,255,0.14),rgba(255,255,255,0.02))",
+                        : t.id === "soft"     ? "radial-gradient(circle at 20% 20%,rgba(255,255,255,0.14),rgba(255,255,255,0.02))"
+                        : t.id === "silk"     ? "linear-gradient(130deg,rgba(255,255,255,0.14),rgba(255,255,255,0.03),rgba(255,255,255,0.16))"
+                        : t.id === "marble"   ? "linear-gradient(160deg,rgba(255,235,244,0.2),rgba(255,255,255,0.05))"
+                        : t.id === "holo"     ? "linear-gradient(120deg,rgba(255,102,255,0.16),rgba(122,255,255,0.14),rgba(255,244,156,0.14),rgba(154,164,255,0.16))"
+                        : t.id === "glitter"  ? "radial-gradient(circle at 32% 40%,rgba(255,255,255,0.24),rgba(255,255,255,0.02))"
+                        : "radial-gradient(circle at 40% 42%,rgba(255,255,255,0.18),rgba(255,255,255,0.02))",
             };
             return (
               <button key={t.id} onClick={() => pushState({ textureId: t.id })}
@@ -1695,9 +1961,14 @@ export default function LuminaryPanels() {
         </div>
       </FRow>
       {s.textureId !== "none" && (
-        <FRow label={`Texture Opacity — ${s.textureOpacity}%`} textDim={textDim} onReset={() => pushState({ textureOpacity: 65 })}>
-          <input type="range" step="1" min={0} max={100} value={s.textureOpacity} onChange={e => pushState({ textureOpacity: +e.target.value })} />
-        </FRow>
+        <>
+          <FRow label={`Texture Opacity — ${s.textureOpacity}%`} textDim={textDim} onReset={() => pushState({ textureOpacity: 65 })}>
+            <input type="range" step="1" min={0} max={100} value={s.textureOpacity} onChange={e => pushState({ textureOpacity: +e.target.value })} />
+          </FRow>
+          <FRow label="Texture Tint Color" textDim={textDim} onReset={() => pushState({ textureTint: "#ffd8ef" })}>
+            <ColorField value={s.textureTint || "#ffd8ef"} onChange={v => pushState({ textureTint: v })} />
+          </FRow>
+        </>
       )}
       <FRow label={`Bottom Blur Glow — ${s.pillBottomBlur ?? 0}px`} textDim={textDim} onReset={() => pushState({ pillBottomBlur: 0 })}>
         <input type="range" step="1" min={0} max={40} value={s.pillBottomBlur ?? 0} onChange={e => pushState({ pillBottomBlur: +e.target.value })} />
@@ -1751,6 +2022,30 @@ export default function LuminaryPanels() {
               onAlphaChange={v => pushState({ avBgAlpha: v })}
               onChange={v => pushState({ avBgColor: v })} />
           </FRow>
+          <FRow label="Avatar Cutout Shape" textDim={textDim}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6 }}>
+              {[
+                { id:"circle", label:"Circle" },
+                { id:"squircle", label:"Squircle" },
+                { id:"hexagon", label:"Hexagon" },
+                { id:"diamond", label:"Diamond" },
+                { id:"lightning", label:"Lightning" },
+                { id:"flower", label:"Flower" },
+              ].map(shape => (
+                <button key={shape.id} onClick={() => pushState({ avShape: shape.id })}
+                  style={{
+                    ...outlineBtn,
+                    padding:"8px 4px",
+                    borderRadius:10,
+                    fontSize:11,
+                    background: (s.avShape || "circle") === shape.id ? `${accent}24` : controlBg,
+                    border: (s.avShape || "circle") === shape.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  }}>
+                  {shape.label}
+                </button>
+              ))}
+            </div>
+          </FRow>
           <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Circle Size — ${avDiamPx}px (${s.circScale}%)`} textDim={textDim} onReset={() => pushState({ circScale: 100 })}>
               <input type="range" step="1" min={20} max={150} value={s.circScale}
@@ -1781,6 +2076,17 @@ export default function LuminaryPanels() {
                 onChange={e => pushState({ avImgY: +e.target.value })} />
             </FRow>
           </div>
+          <div style={{ display:"flex", gap:8 }}>
+            <FRow label={`Brightness — ${s.avBrightness ?? 100}%`} textDim={textDim} onReset={() => pushState({ avBrightness: 100 })}>
+              <input type="range" step="1" min={40} max={220} value={s.avBrightness ?? 100} onChange={e => pushState({ avBrightness: +e.target.value })} />
+            </FRow>
+            <FRow label={`Saturation — ${s.avSaturation ?? 100}%`} textDim={textDim} onReset={() => pushState({ avSaturation: 100 })}>
+              <input type="range" step="1" min={0} max={220} value={s.avSaturation ?? 100} onChange={e => pushState({ avSaturation: +e.target.value })} />
+            </FRow>
+          </div>
+          <FRow label={`Contrast — ${s.avContrast ?? 100}%`} textDim={textDim} onReset={() => pushState({ avContrast: 100 })}>
+            <input type="range" step="1" min={40} max={220} value={s.avContrast ?? 100} onChange={e => pushState({ avContrast: +e.target.value })} />
+          </FRow>
         </>
       )}
     </Card>
@@ -1894,6 +2200,22 @@ export default function LuminaryPanels() {
             onChange={v => pushState({ glowClr: v })} />
         </FRow>
       </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <FRow label="Sub Text Color" textDim={textDim}>
+          <ColorField
+            value={s.subTextClr || s.textClr || "#ffffff"}
+            alpha={s.subTextAlpha ?? 100}
+            onAlphaChange={v => pushState({ subTextAlpha: v })}
+            onChange={v => pushState({ subTextClr: v })}
+          />
+        </FRow>
+        <FRow label={`Sub Pos X — ${Math.round(s.subTextX || 0)}px`} textDim={textDim} onReset={() => pushState({ subTextX: 0 })}>
+          <input type="range" step="1" min={-260} max={260} value={s.subTextX || 0} onChange={e => pushState({ subTextX: +e.target.value })} />
+        </FRow>
+      </div>
+      <FRow label={`Sub Pos Y — ${Math.round(s.subTextY || 0)}px`} textDim={textDim} onReset={() => pushState({ subTextY: 0 })}>
+        <input type="range" step="1" min={-260} max={260} value={s.subTextY || 0} onChange={e => pushState({ subTextY: +e.target.value })} />
+      </FRow>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Pos X — ${Math.round(s.textX)}px`} textDim={textDim} onReset={() => pushState({ textX: 0 })}>
           <input type="range" step="1" min={-400} max={400} value={s.textX}
@@ -2036,6 +2358,16 @@ export default function LuminaryPanels() {
           onChange={e => setUiSliderValue("animationSmoothness", e.target.value)}
         />
       </FRow>
+      <FRow label={`Animation Speed — ${animationSpeed}%`} textDim={textDim}>
+        <input
+          type="range"
+          step="1"
+          min={40}
+          max={220}
+          value={animationSpeed}
+          onChange={e => setUiSliderValue("animationSpeed", e.target.value)}
+        />
+      </FRow>
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
@@ -2114,6 +2446,16 @@ export default function LuminaryPanels() {
         <span style={{ color:textPrimary, fontSize:14 }}>Motion Effects</span>
         <input type="checkbox" checked={settings.motionIntensity > 0} onChange={e => setSettings(prev => ({ ...prev, motionIntensity: e.target.checked ? 1 : 0 }))} />
       </label>
+      <FRow label={`Motion Intensity — ${(settings.motionIntensity ?? 1).toFixed(2)}x`} textDim={textDim}>
+        <input
+          type="range"
+          step="0.05"
+          min={0}
+          max={2.5}
+          value={settings.motionIntensity ?? 1}
+          onChange={e => setUiSliderValue("motionIntensity", e.target.value)}
+        />
+      </FRow>
       <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Show Dimensions</span>
         <input type="checkbox" checked={settings.showDimensions !== false} onChange={e => setSettings(prev => ({ ...prev, showDimensions: e.target.checked }))} />
@@ -2261,7 +2603,7 @@ export default function LuminaryPanels() {
       <FRow label="Text Color" textDim={textDim}>
         <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} />
       </FRow>
-      <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#74f2ff", uiBg: "linear-gradient(155deg,#03091c 0%,#0a1f46 38%,#31136a 100%)", uiText: "#e8f7ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
+      <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>💡 Quick Tips</p>
       <div style={{ background: `rgba(45,212,191,0.08)`, border: `1px solid rgba(45,212,191,0.2)`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 11, color: textPrimary, lineHeight: 1.6 }}>
@@ -2341,7 +2683,7 @@ export default function LuminaryPanels() {
         ))}
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", borderRadius:30, padding:"4px 8px", marginTop:4, flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
+      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", borderRadius:30, padding:"4px 8px", marginTop:4, flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto", animation: shouldAnimate ? `softBob ${pulseDuration} ease-in-out infinite` : "none" }}>
         {settings.showScaleBadge && (
           <>
             <span style={{ fontSize:11, color:textDim, padding:"8px 12px", minWidth:102, textAlign:"center", fontWeight:500 }}>
@@ -2375,6 +2717,8 @@ export default function LuminaryPanels() {
         ::-webkit-scrollbar { width:5px; }
         ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#4fb3d9,#2dd4bf); border-radius:5px; }
         input,select,button { border-radius: 16px; }
+        button { transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), filter 180ms ease; }
+        button:active { transform: translateY(1px) scale(0.985); filter: brightness(1.08); }
         input[type=range] { -webkit-appearance:none; height:7px; border-radius:999px; background:rgba(79,179,217,0.15); width:100%; outline:none; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg,#4fb3d9,#2dd4bf); box-shadow:0 2px 8px rgba(79,179,217,0.5); cursor:pointer; }
         input[type=checkbox] { width:16px; height:16px; accent-color: #4fb3d9; cursor:pointer; }
@@ -2399,9 +2743,21 @@ export default function LuminaryPanels() {
           from { opacity: 0.15; transform: translateY(16px) scale(0.99); filter: blur(1px); }
           to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
         }
+        @keyframes softBob {
+          0%,100% { transform: translateY(0); }
+          50% { transform: translateY(-2px); }
+        }
+        @keyframes sheetEnter {
+          from { opacity: 0; transform: translateY(38px) scale(0.985); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes sheetExit {
+          from { opacity: 1; transform: translateY(0) scale(1); }
+          to { opacity: 0; transform: translateY(52px) scale(0.985); }
+        }
       `}} />
 
-      <div style={{ minHeight:"100dvh", color:textPrimary, fontFamily:"system-ui,-apple-system,sans-serif", background:pageBg, paddingBottom: vp.isMobile ? 110 : 0, paddingTop:"env(safe-area-inset-top)" }}>
+      <div style={{ minHeight:"100dvh", color:textPrimary, fontFamily:"system-ui,-apple-system,sans-serif", background:pageBg, paddingBottom: vp.isMobile ? 110 : 0, paddingTop:0 }}>
         {vp.isMobile && settings.hardBlurUI && (
           <div style={{
             position:"fixed",
@@ -2418,7 +2774,7 @@ export default function LuminaryPanels() {
         )}
 
         {/* Header */}
-        <header ref={headerRef} style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "linear-gradient(130deg, rgba(255,255,255,0.9), rgba(240,248,255,0.86))") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}ee`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation: shouldAnimate ? "headerGlow 4s ease-in-out infinite" : "none", transition:`background ${uiTransition}, border-color ${uiTransition}, backdrop-filter ${uiTransition}` }}>
+        <header ref={headerRef} style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "linear-gradient(130deg, rgba(255,255,255,0.9), rgba(240,248,255,0.86))") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}ee`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:`calc(max(env(safe-area-inset-top), 12px) + 4px) 12px 8px`, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation: shouldAnimate ? "headerGlow 4s ease-in-out infinite" : "none", transition:`background ${uiTransition}, border-color ${uiTransition}, backdrop-filter ${uiTransition}` }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <h1 style={{ fontSize:17, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
@@ -2441,7 +2797,7 @@ export default function LuminaryPanels() {
             </div>
           </div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            <button onClick={() => setSettingsOpen(v => !v)}
+            <button onClick={() => (settingsOpen ? closeSettingsSheet() : setSettingsOpen(true))}
               style={{ ...outlineBtn, flex:"none", padding:"6px 12px", fontSize:12 }}>Settings</button>
             <button onClick={undo} disabled={hIndex === 0}
               style={{ ...outlineBtn, flex:"none", padding:"6px 12px", opacity: hIndex === 0 ? 0.3 : 1, fontSize:12 }}>{ICONS.undo} Undo</button>
@@ -2557,8 +2913,38 @@ export default function LuminaryPanels() {
 
       {/* Settings bottom sheet */}
       {settingsOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1500, display: "flex", alignItems: "flex-end" }} onClick={() => setSettingsOpen(false)}>
-          <div style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", borderRadius: "22px 22px 0 0", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(14,14,20,0.97)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none", padding: "14px 12px 20px" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1500, display: "flex", alignItems: "flex-end" }} onClick={closeSettingsSheet}>
+          <div
+            style={{
+              width: "100%",
+              maxHeight: "82vh",
+              overflowY: "auto",
+              borderRadius: "22px 22px 0 0",
+              background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(14,14,20,0.97)",
+              backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
+              WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
+              padding: "14px 12px 20px",
+              transform: `translateY(${Math.max(0, settingsSheetDragY)}px)`,
+              animation: settingsSheetClosing ? "sheetExit 220ms ease forwards" : "sheetEnter 280ms cubic-bezier(0.22, 1, 0.36, 1)",
+              transition: settingsSheetDragY > 0 ? "none" : `transform ${uiTransition}`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={(e) => {
+              settingsSheetStartYRef.current = e.touches[0].clientY - settingsSheetDragY;
+            }}
+            onTouchMove={(e) => {
+              const dragY = e.touches[0].clientY - settingsSheetStartYRef.current;
+              setSettingsSheetDragY(Math.max(0, dragY));
+            }}
+            onTouchEnd={() => {
+              if (settingsSheetDragY > 120) {
+                closeSettingsSheet();
+              } else {
+                setSettingsSheetDragY(0);
+              }
+            }}
+          >
+            <div style={{ width:54, height:5, borderRadius:999, background:"rgba(255,255,255,0.3)", margin:"0 auto 10px" }} />
             {panelSettings}
           </div>
         </div>
@@ -2570,6 +2956,7 @@ export default function LuminaryPanels() {
           src={cropSrc}
           onConfirm={onCropConfirm}
           onCancel={() => setCropSrc(null)}
+          theme={{ accent, textPrimary, textDim, cardBg, cardBorder, cardShadow }}
         />
       )}
 
