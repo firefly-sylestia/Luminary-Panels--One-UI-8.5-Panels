@@ -40,10 +40,10 @@ const BLEND_MODES = [
 ];
 
 const LAYOUTS = {
-  "Standard Pill": { w: 600, h: 180, r: 90,  cx: 0, cy: 0,  showAv: true  },
+  "Standard Pill": { w: 600, h: 200, r: 100,  cx: 0, cy: 0,  showAv: true  },
   "Vertical Card": { w: 300, h: 500, r: 24,  cx: 0, cy: -120, showAv: false },
   "Square Post":   { w: 500, h: 500, r: 0,   cx: 0, cy: -50,  showAv: false },
-  "Quick Pill":    { w: 400, h: 130, r: 65,  cx: 0, cy: 0,  showAv: true  },
+  "Quick Pill":    { w: 390, h: 130, r: 65,  cx: 0, cy: 0,  showAv: true  },
   "Circle Toggle": { w: 160, h: 160, r: 80,  cx: 0, cy: 0,  showAv: true  },
 };
 
@@ -59,7 +59,7 @@ const DEFAULT_SETTINGS = {
   exportScale: 4,
   themeMode: "system",
   uiAccent: "#4fb3d9",
-  uiBg: "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)",
+  uiBg: "#0a0e27",
   uiText: "#f0f9ff",
   lightBg: "linear-gradient(135deg,#f5fbff 0%,#f0f7fc 50%,#eef8ff 100%)",
   lightText: "#0f172a",
@@ -168,9 +168,10 @@ async function saveProjectToLumNative(data) {
   await Filesystem.writeFile({
     path: fileName,
     data: base64,
-    directory: Directory.Documents,
+    directory: Directory.Cache,
+    recursive: true,
   });
-  const fileResult = await Filesystem.getUri({ path: fileName, directory: Directory.Documents });
+  const fileResult = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
   await Share.share({
     title: "Luminary Project",
     text: "Saved Luminary project file",
@@ -348,7 +349,7 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
 // ── Default State Factory ─────────────────────────────────────────────────────
 const getLayoutDefaults = (layoutName, theme = "glass") => {
   let def = {
-    pillW: 600, pillH: 180, pillR: 90, circX: 0, circY: 0, textX: 0, textY: 0,
+    pillW: 600, pillH: 200, pillR: 100, circX: 0, circY: 0, textX: 0, textY: 0,
     mainText: "Quick Panel", subText: "Ultra HD Component", fontSize: 42,
     bgStretch: true, bgScale: 100, bgImgX: 0, bgImgY: 0, bgBlur: 0, bgBlend: "source-over",
     pillBorderWidth: 0, pillBorderClr: "#ffffff",
@@ -1248,7 +1249,7 @@ export default function LuminaryPanels() {
           const { Filesystem, Directory } = await import("@capacitor/filesystem");
           const fileName = `Luminary_${Date.now()}.png`;
           const base64   = dataUrl.split(",")[1];
-          await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+          await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache, recursive: true });
           const fileResult = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
           await Share.share({ title: "Luminary Panel", url: fileResult.uri, dialogTitle: "Share your panel" });
           return;
@@ -1296,7 +1297,7 @@ export default function LuminaryPanels() {
     ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${accent}18`
     : `0 4px 16px rgba(79,179,217,0.15), 0 0 0 1px ${accent}28`;
   const pageBg      = isDark
-    ? (settings.uiBg || "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)")
+    ? (settings.uiBg || "#0a0e27")
     : "#f0f9fc";
 
   const inputSt = {
@@ -1321,6 +1322,7 @@ export default function LuminaryPanels() {
 
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
+  const mobilePreviewOffset = Math.min(460, Math.max(280, (s.pillH * Math.min(1, (vp.w - 72) / s.pillW)) + 130));
   const [swipeDir, setSwipeDir] = useState(1);
   const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
 
@@ -1906,16 +1908,12 @@ export default function LuminaryPanels() {
         <ColorField value={settings.uiAccent || "#4fb3d9"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} />
       </FRow>
       <FRow label="Background Color" textDim={textDim}>
-        <TxIn
-          value={settings.uiBg || "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)"}
-          onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))}
-          inputSt={inputSt}
-        />
+        <ColorField value={settings.uiBg || "#0a0e27"} onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))} />
       </FRow>
       <FRow label="Text Color" textDim={textDim}>
         <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} />
       </FRow>
-      <button onClick={() => setSettings(prev => ({ ...prev, uiAccent: "#4fb3d9", uiBg: "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)", uiText: "#f0f9ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
+      <button onClick={() => setSettings(prev => ({ ...prev, uiAccent: "#4fb3d9", uiBg: "#0a0e27", uiText: "#f0f9ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Keyboard Shortcuts</p>
       <div style={{ background: `${accent}08`, border: `1px solid ${accent}20`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 12, color: textPrimary, fontFamily: "monospace" }}>
@@ -1929,7 +1927,7 @@ export default function LuminaryPanels() {
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>💡 Quick Tips</p>
       <div style={{ background: `rgba(45,212,191,0.08)`, border: `1px solid rgba(45,212,191,0.2)`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 11, color: textPrimary, lineHeight: 1.6 }}>
         <div style={{ marginBottom: 8 }}>✨ <strong>Edit Mode:</strong> Click Edit to move text, avatar, and overlays around freely</div>
-        <div style={{ marginBottom: 8 }}>🎨 <strong>Colors:</strong> Click the color box to open the wheel picker, or paste hex codes</div>
+        <div style={{ marginBottom: 8 }}>🎨 <strong>Colors:</strong> Use the inline modern picker for precise shade + hex control</div>
         <div style={{ marginBottom: 8 }}>📁 <strong>Projects:</strong> Save your work locally with Save Project button</div>
         <div style={{ marginBottom: 8 }}>⌨️ <strong>Shortcuts:</strong> Enable keyboard shortcuts in QoL settings</div>
         <div>🎭 <strong>Themes:</strong> Switch between Glass, Cute, and Material presets instantly</div>
@@ -2111,7 +2109,7 @@ export default function LuminaryPanels() {
             </div>
           )}
 
-          <main style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position: vp.isMobile ? "sticky" : "fixed", right: vp.isMobile ? "auto" : 20, top: vp.isMobile ? 74 : 72, width: vp.isMobile ? "100%" : 540, maxHeight: vp.isMobile ? "none" : "calc(100vh - 140px)", zIndex: vp.isMobile ? 90 : 40, overflowY: vp.isMobile ? "visible" : "auto", alignSelf:"flex-start" }}>
+          <main style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position:"fixed", left: vp.isMobile ? 14 : "auto", right: vp.isMobile ? 14 : 20, top: 72, width: vp.isMobile ? "calc(100% - 28px)" : 540, maxWidth: vp.isMobile ? "calc(100% - 28px)" : 540, maxHeight: vp.isMobile ? "none" : "calc(100vh - 140px)", zIndex: vp.isMobile ? 95 : 40, overflowY: vp.isMobile ? "visible" : "auto", alignSelf:"flex-start" }}>
             <div style={{
               background: cardBg, borderRadius:20,
               padding: "18px",
@@ -2134,7 +2132,7 @@ export default function LuminaryPanels() {
           {/* FIX 4: Removed duplicate isMobileView div — only vp.isMobile is used */}
           {vp.isMobile && (
             <div
-              style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14, animation:`tabSlide 260ms ease` }}
+              style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14, marginTop: mobilePreviewOffset, animation:`tabSlide 260ms ease` }}
               onTouchStart={(e) => {
                 const target = e.target;
                 if (target.closest("input[type='range'],input,select,textarea,button,label,[role='button']")) return;
@@ -2264,11 +2262,9 @@ function Sep({ cardBorder }) {
 }
 
 function ColorField({ value, onChange }) {
-  const [open, setOpen] = useState(false);
-  const wheelRef = useRef(null);
-  const overlayRef = useRef(null);
-
-  const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#0891b2","#0284c7","#0d47a1","#000000","#ffffff","#e0f2fe","#ccfbf1"];
+  const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#22c55e","#84cc16","#f59e0b","#ef4444","#a855f7","#111827","#ffffff"];
+  const areaRef = useRef(null);
+  const [draftHex, setDraftHex] = useState("");
 
   const normalizeHex = useCallback((raw) => {
     if (!raw || typeof raw !== "string") return "#ffffff";
@@ -2286,15 +2282,13 @@ function ColorField({ value, onChange }) {
     return "#ffffff";
   }, []);
 
-  const hsvToHex = (h, s, v) => {
+  const hsvToHex = useCallback((h, s, v) => {
     const f = (n, k = (n + h / 60) % 6) => v - (v * s) * Math.max(Math.min(k, 4 - k, 1), 0);
     const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
     return `#${toHex(f(5))}${toHex(f(3))}${toHex(f(1))}`;
-  };
+  }, []);
 
-  const [cursorPos, setCursorPos] = useState({ x: 110, y: 110 });
-
-  const hexToHsv = (hex) => {
+  const hexToHsv = useCallback((hex) => {
     const r = parseInt(hex.slice(1, 3), 16) / 255;
     const g = parseInt(hex.slice(3, 5), 16) / 255;
     const b = parseInt(hex.slice(5, 7), 16) / 255;
@@ -2311,158 +2305,149 @@ function ColorField({ value, onChange }) {
     const s = max === 0 ? 0 : d / max;
     const v = max;
     return { h: h * 360, s, v };
-  };
+  }, []);
 
   const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
+  const parsed = useMemo(() => hexToHsv(safeHex), [hexToHsv, safeHex]);
+  const [hsv, setHsv] = useState(parsed);
 
   useEffect(() => {
-    if (open) {
-      const hsv = hexToHsv(safeHex);
-      const ang = (hsv.h * Math.PI) / 180;
-      const distance = Math.min(hsv.s * 110, 110);
-      const x = 110 + Math.cos(ang) * distance;
-      const y = 110 + Math.sin(ang) * distance;
-      setCursorPos({ x, y });
-    }
-  }, [open, safeHex]);
+    setHsv(parsed);
+    setDraftHex(safeHex);
+  }, [parsed, safeHex]);
 
-  const setHueFromPoint = (clientX, clientY) => {
-    const rect = wheelRef.current?.getBoundingClientRect();
+  const commit = useCallback((next) => {
+    const hex = hsvToHex(next.h, next.s, next.v);
+    onChange(hex);
+    setDraftHex(hex);
+  }, [hsvToHex, onChange]);
+
+  const setSVFromPoint = (clientX, clientY) => {
+    const rect = areaRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const ang = Math.atan2(clientY - cy, clientX - cx);
-    const hue = ((ang * 180) / Math.PI + 360) % 360;
-    const rad = Math.hypot(clientX - cx, clientY - cy);
-    const radius = rect.width / 2;
-    const saturation = Math.min(rad / radius, 1);
-    const x = 110 + Math.cos(ang) * (saturation * 110);
-    const y = 110 + Math.sin(ang) * (saturation * 110);
-    setCursorPos({ x, y });
-    onChange(hsvToHex(hue, saturation, 1));
+    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+    const x = clamp(clientX - rect.left, 0, rect.width);
+    const y = clamp(clientY - rect.top, 0, rect.height);
+    const next = {
+      h: hsv.h,
+      s: x / rect.width,
+      v: 1 - (y / rect.height),
+    };
+    setHsv(next);
+    commit(next);
   };
 
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: safeHex,
+            border: "2px solid rgba(255,255,255,0.2)",
+            boxShadow: `0 6px 20px ${safeHex}88`,
+            flexShrink: 0,
+          }}
+        />
+        <input
+          value={draftHex}
+          onChange={(e) => setDraftHex(e.target.value)}
+          onBlur={() => {
+            const normalized = normalizeHex(draftHex);
+            onChange(normalized);
+            setDraftHex(normalized);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              const normalized = normalizeHex(draftHex);
+              onChange(normalized);
+              setDraftHex(normalized);
+              e.currentTarget.blur();
+            }
+          }}
+          style={{
+            flex: 1,
+            height: 44,
+            borderRadius: 12,
+            border: "1px solid rgba(255,255,255,0.18)",
+            background: "rgba(255,255,255,0.06)",
+            color: "#fff",
+            fontFamily: "monospace",
+            fontSize: 14,
+            textTransform: "uppercase",
+            padding: "0 12px",
+          }}
+        />
+      </div>
+      <div
+        ref={areaRef}
+        onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setSVFromPoint(e.clientX, e.clientY); }}
+        onPointerMove={(e) => { if (e.buttons) setSVFromPoint(e.clientX, e.clientY); }}
         style={{
-          width: "100%", height: 44, borderRadius: 999,
-          border: "2px solid rgba(255,255,255,0.18)",
-          background: safeHex, cursor: "pointer",
-          boxShadow: `0 2px 12px ${safeHex}55`,
-          transition: "box-shadow 0.2s",
+          width: "100%",
+          height: 132,
+          borderRadius: 14,
+          border: "1px solid rgba(255,255,255,0.14)",
+          position: "relative",
+          background: `hsl(${Math.round(hsv.h)}, 100%, 50%)`,
+          overflow: "hidden",
+          touchAction: "none",
+          cursor: "crosshair",
+        }}
+      >
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, #fff, rgba(255,255,255,0))" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #000, rgba(0,0,0,0))" }} />
+        <div
+          style={{
+            position: "absolute",
+            left: `calc(${hsv.s * 100}% - 8px)`,
+            top: `calc(${(1 - hsv.v) * 100}% - 8px)`,
+            width: 16,
+            height: 16,
+            borderRadius: "50%",
+            border: "2px solid #fff",
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={360}
+        value={hsv.h}
+        onChange={(e) => {
+          const next = { ...hsv, h: Number(e.target.value) };
+          setHsv(next);
+          commit(next);
+        }}
+        style={{
+          width: "100%",
+          height: 12,
+          WebkitAppearance: "none",
+          appearance: "none",
+          borderRadius: 999,
+          background: "linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)",
+          outline: "none",
         }}
       />
-      {open && (
-        <>
-          {/* Backdrop */}
-          <div
-            ref={overlayRef}
-            onClick={() => setOpen(false)}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+        {PRESETS.map((c) => (
+          <button
+            key={c}
+            onClick={() => onChange(c)}
             style={{
-              position: "fixed", inset: 0, zIndex: 998,
-              background: "rgba(0,0,0,0.3)", backdropFilter: "blur(2px)",
+              height: 34,
+              borderRadius: 10,
+              border: safeHex === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.14)",
+              background: c,
+              cursor: "pointer",
             }}
           />
-          {/* Picker panel */}
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              position: "fixed", zIndex: 999,
-              bottom: 0, left: 0, right: 0,
-              padding: "20px 20px 32px",
-              borderRadius: "22px 22px 0 0",
-              background: "#0a0e27",
-              border: "1px solid rgba(255,255,255,0.12)",
-              boxShadow: "0 -20px 60px rgba(0,0,0,0.7)",
-            }}
-          >
-            {/* Handle bar */}
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 18px" }} />
-
-            {/* Color wheel with cursor indicator */}
-            <div style={{ position: "relative", width: 220, height: 220, margin: "0 auto 18px" }}>
-              <div
-                ref={wheelRef}
-                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setHueFromPoint(e.clientX, e.clientY); }}
-                onPointerMove={(e) => { if (e.buttons) setHueFromPoint(e.clientX, e.clientY); }}
-                style={{
-                  width: 220, height: 220, borderRadius: "50%",
-                  cursor: "crosshair",
-                  background: "conic-gradient(#ff0000,#ff8000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)",
-                  boxShadow: "inset 0 0 0 20px #0a0e27, 0 0 0 2px rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.5)",
-                  touchAction: "none",
-                }}
-              />
-              {/* Cursor indicator */}
-              <div style={{
-                position: "absolute",
-                width: 16, height: 16,
-                border: "3px solid white",
-                borderRadius: "50%",
-                left: cursorPos.x - 8,
-                top: cursorPos.y - 8,
-                boxShadow: "0 0 0 1px rgba(0,0,0,0.5)",
-                pointerEvents: "none",
-              }} />
-            </div>
-
-            {/* Current color + exact hex picker */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: safeHex, border: "2px solid rgba(255,255,255,0.18)", flexShrink: 0, boxShadow: `0 4px 16px ${safeHex}88` }} />
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 0, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600 }}>Exact Colour</p>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input
-                    type="color" value={safeHex}
-                    onChange={e => onChange(e.target.value)}
-                    style={{ width: 44, height: 44, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, background: "rgba(255,255,255,0.06)", cursor: "pointer", padding: 2 }}
-                  />
-                  <input
-                    type="text" value={safeHex} readOnly
-                    style={{ flex: 1, height: 44, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, color: "#fff", padding: "0 12px", fontFamily: "monospace", textTransform: "uppercase", cursor: "pointer" }}
-                    onClick={() => { navigator.clipboard.writeText(safeHex); }}
-                    title="Click to copy"
-                  />
-                  <button
-                    onClick={() => { navigator.clipboard.writeText(safeHex); alert("Copied!"); }}
-                    style={{ height: 44, padding: "0 12px", background: "rgba(79,179,217,0.15)", border: "1px solid rgba(79,179,217,0.3)", borderRadius: 10, color: "#4fb3d9", cursor: "pointer", fontWeight: 600, fontSize: 12 }}
-                  >
-                    📋
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Preset swatches */}
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 10 }}>Presets</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 16 }}>
-              {PRESETS.map(c => (
-                <button
-                  key={c}
-                  onClick={() => onChange(c)}
-                  style={{
-                    height: 44, borderRadius: 12, background: c, border: safeHex === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.12)",
-                    cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 8px ${c}66`,
-                  }}
-                />
-              ))}
-            </div>
-
-            <button
-              onClick={() => setOpen(false)}
-              style={{
-                width: "100%", padding: "14px", borderRadius: 16,
-                background: "linear-gradient(135deg,#4fb3d9,#2dd4bf)",
-                border: "none", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
-              }}
-            >
-              Done
-            </button>
-          </div>
-        </>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
