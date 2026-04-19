@@ -58,6 +58,11 @@ const DEFAULT_SETTINGS = {
   motionIntensity: 1,
   exportScale: 4,
   themeMode: "system",
+  uiAccent: "#4fb3d9",
+  uiBg: "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)",
+  uiText: "#f0f9ff",
+  lightBg: "linear-gradient(135deg,#f5fbff 0%,#f0f7fc 50%,#eef8ff 100%)",
+  lightText: "#0f172a",
 };
 const TEXTURES = [
   { id: "none",    label: "None",         css: "" },
@@ -76,13 +81,13 @@ const UI_ICONS = [
 ];
 
 const ICONS = {
-  undo: "↺",
-  redo: "↻",
-  reset: "⟲",
-  layout: "◫",
-  assets: "◉",
-  avatar: "◌",
-  text: "𝑻",
+  undo: "⤴",
+  redo: "⤵",
+  reset: "↺",
+  layout: "⊞",
+  assets: "◈",
+  avatar: "⚬",
+  text: "✎",
 };
 
 // ── Viewport Hook ─────────────────────────────────────────────────────────────
@@ -128,7 +133,7 @@ const getBorderControls = (id) => {
     case "dashed":  return { p1:"Gap Spacing",  min1:1,  max1:20, p2:null };
     case "dotted":  return { p1:"Gap Spacing",  min1:1,  max1:20, p2:null };
     case "double":  return { p1:"Inner Gap",    min1:1,  max1:20, p2:null };
-    case "glow":    return { p1:"Glow Spread",  min1:1,  max1:50, p2:"3D Depth",  min2:0, max2:30 };
+    case "glow":    return { p1:"Glow Spread",  min1:1,  max1:30, p2:"Depth",  min2:0, max2:15 };
     case "ribbon":  return { p1:"Wave Freq",    min1:2,  max1:30, p2:"Amplitude", min2:1, max2:20 };
     case "sparkle": return { p1:"Count",        min1:8,  max1:48, p2:null };
     case "crystal": return { p1:"Count",        min1:10, max1:50, p2:null };
@@ -137,6 +142,41 @@ const getBorderControls = (id) => {
     default:        return { p1:null, p2:null };
   }
 };
+
+// Custom save format functions
+function saveProjectToLum(data) {
+  const lumFile = { version: "1.0", timestamp: Date.now(), project: data };
+  const json = JSON.stringify(lumFile);
+  const blob = new Blob([json], { type: "application/x-luminary" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `luminary-${Date.now()}.lum`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function loadProjectFromLum(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const lumFile = JSON.parse(e.target.result);
+        if (lumFile.version && lumFile.project) {
+          resolve(lumFile.project);
+        } else {
+          reject(new Error("Invalid .lum file format"));
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsText(file);
+  });
+}
 
 // ── Border Engine ─────────────────────────────────────────────────────────────
 function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p1, p2, emojisStr) {
@@ -159,7 +199,9 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
       ctx.fillStyle = g; ctx.shadowColor = color; ctx.shadowBlur = 10; ctx.fill();
     }
   } else if (styleId === "glow") {
-    ctx.shadowColor=color; ctx.shadowBlur=p1; ctx.shadowOffsetX=p2; ctx.shadowOffsetY=p2;
+    const maxGlowSpread = Math.min(p1, 25);
+    const maxDepth = Math.min(p2, 12);
+    ctx.shadowColor=color; ctx.shadowBlur=maxGlowSpread; ctx.shadowOffsetX=maxDepth; ctx.shadowOffsetY=maxDepth;
     ctx.lineWidth=thickness/2; ctx.beginPath(); ctx.arc(cx,cy,R+(thickness/2),0,Math.PI*2); ctx.stroke();
   } else if (styleId === "emoji") {
     const emList = emojisStr ? Array.from(emojisStr) : ["✨"];
@@ -192,7 +234,7 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "🌸✨🦋",
     circScale: 100, avScale: 100, avImgX: 0, avImgY: 0,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
-    textureId: "none", textureOpacity: 30,
+    textureId: "none", textureOpacity: 65,
   };
 
   if (theme === "cute") {
@@ -411,11 +453,11 @@ function CropModal({ src, onConfirm, onCancel }) {
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1 }}>
             <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Zoom {zoom}%</label>
-            <input type="range" min={50} max={180} step={1} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
+            <input type="range" step="1" min={50} max={180} step={1} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
           </div>
           <div style={{ flex: 1 }}>
             <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Rotate {rotation}°</label>
-            <input type="range" min={-180} max={180} step={1} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
+            <input type="range" step="1" min={-180} max={180} step={1} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
           </div>
         </div>
 
@@ -458,8 +500,8 @@ function ExportModal({ dataUrl, onClose }) {
     }}>
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes glowPulse {
-          0%,100% { box-shadow: 0 0 20px 4px rgba(255,110,180,0.6), 0 0 60px 10px rgba(255,110,180,0.25); }
-          50%      { box-shadow: 0 0 40px 10px rgba(255,110,180,0.9),   0 0 100px 20px rgba(255,179,217,0.4); }
+          0%,100% { box-shadow: 0 0 20px 4px rgba(79,179,217,0.6), 0 0 60px 10px rgba(79,179,217,0.25); }
+          50%      { box-shadow: 0 0 40px 10px rgba(79,179,217,0.9),   0 0 100px 20px rgba(45,212,191,0.4); }
         }
         @keyframes fadeSlideUp {
           from { opacity:0; transform:translateY(30px); }
@@ -474,7 +516,7 @@ function ExportModal({ dataUrl, onClose }) {
         borderBottom:"1px solid rgba(255,255,255,0.08)",
       }}>
         <div>
-          <p style={{ color:"#fff", fontSize:17, fontWeight:700, margin:0 }}>💾 Save Image</p>
+          <p style={{ color:"#fff", fontSize:17, fontWeight:700, margin:0 }}>Save Image</p>
           <p style={{ color:"rgba(255,255,255,0.45)", fontSize:12, margin:"3px 0 0" }}>Hold finger on image → "Save"</p>
         </div>
         <button onClick={onClose} style={{
@@ -511,8 +553,8 @@ function ExportModal({ dataUrl, onClose }) {
         display:"flex", flexDirection:"column", gap:10, alignItems:"center",
       }}>
         <div style={{
-          background:"linear-gradient(135deg, rgba(255,110,180,0.2), rgba(255,179,217,0.15))",
-          border:"1px solid rgba(255,110,180,0.5)",
+          background:"linear-gradient(135deg, rgba(79,179,217,0.2), rgba(45,212,191,0.15))",
+          border:"1px solid rgba(79,179,217,0.5)",
           borderRadius:16, padding:"12px 20px", width:"100%", textAlign:"center",
         }}>
           <p style={{ color:"#fff", fontSize:14, fontWeight:600, margin:"0 0 4px" }}>
@@ -653,6 +695,22 @@ export default function LuminaryPanels() {
       window.removeEventListener("pointerup", onUp);
     };
   }, []);
+
+  useEffect(() => {
+    if (settings.keyboardShortcuts === false) return;
+    const handleKeyDown = (e) => {
+      if (e.target.matches("input, textarea, select")) return;
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+        else if ((e.key === "z" && e.shiftKey) || (e.key === "y")) { e.preventDefault(); redo(); }
+        else if (e.key === "e") { e.preventDefault(); setEditMode(v => !v); }
+        else if (e.key === "s") { e.preventDefault(); exportPNG(); }
+      }
+      if (e.key === "Escape") { setEditMode(false); setCropSrc(null); setExportDataUrl(null); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [settings.keyboardShortcuts]);
 
   const addFont = () => {
     const match = newFontUrl.match(/family=([^&:]+)/);
@@ -835,44 +893,43 @@ export default function LuminaryPanels() {
 
         if (texture.css === "grain") {
           pct.fillStyle = "#ffffff";
-          for (let i = 0; i < 180; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 1, 1);
+          for (let i = 0; i < 600; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 1.5, 1.5);
         } else if (texture.css === "brushed") {
-          for (let y = 0; y < 80; y += 3) {
-            pct.fillStyle = `rgba(255,255,255,${0.03 + (y % 2 ? 0.02 : 0.05)})`;
-            pct.fillRect(0, y, 80, 1.2);
+          for (let y = 0; y < 80; y += 1.5) {
+            pct.fillStyle = `rgba(255,255,255,${0.08 + (y % 3 ? 0.05 : 0.12)})`;
+            pct.fillRect(0, y, 80, 2);
           }
         } else if (texture.css === "velvet") {
-          const grd = pct.createRadialGradient(20, 20, 3, 20, 20, 60);
-          grd.addColorStop(0, "rgba(255,255,255,0.18)");
+          const grd = pct.createRadialGradient(20, 20, 2, 20, 20, 60);
+          grd.addColorStop(0, "rgba(255,255,255,0.5)");
           grd.addColorStop(1, "rgba(255,255,255,0)");
           pct.fillStyle = grd;
           pct.fillRect(0, 0, 80, 80);
-          pct.fillStyle = "rgba(255,255,255,0.04)";
-          for (let i = 0; i < 70; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 1.2, 1.2);
+          pct.fillStyle = "rgba(255,255,255,0.12)";
+          for (let i = 0; i < 180; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 2, 2);
         } else if (texture.css === "mesh") {
-          pct.strokeStyle = "rgba(255,255,255,0.07)";
-          pct.lineWidth = 0.8;
-          for (let g = 0; g < 80; g += 10) {
+          pct.strokeStyle = "rgba(255,255,255,0.25)";
+          pct.lineWidth = 1.2;
+          for (let g = 0; g < 80; g += 8) {
             pct.beginPath(); pct.moveTo(g, 0); pct.lineTo(g, 80); pct.stroke();
             pct.beginPath(); pct.moveTo(0, g); pct.lineTo(80, g); pct.stroke();
           }
         } else if (texture.css === "soft") {
-          // FIX: grain dots and closing brace are now properly inside this block
-          pct.fillStyle = "rgba(255,255,255,0.03)";
+          pct.fillStyle = "rgba(255,255,255,0.05)";
           pct.fillRect(0, 0, 80, 80);
-          for (let i = 0; i < 4; i++) {
+          for (let i = 0; i < 6; i++) {
             const x = Math.random() * 80, y = Math.random() * 80;
-            const gr = pct.createRadialGradient(x, y, 3, x, y, 22);
-            gr.addColorStop(0, "rgba(255,255,255,0.10)");
+            const gr = pct.createRadialGradient(x, y, 2, x, y, 25);
+            gr.addColorStop(0, "rgba(255,255,255,0.14)");
             gr.addColorStop(1, "rgba(255,255,255,0)");
             pct.fillStyle = gr;
             pct.fillRect(0, 0, 80, 80);
           }
           pct.fillStyle = "#ffffff";
-          for (let i = 0; i < 110; i++) {
-            pct.fillRect(Math.random() * 80, Math.random() * 80, 1.3, 1.3);
+          for (let i = 0; i < 150; i++) {
+            pct.fillRect(Math.random() * 80, Math.random() * 80, 1.6, 1.6);
           }
-        } // ← FIX: closing brace for soft block was missing
+        }
 
         const pattern = ctx.createPattern(p, "repeat");
         if (pattern) {
@@ -897,7 +954,7 @@ export default function LuminaryPanels() {
       ctx.filter = "none";
     }
     if (s.edgeBlur > 0) {
-      const vig = ctx.createRadialGradient(W/2, H/2, Math.max(W,H)*0.1, W/2, H/2, Math.max(W,H)*0.8);
+      const vig = ctx.createRadialGradient(W/2, H*0.4, Math.min(W,H)*0.1, W/2, H, Math.max(W,H)*0.85);
       vig.addColorStop(0, "rgba(0,0,0,0)");
       vig.addColorStop(1, hexToRgba(s.edgeColor, s.edgeBlur / 100));
       ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
@@ -1026,7 +1083,7 @@ export default function LuminaryPanels() {
       } catch (_) {}
 
       setExportDataUrl(dataUrl);
-    } catch (err) { alert("Save failed: " + err.message); }
+    } catch (err) { console.error("Save failed:", err); }
   };
 
   const sharePNG = async () => {
@@ -1071,14 +1128,25 @@ export default function LuminaryPanels() {
   // ── UI theme values ───────────────────────────────────────────────────────
   const ALL_FONTS  = [...FONTS, ...customFonts];
   const bCtrl      = getBorderControls(s.borderStyleId);
-  const accent     = "#ff6eb4";
-  const accent2    = "#ffb3d9";
-  const textPrimary = "#f2f2f7";
-  const textDim    = "rgba(255,255,255,0.45)";
-  const controlBg  = "rgba(255,255,255,0.06)";
-  const cardBg     = "rgba(255,110,180,0.04)";
-  const cardBorder = "rgba(255,110,180,0.15)";
-  const cardShadow = "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,110,180,0.08)";
+  
+  // ── Resolve effective theme ───────────────────────────────────────────────
+  const systemDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemDark) || settings.themeMode === "system";
+  
+  const accent = settings.uiAccent || "#4fb3d9";
+  const accent2 = settings.uiAccent || "#2dd4bf";
+  
+  const textPrimary = isDark ? (settings.uiText || "#f0f9ff") : (settings.uiText || "#0f172a");
+  const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}66` : `${settings.uiText || "#0f172a"}66`;
+  const controlBg   = isDark ? `${accent}0f` : `${accent}10`;
+  const cardBg      = isDark ? `${accent}08` : `${accent}0d`;
+  const cardBorder  = isDark ? `${accent}28` : `${accent}35`;
+  const cardShadow  = isDark
+    ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${accent}18`
+    : `0 4px 16px rgba(79,179,217,0.15), 0 0 0 1px ${accent}28`;
+  const pageBg      = isDark
+    ? (settings.uiBg || "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)")
+    : "#f0f9fc";
 
   const inputSt = {
     display:"block", width:"100%",
@@ -1115,19 +1183,19 @@ export default function LuminaryPanels() {
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Width — ${s.pillW}px`} textDim={textDim}>
+        <FRow label={`Width — ${s.pillW}px`} textDim={textDim} onReset={() => pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW })}>
           <input type="number" min={100} max={1600} value={s.pillW}
             onChange={e => pushState({ pillW: Math.max(100, Math.min(1600, +e.target.value)) })}
             style={inputSt} />
         </FRow>
-        <FRow label={`Height — ${s.pillH}px`} textDim={textDim}>
+        <FRow label={`Height — ${s.pillH}px`} textDim={textDim} onReset={() => pushState({ pillH: getLayoutDefaults(layoutMode, pillStyle).pillH })}>
           <input type="number" min={100} max={1600} value={s.pillH}
             onChange={e => pushState({ pillH: Math.max(100, Math.min(1600, +e.target.value)) })}
             style={inputSt} />
         </FRow>
       </div>
       <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim} onReset={() => pushState({ pillR: getLayoutDefaults(layoutMode, pillStyle).pillR })}>
-        <input type="range" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
+        <input type="range" step="1" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
           value={Math.min(s.pillR, Math.floor(Math.min(s.pillW, s.pillH)/2))}
           onChange={e => pushState({ pillR: +e.target.value })} />
       </FRow>
@@ -1141,8 +1209,8 @@ export default function LuminaryPanels() {
           onChange={v => pushState({ pillBgColor: v })} />
       </FRow>
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Pill Border — ${s.pillBorderWidth}px`} textDim={textDim}>
-          <input type="range" min={0} max={10} value={s.pillBorderWidth}
+        <FRow label={`Pill Border — ${s.pillBorderWidth}px`} textDim={textDim} onReset={() => pushState({ pillBorderWidth: 0 })}>
+          <input type="range" step="1" min={0} max={10} value={s.pillBorderWidth}
             onChange={e => pushState({ pillBorderWidth: +e.target.value })} />
         </FRow>
         <FRow label="Border Color" textDim={textDim}>
@@ -1153,29 +1221,38 @@ export default function LuminaryPanels() {
       <Sep cardBorder={cardBorder} />
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Image Blur — ${s.bgBlur}px`} textDim={textDim} onReset={() => pushState({ bgBlur: 0 })}>
-          <input type="range" min={0} max={60} value={s.bgBlur}
+          <input type="range" step="1" min={0} max={60} value={s.bgBlur}
             onChange={e => pushState({ bgBlur: +e.target.value })} />
         </FRow>
         <FRow label="Img Mode" textDim={textDim}>
-          <select value={String(s.bgStretch)} onChange={e => pushState({ bgStretch: e.target.value === "true" })} style={inputSt}>
-            <option value="false">Contain</option>
-            <option value="true">Stretch</option>
-          </select>
+          <div style={{ display:"flex", gap:8 }}>
+            {[{l:"Contain",v:false},{l:"Stretch",v:true}].map(o => (
+              <button key={o.l} onClick={() => pushState({ bgStretch: o.v })}
+                style={{
+                  flex:1, padding:"10px", borderRadius:10, border: s.bgStretch === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.bgStretch === o.v ? `${accent}18` : controlBg,
+                  color: s.bgStretch === o.v ? accent : textPrimary,
+                  fontWeight:600, fontSize:12, cursor:"pointer", transition:"all 0.15s",
+                }}>
+                {o.l}
+              </button>
+            ))}
+          </div>
         </FRow>
       </div>
       {!s.bgStretch && (
         <div style={{ display:"flex", gap:8 }}>
           <FRow label={`Img X (${s.bgImgX}px)`} textDim={textDim}>
-            <input type="range" min={-500} max={500} value={s.bgImgX} onChange={e => pushState({ bgImgX: +e.target.value })} />
+            <input type="range" step="1" min={-500} max={500} value={s.bgImgX} onChange={e => pushState({ bgImgX: +e.target.value })} />
           </FRow>
           <FRow label={`Img Y (${s.bgImgY}px)`} textDim={textDim}>
-            <input type="range" min={-500} max={500} value={s.bgImgY} onChange={e => pushState({ bgImgY: +e.target.value })} />
+            <input type="range" step="1" min={-500} max={500} value={s.bgImgY} onChange={e => pushState({ bgImgY: +e.target.value })} />
           </FRow>
         </div>
       )}
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Vignette — ${s.edgeBlur}%`} textDim={textDim}>
-          <input type="range" min={0} max={100} value={s.edgeBlur} onChange={e => pushState({ edgeBlur: +e.target.value })} />
+        <FRow label={`Vignette — ${s.edgeBlur}%`} textDim={textDim} onReset={() => pushState({ edgeBlur: 0 })}>
+          <input type="range" step="1" min={0} max={100} value={s.edgeBlur} onChange={e => pushState({ edgeBlur: +e.target.value })} />
         </FRow>
         <FRow label="Vignette Tint" textDim={textDim}>
           <ColorField value={s.edgeColor || "#000000"} onChange={v => pushState({ edgeColor: v })} />
@@ -1187,20 +1264,55 @@ export default function LuminaryPanels() {
       </label>
       <Sep cardBorder={cardBorder} />
       <FRow label="Texture Preset" textDim={textDim}>
-        <select value={s.textureId || "none"} onChange={e => pushState({ textureId: e.target.value })} style={inputSt}>
-          {TEXTURES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-        </select>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+          {TEXTURES.map(t => {
+            const isActive = (s.textureId || "none") === t.id;
+            const previewStyle = {
+              width:"100%", height:52, borderRadius:10, marginBottom:5,
+              background: t.id === "none"     ? "rgba(255,255,255,0.04)"
+                        : t.id === "grain"    ? "rgba(255,255,255,0.06)"
+                        : t.id === "brushed"  ? "repeating-linear-gradient(0deg,rgba(255,255,255,0.08) 0px,rgba(255,255,255,0.02) 2px,transparent 3px)"
+                        : t.id === "velvet"   ? "radial-gradient(ellipse at 30% 30%,rgba(255,255,255,0.22),rgba(255,255,255,0.03))"
+                        : t.id === "mesh"     ? "repeating-linear-gradient(0deg,transparent,transparent 8px,rgba(255,255,255,0.09) 9px),repeating-linear-gradient(90deg,transparent,transparent 8px,rgba(255,255,255,0.09) 9px)"
+                        : "radial-gradient(circle at 20% 20%,rgba(255,255,255,0.14),rgba(255,255,255,0.02))",
+            };
+            return (
+              <button key={t.id} onClick={() => pushState({ textureId: t.id })}
+                style={{
+                  padding:"8px 6px 7px", borderRadius:12, cursor:"pointer",
+                  border: isActive ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: isActive ? `rgba(79,179,217,0.12)` : controlBg,
+                  color: isActive ? "#fff" : textPrimary,
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+                  transition:"all 0.15s",
+                }}>
+                <div style={previewStyle} />
+                <span style={{ fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:0.5, opacity: isActive ? 1 : 0.7 }}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </FRow>
       {s.textureId !== "none" && (
-        <FRow label={`Texture Opacity — ${s.textureOpacity}%`} textDim={textDim}>
-          <input type="range" min={0} max={100} value={s.textureOpacity} onChange={e => pushState({ textureOpacity: +e.target.value })} />
+        <FRow label={`Texture Opacity — ${s.textureOpacity}%`} textDim={textDim} onReset={() => pushState({ textureOpacity: 65 })}>
+          <input type="range" step="1" min={0} max={100} value={s.textureOpacity} onChange={e => pushState({ textureOpacity: +e.target.value })} />
         </FRow>
       )}
       {advancedMode && (
         <FRow label="Blend Mode (Requires BG Color)" textDim={textDim}>
-          <select value={s.bgBlend} onChange={e => pushState({ bgBlend: e.target.value })} style={inputSt}>
-            {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, maxHeight:150, overflowY:"auto" }}>
+            {BLEND_MODES.map(m => (
+              <button key={m} onClick={() => pushState({ bgBlend: m })}
+                style={{
+                  padding:"8px", borderRadius:8, border: s.bgBlend === m ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.bgBlend === m ? `${accent}18` : controlBg,
+                  color: s.bgBlend === m ? accent : textPrimary,
+                  fontWeight:600, fontSize:9, cursor:"pointer", transition:"all 0.15s", minHeight:36,
+                }}>
+                {m}
+              </button>
+            ))}
+          </div>
         </FRow>
       )}
     </Card>
@@ -1235,31 +1347,31 @@ export default function LuminaryPanels() {
           </FRow>
           <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Circle Size — ${avDiamPx}px (${s.circScale}%)`} textDim={textDim} onReset={() => pushState({ circScale: 100 })}>
-              <input type="range" min={20} max={150} value={s.circScale}
+              <input type="range" step="1" min={20} max={150} value={s.circScale}
                 onChange={e => pushState({ circScale: +e.target.value })} />
             </FRow>
             <FRow label={`Image Zoom — ${s.avScale}%`} textDim={textDim} onReset={() => pushState({ avScale: 100 })}>
-              <input type="range" min={20} max={300} value={s.avScale}
+              <input type="range" step="1" min={20} max={300} value={s.avScale}
                 onChange={e => pushState({ avScale: +e.target.value })} />
             </FRow>
           </div>
           <div style={{ display:"flex", gap:8 }}>
-            <FRow label={`Pos X — ${Math.round(s.circX)}px`} textDim={textDim}>
-              <input type="range" min={-400} max={400} value={s.circX}
+            <FRow label={`Pos X — ${Math.round(s.circX)}px`} textDim={textDim} onReset={() => pushState({ circX: 0 })}>
+              <input type="range" step="1" min={-400} max={400} value={s.circX}
                 onChange={e => pushState({ circX: +e.target.value })} />
             </FRow>
-            <FRow label={`Pos Y — ${Math.round(s.circY)}px`} textDim={textDim}>
-              <input type="range" min={-400} max={400} value={s.circY}
+            <FRow label={`Pos Y — ${Math.round(s.circY)}px`} textDim={textDim} onReset={() => pushState({ circY: 0 })}>
+              <input type="range" step="1" min={-400} max={400} value={s.circY}
                 onChange={e => pushState({ circY: +e.target.value })} />
             </FRow>
           </div>
           <div style={{ display:"flex", gap:8 }}>
-            <FRow label={`Img Offset X — ${s.avImgX}`} textDim={textDim}>
-              <input type="range" min={-200} max={200} value={s.avImgX}
+            <FRow label={`Img Offset X — ${s.avImgX}`} textDim={textDim} onReset={() => pushState({ avImgX: 0 })}>
+              <input type="range" step="1" min={-200} max={200} value={s.avImgX}
                 onChange={e => pushState({ avImgX: +e.target.value })} />
             </FRow>
-            <FRow label={`Img Offset Y — ${s.avImgY}`} textDim={textDim}>
-              <input type="range" min={-200} max={200} value={s.avImgY}
+            <FRow label={`Img Offset Y — ${s.avImgY}`} textDim={textDim} onReset={() => pushState({ avImgY: 0 })}>
+              <input type="range" step="1" min={-200} max={200} value={s.avImgY}
                 onChange={e => pushState({ avImgY: +e.target.value })} />
             </FRow>
           </div>
@@ -1289,17 +1401,17 @@ export default function LuminaryPanels() {
       {s.borderStyleId !== "none" && (
         <React.Fragment>
           <div style={{ display:"flex", gap:8 }}>
-            <FRow label={`Thickness: ${s.avBorderWidth}px`} textDim={textDim}>
-              <input type="range" min={1} max={20} value={s.avBorderWidth}
+            <FRow label={`Thickness: ${s.avBorderWidth}px`} textDim={textDim} onReset={() => pushState({ avBorderWidth: 3 })}>
+              <input type="range" step="1" min={1} max={20} value={s.avBorderWidth}
                 onChange={e => pushState({ avBorderWidth: +e.target.value })} />
             </FRow>
-            <FRow label={`Gap: ${s.avBorderGap}px`} textDim={textDim}>
-              <input type="range" min={-10} max={30} value={s.avBorderGap}
+            <FRow label={`Gap: ${s.avBorderGap}px`} textDim={textDim} onReset={() => pushState({ avBorderGap: 0 })}>
+              <input type="range" step="1" min={-10} max={30} value={s.avBorderGap}
                 onChange={e => pushState({ avBorderGap: +e.target.value })} />
             </FRow>
           </div>
-          {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e => pushState({ avBorderParam1: +e.target.value })} /></FRow>}
-          {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} /></FRow>}
+          {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" step="1" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e => pushState({ avBorderParam1: +e.target.value })} /></FRow>}
+          {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" step="1" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} /></FRow>}
           {bCtrl.hasText && <FRow label="Emojis" textDim={textDim}><TxIn value={s.avBorderEmojis} onChange={v => pushState({ avBorderEmojis: v })} inputSt={inputSt} /></FRow>}
           <FRow label="Border Color" textDim={textDim}>
             <ColorField value={s.avBorderClr && s.avBorderClr.startsWith("#") ? s.avBorderClr : "#ffffff"}
@@ -1326,23 +1438,39 @@ export default function LuminaryPanels() {
         </div>
       </FRow>
       <FRow label="Font Family" textDim={textDim}>
-        <select value={s.font} onChange={e => pushState({ font: e.target.value })} style={inputSt}>
-          {ALL_FONTS.map((f, i) => <option key={i} value={f.value} style={{ fontFamily: f.value }}>{f.label}</option>)}
-        </select>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, maxHeight:200, overflowY:"auto", paddingRight:4 }}>
+          {ALL_FONTS.map((f, i) => (
+            <button key={i} onClick={() => pushState({ font: f.value })}
+              style={{
+                padding:"12px 10px", borderRadius:10, border: s.font === f.value ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: s.font === f.value ? `${accent}18` : controlBg,
+                color: s.font === f.value ? accent : textPrimary,
+                fontFamily: f.value, fontSize:13, fontWeight:600, cursor:"pointer", transition:"all 0.15s", minHeight:44,
+              }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
       </FRow>
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Size: ${s.fontSize}px`} textDim={textDim}>
-          <input type="range" min={10} max={150} value={s.fontSize}
+        <FRow label={`Size: ${s.fontSize}px`} textDim={textDim} onReset={() => pushState({ fontSize: getLayoutDefaults(layoutMode, pillStyle).fontSize })}>
+          <input type="range" step="1" min={10} max={150} value={s.fontSize}
             onChange={e => pushState({ fontSize: +e.target.value })} />
         </FRow>
-        <FRow label={`Weight: ${s.fontWeight}`} textDim={textDim}>
-          <select value={s.fontWeight} onChange={e => pushState({ fontWeight: +e.target.value })} style={inputSt}>
-            <option value={300}>Light</option>
-            <option value={400}>Regular</option>
-            <option value={500}>Medium</option>
-            <option value={600}>Semi-Bold</option>
-            <option value={700}>Bold</option>
-          </select>
+        <FRow label={`Weight: ${s.fontWeight}`} textDim={textDim} onReset={() => pushState({ fontWeight: getLayoutDefaults(layoutMode, pillStyle).fontWeight })}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6 }}>
+            {[{l:"L",v:300},{l:"R",v:400},{l:"M",v:500},{l:"SB",v:600},{l:"B",v:700}].map(o => (
+              <button key={o.v} onClick={() => pushState({ fontWeight: o.v })}
+                style={{
+                  padding:"8px", borderRadius:8, border: s.fontWeight === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.fontWeight === o.v ? `${accent}18` : controlBg,
+                  color: s.fontWeight === o.v ? accent : textPrimary,
+                  fontWeight:o.v, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+                }}>
+                {o.l}
+              </button>
+            ))}
+          </div>
         </FRow>
       </div>
       <div style={{ display:"flex", gap:8 }}>
@@ -1358,11 +1486,11 @@ export default function LuminaryPanels() {
       </div>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Pos X — ${Math.round(s.textX)}px`} textDim={textDim} onReset={() => pushState({ textX: 0 })}>
-          <input type="range" min={-400} max={400} value={s.textX}
+          <input type="range" step="1" min={-400} max={400} value={s.textX}
             onChange={e => pushState({ textX: +e.target.value })} />
         </FRow>
         <FRow label={`Pos Y — ${Math.round(s.textY)}px`} textDim={textDim} onReset={() => pushState({ textY: 0 })}>
-          <input type="range" min={-400} max={400} value={s.textY}
+          <input type="range" step="1" min={-400} max={400} value={s.textY}
             onChange={e => pushState({ textY: +e.target.value })} />
         </FRow>
       </div>
@@ -1412,16 +1540,6 @@ export default function LuminaryPanels() {
       </div>
 
       <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Quick Icons</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:16 }}>
-        {UI_ICONS.map(ic => (
-          <button key={ic.name} onClick={() => addOverlay("image", ic.src)}
-            style={{ background:controlBg, border:`1px solid ${cardBorder}`, borderRadius:8, padding:8, cursor:"pointer", display:"flex", justifyContent:"center", alignItems:"center", minHeight:40 }}>
-            <img src={ic.src} alt={ic.name} style={{ width:20, height:20, opacity:0.7 }} />
-          </button>
-        ))}
-      </div>
-
       <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Add Overlay</p>
       <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:6, marginBottom:14 }}>
         {EMOJIS.map(em => (
@@ -1440,19 +1558,47 @@ export default function LuminaryPanels() {
         <p style={{ fontSize:13, color:textDim, fontStyle:"italic" }}>No overlays yet.</p>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {s.overlays.map(ov => (
-            <div key={ov.id} style={{ display:"flex", alignItems:"center", gap:10, background:controlBg, padding:"10px 12px", borderRadius:10, border:`1px solid ${cardBorder}` }}>
-              <span style={{ fontSize:18, width:28, flexShrink:0 }}>{ov.type === "emoji" ? ov.content : "🖼️"}</span>
-              <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
-                <input type="range" min={20} max={300} value={ov.size}
+          {s.overlays.map((ov, idx) => (
+            <div key={ov.id} style={{ display:"flex", alignItems:"center", gap:8, background:controlBg, padding:"10px 12px", borderRadius:10, border:`1px solid ${cardBorder}` }}>
+              <span style={{ fontSize:16, width:24, flexShrink:0 }}>{ov.type === "emoji" ? ov.content : "🖼️"}</span>
+              <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
+                <input type="range" step="1" min={20} max={300} value={ov.size}
                   onChange={e => updateOverlay(ov.id, { size: +e.target.value })} style={{ flex:1 }} />
+                <span style={{ fontSize:11, color:textDim, minWidth:32, textAlign:"right" }}>{ov.size}px</span>
               </div>
+              <button onClick={() => {
+                const newOv = { ...ov, id: Date.now().toString() };
+                pushState({ overlays: [...s.overlays, newOv] });
+              }}
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, padding:4, minWidth:32, title:"Duplicate" }}>
+                📋
+              </button>
+              <button onClick={() => {
+                if (idx > 0) {
+                  const newOvs = [...s.overlays];
+                  [newOvs[idx], newOvs[idx-1]] = [newOvs[idx-1], newOvs[idx]];
+                  pushState({ overlays: newOvs });
+                }
+              }}
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:14, opacity:idx > 0 ? 1 : 0.3, padding:4, minWidth:32 }}>
+                ↑
+              </button>
+              <button onClick={() => {
+                if (idx < s.overlays.length - 1) {
+                  const newOvs = [...s.overlays];
+                  [newOvs[idx], newOvs[idx+1]] = [newOvs[idx+1], newOvs[idx]];
+                  pushState({ overlays: newOvs });
+                }
+              }}
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:14, opacity:idx < s.overlays.length - 1 ? 1 : 0.3, padding:4, minWidth:32 }}>
+                ↓
+              </button>
               <button onClick={() => updateOverlay(ov.id, { locked: !ov.locked })}
-                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:18, opacity:ov.locked?1:0.4, padding:4, minWidth:36 }}>
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, opacity:ov.locked?1:0.4, padding:4, minWidth:32 }}>
                 {ov.locked ? "🔒" : "🔓"}
               </button>
               <button onClick={() => removeOverlay(ov.id)}
-                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:18, padding:4, minWidth:36 }}>
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, padding:4, minWidth:32, color:"#ff5555" }}>
                 🗑️
               </button>
             </div>
@@ -1472,41 +1618,156 @@ export default function LuminaryPanels() {
         <span style={{ color:textPrimary, fontSize:14 }}>Performance Mode</span>
         <input type="checkbox" checked={settings.performanceMode} onChange={e => setSettings(prev => ({ ...prev, performanceMode: e.target.checked }))} />
       </label>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
+      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+        <button onClick={() => saveProjectToLum({ history, hIndex, state: s })} style={{ ...outlineBtn, flex:1, color:accent }}>💾 Save Project</button>
+        <button onClick={() => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".lum,.json";
+          input.onchange = (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            loadProjectFromLum(file).then(project => {
+              if (project?.history && Array.isArray(project.history) && project.hIndex !== undefined) {
+                setHistory(project.history);
+                setHIndex(project.hIndex);
+              } else {
+                alert("Project format not recognized");
+              }
+            }).catch(() => alert("Failed to load project"));
+          };
+          input.click();
+        }} style={{ ...outlineBtn, flex:1, color:accent }}>📂 Load Project</button>
+      </div>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Quality of Life</p>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Show Grid</span>
+        <input type="checkbox" checked={settings.showGrid !== false} onChange={e => setSettings(prev => ({ ...prev, showGrid: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Lock All Overlays</span>
+        <input type="checkbox" onChange={e => {
+          if (e.target.checked) {
+            pushState({ overlays: s.overlays.map(o => ({ ...o, locked: true })) });
+          } else {
+            pushState({ overlays: s.overlays.map(o => ({ ...o, locked: false })) });
+          }
+        }} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Keyboard Shortcuts</span>
+        <input type="checkbox" checked={settings.keyboardShortcuts !== false} onChange={e => setSettings(prev => ({ ...prev, keyboardShortcuts: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Motion Effects</span>
+        <input type="checkbox" checked={settings.motionIntensity > 0} onChange={e => setSettings(prev => ({ ...prev, motionIntensity: e.target.checked ? 1 : 0 }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Show Dimensions</span>
+        <input type="checkbox" checked={settings.showDimensions !== false} onChange={e => setSettings(prev => ({ ...prev, showDimensions: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Color Picker Preview</span>
+        <input type="checkbox" checked={settings.colorPreview !== false} onChange={e => setSettings(prev => ({ ...prev, colorPreview: e.target.checked }))} />
+      </label>
       <FRow label="Autosave Delay" textDim={textDim}>
-        <select value={settings.autosaveIntervalMs} onChange={e => setSettings(prev => ({ ...prev, autosaveIntervalMs: +e.target.value }))} style={inputSt}>
-          <option value={300}>Fast (300ms)</option>
-          <option value={700}>Normal (700ms)</option>
-          <option value={1500}>Slow (1.5s)</option>
-        </select>
+        <div style={{ display:"flex", gap:8 }}>
+          {[{l:"Fast",v:300},{l:"Normal",v:700},{l:"Slow",v:1500}].map(o => (
+            <button key={o.v} onClick={() => setSettings(prev => ({ ...prev, autosaveIntervalMs: o.v }))}
+              style={{
+                flex:1, padding:"8px", borderRadius:8, border: settings.autosaveIntervalMs === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.autosaveIntervalMs === o.v ? `${accent}18` : controlBg,
+                color: settings.autosaveIntervalMs === o.v ? accent : textPrimary,
+                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+              }}>
+              {o.l}
+            </button>
+          ))}
+        </div>
       </FRow>
       <FRow label="Default Layout" textDim={textDim}>
-        <select value={settings.defaultLayout} onChange={e => setSettings(prev => ({ ...prev, defaultLayout: e.target.value }))} style={inputSt}>
-          {Object.keys(LAYOUTS).map(k => <option key={k} value={k}>{k}</option>)}
-        </select>
-      </FRow>
-      <FRow label={`Motion Intensity ${Math.round(settings.motionIntensity * 100)}%`} textDim={textDim}>
-        <input type="range" min={0} max={160} step={5} value={settings.motionIntensity * 100} onChange={e => setSettings(prev => ({ ...prev, motionIntensity: +e.target.value / 100 }))} />
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+          {Object.keys(LAYOUTS).map(k => (
+            <button key={k} onClick={() => setSettings(prev => ({ ...prev, defaultLayout: k }))}
+              style={{
+                padding:"8px", borderRadius:8, border: settings.defaultLayout === k ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.defaultLayout === k ? `${accent}18` : controlBg,
+                color: settings.defaultLayout === k ? accent : textPrimary,
+                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+              }}>
+              {k}
+            </button>
+          ))}
+        </div>
       </FRow>
       <FRow label="Export Quality Scale" textDim={textDim}>
-        <select value={settings.exportScale} onChange={e => setSettings(prev => ({ ...prev, exportScale: +e.target.value }))} style={inputSt}>
-          <option value={2}>2x</option>
-          <option value={3}>3x</option>
-          <option value={4}>4x</option>
-          <option value={5}>5x</option>
-        </select>
+        <div style={{ display:"flex", gap:8 }}>
+          {[2,3,4,5].map(v => (
+            <button key={v} onClick={() => setSettings(prev => ({ ...prev, exportScale: v }))}
+              style={{
+                flex:1, padding:"8px", borderRadius:8, border: settings.exportScale === v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.exportScale === v ? `${accent}18` : controlBg,
+                color: settings.exportScale === v ? accent : textPrimary,
+                fontWeight:600, cursor:"pointer", transition:"all 0.15s",
+              }}>
+              {v}x
+            </button>
+          ))}
+        </div>
       </FRow>
       <FRow label="Theme Mode" textDim={textDim}>
-        <select value={settings.themeMode} onChange={e => setSettings(prev => ({ ...prev, themeMode: e.target.value }))} style={inputSt}>
-          <option value="system">System</option>
-          <option value="dark">Dark</option>
-          <option value="light">Light</option>
-        </select>
+        <div style={{ display:"flex", gap:8 }}>
+          {[{l:"System",v:"system"},{l:"Dark",v:"dark"},{l:"Light",v:"light"}].map(o => (
+            <button key={o.v} onClick={() => setSettings(prev => ({ ...prev, themeMode: o.v }))}
+              style={{
+                flex:1, padding:"8px", borderRadius:8, border: settings.themeMode === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.themeMode === o.v ? `${accent}18` : controlBg,
+                color: settings.themeMode === o.v ? accent : textPrimary,
+                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+              }}>
+              {o.l}
+            </button>
+          ))}
+        </div>
       </FRow>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Customization</p>
+      <FRow label="Accent Color" textDim={textDim}>
+        <ColorField value={settings.uiAccent || "#4fb3d9"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} />
+      </FRow>
+      <FRow label="Background Color" textDim={textDim}>
+        <ColorField value={settings.uiBg || "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)"} onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))} />
+      </FRow>
+      <FRow label="Text Color" textDim={textDim}>
+        <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} />
+      </FRow>
+      <button onClick={() => setSettings(prev => ({ ...prev, uiAccent: "#4fb3d9", uiBg: "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)", uiText: "#f0f9ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Keyboard Shortcuts</p>
+      <div style={{ background: `${accent}08`, border: `1px solid ${accent}20`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 12, color: textPrimary, fontFamily: "monospace" }}>
+        <div style={{ marginBottom: 6 }}><strong>Ctrl+Z</strong> - Undo</div>
+        <div style={{ marginBottom: 6 }}><strong>Ctrl+Shift+Z</strong> - Redo</div>
+        <div style={{ marginBottom: 6 }}><strong>Ctrl+E</strong> - Toggle Edit Mode</div>
+        <div style={{ marginBottom: 6 }}><strong>Ctrl+S</strong> - Save Image</div>
+        <div><strong>Esc</strong> - Close all modals</div>
+      </div>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>💡 Quick Tips</p>
+      <div style={{ background: `rgba(45,212,191,0.08)`, border: `1px solid rgba(45,212,191,0.2)`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 11, color: textPrimary, lineHeight: 1.6 }}>
+        <div style={{ marginBottom: 8 }}>✨ <strong>Edit Mode:</strong> Click Edit to move text, avatar, and overlays around freely</div>
+        <div style={{ marginBottom: 8 }}>🎨 <strong>Colors:</strong> Click the color box to open the wheel picker, or paste hex codes</div>
+        <div style={{ marginBottom: 8 }}>📁 <strong>Projects:</strong> Save your work locally with Save Project button</div>
+        <div style={{ marginBottom: 8 }}>⌨️ <strong>Shortcuts:</strong> Enable keyboard shortcuts in QoL settings</div>
+        <div>🎭 <strong>Themes:</strong> Switch between Glass, Cute, and Material presets instantly</div>
+      </div>
       <button onClick={() => {
         localStorage.removeItem(STORAGE_KEY);
         setHistory([getLayoutDefaults(settings.defaultLayout, pillStyle)]);
         setHIndex(0);
-      }} style={{ ...outlineBtn, color:"#ffb3d9" }}>Clear Saved Project</button>
+      }} style={{ ...outlineBtn, color:"#ff5555" }}>Clear Saved Project</button>
     </Card>
   );
 
@@ -1515,9 +1776,9 @@ export default function LuminaryPanels() {
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, width:"100%" }} ref={wrapRef}>
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
         {[
-          { id:"glass",    label:"🧊 Glass" },
-          { id:"cute",     label:"🌸 Cute" },
-          { id:"material", label:"🎨 Material" },
+          { id:"glass",    label:"Glass" },
+          { id:"cute",     label:"Cute" },
+          { id:"material", label:"Material" },
         ].map(t => (
           <button key={t.id}
             onClick={() => {
@@ -1529,8 +1790,9 @@ export default function LuminaryPanels() {
               ...outlineBtn, flex:"none",
               background: pillStyle === t.id ? accent : controlBg,
               color: pillStyle === t.id ? "#fff" : textPrimary,
-              border: pillStyle === t.id ? `1px solid ${accent}` : `1px solid ${cardBorder}`,
+              border: pillStyle === t.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
               fontWeight: pillStyle === t.id ? 700 : 500,
+              padding: "10px 18px",
             }}>
             {t.label}
           </button>
@@ -1543,7 +1805,7 @@ export default function LuminaryPanels() {
           width: s.pillW * pxScale + 32,
           height: s.pillH * pxScale + 32,
           borderRadius: (Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale) + 16,
-          border:"1.5px solid rgba(255,110,180,0.45)",
+          border:`1.5px solid ${accent}72`,
           pointerEvents:"none",
           animation: settings.performanceMode ? "none" : `ringPulse ${Math.max(1.3, 2.4 / settings.motionIntensity)}s ease-in-out infinite`,
           maxWidth:"calc(100% + 32px)",
@@ -1558,7 +1820,7 @@ export default function LuminaryPanels() {
           flexShrink: 0,
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
-          border: `1px solid rgba(255,110,180,0.35)`,
+          border: `1px solid ${accent}59`,
         }}>
           <canvas
             ref={canvasRef}
@@ -1571,22 +1833,26 @@ export default function LuminaryPanels() {
         </div>
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2 }}>
+      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
+        <span style={{ fontSize:12, color:textDim, padding:"8px 12px", minWidth:60, textAlign:"center", fontWeight:500 }}>
+          {Math.round(pxScale * 100)}%
+        </span>
+        <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
         <button
           onClick={() => setEditMode(v => !v)}
-          style={{ background:"transparent", border:"none", padding:"10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:600 }}>
-          {editMode ? "✅ Done Editing" : "🖱 Edit Elements"}
+          style={{ background:"transparent", border:"none", padding:"10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:600, zIndex:vp.isMobile ? 61 : "auto" }}>
+          {editMode ? "Done" : "Edit"}
         </button>
         <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
         <button
           onClick={exportPNG}
-          style={{ background:"linear-gradient(135deg,#ff6eb4,#ffb3d9)", border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
-          💾 Save
+          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
+          Save
         </button>
         <button
           onClick={sharePNG}
-          style={{ background:"linear-gradient(135deg,#ff6eb4,#ff9ecd)", border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
-          🔗 Share
+          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, opacity:0.9, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
+          Share
         </button>
       </div>
     </div>
@@ -1598,22 +1864,22 @@ export default function LuminaryPanels() {
       <style dangerouslySetInnerHTML={{ __html: `
         *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
         * { -webkit-tap-highlight-color: transparent; }
-        ::selection { background: rgba(255,110,180,0.25); color: #fff; }
-        body { background: #09090b; overflow-x: hidden; }
+        ::selection { background: rgba(79,179,217,0.25); color: #fff; }
+        body { background: ${isDark ? "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)" : "#f0f9fc"}; overflow-x: hidden; }
         ::-webkit-scrollbar { width:5px; }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#ff6eb4,#ffb3d9); border-radius:5px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#4fb3d9,#2dd4bf); border-radius:5px; }
         input,select,button { border-radius: 16px; }
-        input[type=range] { -webkit-appearance:none; height:7px; border-radius:999px; background:rgba(255,255,255,0.12); width:100%; outline:none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg,#ff6eb4,#ffb3d9); box-shadow:0 2px 8px rgba(255,110,180,0.5); cursor:pointer; }
-        input[type=checkbox] { width:16px; height:16px; accent-color: #ff6eb4; cursor:pointer; }
-        select option { background:#1c1c1e; color:#f2f2f7; }
+        input[type=range] { -webkit-appearance:none; height:7px; border-radius:999px; background:rgba(79,179,217,0.15); width:100%; outline:none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg,#4fb3d9,#2dd4bf); box-shadow:0 2px 8px rgba(79,179,217,0.5); cursor:pointer; }
+        input[type=checkbox] { width:16px; height:16px; accent-color: #4fb3d9; cursor:pointer; }
+        select option { background:#1c1c1e; color:#f0f9ff; }
         @keyframes headerGlow {
-          0%,100% { box-shadow: 0 1px 0 rgba(255,110,180,0.25), 0 4px 30px rgba(255,110,180,0.08); }
-          50%      { box-shadow: 0 1px 0 rgba(255,179,217,0.4), 0 4px 40px rgba(255,110,180,0.18); }
+          0%,100% { box-shadow: 0 1px 0 rgba(79,179,217,0.25), 0 4px 30px rgba(79,179,217,0.08); }
+          50%      { box-shadow: 0 1px 0 rgba(45,212,191,0.4), 0 4px 40px rgba(79,179,217,0.18); }
         }
         @keyframes canvasPulse {
-          0%,100% { box-shadow: 0 0 38px 8px rgba(255,110,180,0.34), 0 0 70px 16px rgba(255,110,180,0.16), 0 20px 60px rgba(0,0,0,0.7); }
-          50%      { box-shadow: 0 0 66px 20px rgba(255,110,180,0.72), 0 0 120px 40px rgba(255,179,217,0.35), 0 20px 60px rgba(0,0,0,0.7); }
+          0%,100% { box-shadow: 0 0 38px 8px rgba(79,179,217,0.34), 0 0 70px 16px rgba(79,179,217,0.16), 0 20px 60px rgba(0,0,0,0.7); }
+          50%      { box-shadow: 0 0 66px 20px rgba(79,179,217,0.72), 0 0 120px 40px rgba(45,212,191,0.35), 0 20px 60px rgba(0,0,0,0.7); }
         }
         @keyframes ringPulse {
           0%,100% { opacity: 0.55; transform: scale(1); }
@@ -1625,26 +1891,35 @@ export default function LuminaryPanels() {
         }
       `}} />
 
-      <div style={{ minHeight:"100vh", color:"#f2f2f7", fontFamily:"system-ui,-apple-system,sans-serif", background:"linear-gradient(160deg,#09090b 0%,#0d0d1a 50%,#09090b 100%)", paddingBottom: vp.isMobile ? 110 : 0 }}>
+      <div style={{ minHeight:"100vh", color:textPrimary, fontFamily:"system-ui,-apple-system,sans-serif", background:pageBg, paddingBottom: vp.isMobile ? 110 : 0 }}>
 
         {/* Header */}
-        <header style={{ position:"sticky", top:0, zIndex:100, background:"rgba(9,9,11,0.88)", backdropFilter:"blur(20px)", borderBottom:`1px solid rgba(255,110,180,0.18)`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
+        <header style={{ position:"sticky", top:0, zIndex:100, background: isDark ? "rgba(9,9,11,0.88)" : `${pageBg}dd`, backdropFilter:"blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <h1 style={{ fontSize:20, fontWeight:800, background:"linear-gradient(90deg,#ff6eb4,#ffb3d9,#ffd6ec)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
+            <h1 style={{ fontSize:20, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ borderLeft:"1px solid rgba(255,255,255,0.1)", height:20, margin:"0 6px" }} />
-            <select value={layoutMode}
-              onChange={e => {
-                setLayoutMode(e.target.value);
-                const next = getLayoutDefaults(e.target.value, pillStyle);
-                pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
-              }}
-              style={{ ...inputSt, width:180, padding:"7px 10px", fontWeight:600, fontSize:13 }}>
-              {Object.keys(LAYOUTS).map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {Object.keys(LAYOUTS).map(k => (
+                <button key={k} onClick={() => {
+                  setLayoutMode(k);
+                  const next = getLayoutDefaults(k, pillStyle);
+                  pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+                }}
+                  style={{
+                    padding:"6px 12px", borderRadius:8, fontSize:12, fontWeight:600,
+                    border: layoutMode === k ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                    background: layoutMode === k ? `${accent}18` : controlBg,
+                    color: layoutMode === k ? accent : textPrimary,
+                    cursor:"pointer", transition:"all 0.15s",
+                  }}>
+                  {k}
+                </button>
+              ))}
+            </div>
           </div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
             <button onClick={() => setSettingsOpen(v => !v)}
-              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", fontSize:13 }}>⚙ Settings</button>
+              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", fontSize:13 }}>Settings</button>
             <button onClick={undo} disabled={hIndex === 0}
               style={{ ...outlineBtn, flex:"none", padding:"8px 14px", opacity: hIndex === 0 ? 0.3 : 1, fontSize:13 }}>{ICONS.undo} Undo</button>
             <button onClick={redo} disabled={hIndex === history.length - 1}
@@ -1655,7 +1930,7 @@ export default function LuminaryPanels() {
         </header>
 
         {/* Main layout */}
-        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", gap:20, padding:"20px 14px", maxWidth:1600, margin:"0 auto" }}>
+        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"flex-start", gap:20, padding:"20px 14px", paddingRight: vp.isMobile ? "14px" : 580, maxWidth: "100%", margin:"0 auto" }}>
 
           {!vp.isMobile && (
             <div style={{ flex:"1 1 280px", maxWidth:340, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
@@ -1665,20 +1940,12 @@ export default function LuminaryPanels() {
             </div>
           )}
 
-          <main style={{ flex:"2 1 400px", maxWidth: vp.isMobile ? "100%" : 660, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
+          <main style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position: vp.isMobile ? "relative" : "fixed", right: vp.isMobile ? "auto" : 20, top: vp.isMobile ? "auto" : 72, width: vp.isMobile ? "100%" : 540, maxHeight: vp.isMobile ? "auto" : "calc(100vh - 140px)", zIndex: vp.isMobile ? "auto" : 40, overflowY: vp.isMobile ? "visible" : "auto" }}>
             <div style={{
-              background: cardBg, borderRadius:24,
-              padding: vp.isMobile ? "16px 14px" : "28px 20px",
-              width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:20,
+              background: cardBg, borderRadius:20,
+              padding: "18px",
+              display:"flex", flexDirection:"column", alignItems:"center", gap:16,
               border:`1px solid ${cardBorder}`, boxShadow: cardShadow,
-              ...(vp.isMobile ? {
-                position:"sticky", top:56, zIndex:50,
-                borderRadius:"0 0 24px 24px",
-                background:"rgba(9,9,11,0.92)",
-                backdropFilter:"blur(20px)",
-                borderTop:"none",
-                paddingTop:12,
-              } : {}),
             }}>
               {canvasBlock}
             </div>
@@ -1699,18 +1966,30 @@ export default function LuminaryPanels() {
               style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14, animation:`tabSlide 260ms ease` }}
               onTouchStart={(e) => {
                 const target = e.target;
-                if (target.closest("input[type='range'],input,select,textarea,button")) return;
-                dragData.current = { ...dragData.current, swipeStartX: e.touches[0].clientX };
+                if (target.closest("input[type='range'],input,select,textarea,button,label,[role='button']")) return;
+                dragData.current = {
+                  ...dragData.current,
+                  swipeStartX: e.touches[0].clientX,
+                  swipeStartY: e.touches[0].clientY,
+                };
+              }}
+              onTouchMove={(e) => {
+                if (!dragData.current?.swipeStartX) return;
+                const dx = Math.abs(e.touches[0].clientX - dragData.current.swipeStartX);
+                const dy = Math.abs(e.touches[0].clientY - dragData.current.swipeStartY);
+                // Cancel swipe if mostly vertical scroll
+                if (dy > dx && dy > 10) { dragData.current = { ...dragData.current, swipeStartX: null }; }
               }}
               onTouchEnd={(e) => {
                 if (isSliding) return;
                 const start = dragData.current?.swipeStartX;
                 if (!start) return;
                 const dx = e.changedTouches[0].clientX - start;
-                if (Math.abs(dx) < 55) return;
+                const dy = e.changedTouches[0].clientY - (dragData.current?.swipeStartY ?? 0);
+                dragData.current = null;
+                if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
                 if (dx < 0 && tabIndex < MOBILE_TABS.length - 1) changeMobileTab(MOBILE_TABS[tabIndex + 1]);
                 if (dx > 0 && tabIndex > 0) changeMobileTab(MOBILE_TABS[tabIndex - 1]);
-                dragData.current = null;
               }}
             >
               {mobileTab === "layout" && <>{panelBaseConfig}{panelEnvironment}</>}
@@ -1733,9 +2012,9 @@ export default function LuminaryPanels() {
             ].map(t => (
               <button key={t.id} onClick={() => changeMobileTab(t.id)}
                 style={{
-                  flex:1, background: mobileTab === t.id ? "rgba(255,110,180,0.15)" : "transparent",
+                  flex:1, background: mobileTab === t.id ? "rgba(79,179,217,0.15)" : "transparent",
                   color: mobileTab === t.id ? accent : textDim,
-                  border: mobileTab === t.id ? `1px solid rgba(255,110,180,0.25)` : "1px solid transparent",
+                  border: mobileTab === t.id ? `1px solid rgba(79,179,217,0.25)` : "1px solid transparent",
                   borderRadius:12, padding:"8px 4px",
                   display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer",
                   transition:"all 0.15s",
@@ -1816,12 +2095,47 @@ function Sep({ cardBorder }) {
 function ColorField({ value, onChange }) {
   const [open, setOpen] = useState(false);
   const wheelRef = useRef(null);
+  const overlayRef = useRef(null);
+
+  const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#0891b2","#0284c7","#0d47a1","#000000","#ffffff","#e0f2fe","#ccfbf1"];
 
   const hsvToHex = (h, s, v) => {
     const f = (n, k = (n + h / 60) % 6) => v - (v * s) * Math.max(Math.min(k, 4 - k, 1), 0);
     const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
     return `#${toHex(f(5))}${toHex(f(3))}${toHex(f(1))}`;
   };
+
+  const [cursorPos, setCursorPos] = useState({ x: 110, y: 110 });
+
+  const hexToHsv = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const d = max - min;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    const s = max === 0 ? 0 : d / max;
+    const v = max;
+    return { h: h * 360, s, v };
+  };
+
+  useEffect(() => {
+    if (open && value && value.startsWith("#")) {
+      const hsv = hexToHsv(value);
+      const ang = (hsv.h * Math.PI) / 180;
+      const distance = Math.min(hsv.s * 110, 110);
+      const x = 110 + Math.cos(ang) * distance;
+      const y = 110 + Math.sin(ang) * distance;
+      setCursorPos({ x, y });
+    }
+  }, [open, value]);
 
   const setHueFromPoint = (clientX, clientY) => {
     const rect = wheelRef.current?.getBoundingClientRect();
@@ -1830,33 +2144,135 @@ function ColorField({ value, onChange }) {
     const cy = rect.top + rect.height / 2;
     const ang = Math.atan2(clientY - cy, clientX - cx);
     const hue = ((ang * 180) / Math.PI + 360) % 360;
-    onChange(hsvToHex(hue, 1, 1));
+    const rad = Math.hypot(clientX - cx, clientY - cy);
+    const radius = rect.width / 2;
+    const saturation = Math.min(rad / radius, 1);
+    const x = 110 + Math.cos(ang) * (saturation * 110);
+    const y = 110 + Math.sin(ang) * (saturation * 110);
+    setCursorPos({ x, y });
+    onChange(hsvToHex(hue, saturation, 1));
   };
 
   return (
     <div style={{ position: "relative" }}>
-      <button onClick={() => setOpen(v => !v)} style={{
-        width: "100%", height: 44, borderRadius: 999, border: "1px solid rgba(255,255,255,0.15)",
-        background: value, cursor: "pointer",
-      }} />
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+        style={{
+          width: "100%", height: 44, borderRadius: 999,
+          border: "2px solid rgba(255,255,255,0.18)",
+          background: value, cursor: "pointer",
+          boxShadow: `0 2px 12px ${value}55`,
+          transition: "box-shadow 0.2s",
+        }}
+      />
       {open && (
-        <div style={{
-          position: "absolute", zIndex: 20, top: 50, right: 0, width: 220, padding: 12,
-          borderRadius: 16, border: "1px solid rgba(255,255,255,0.15)", background: "#16161b", boxShadow: "0 20px 50px rgba(0,0,0,0.45)",
-        }}>
+        <>
+          {/* Backdrop */}
           <div
-            ref={wheelRef}
-            onPointerDown={(e) => setHueFromPoint(e.clientX, e.clientY)}
-            onPointerMove={(e) => { if (e.buttons) setHueFromPoint(e.clientX, e.clientY); }}
+            ref={overlayRef}
+            onClick={() => setOpen(false)}
             style={{
-              width: 120, height: 120, borderRadius: "50%", margin: "0 auto 10px", cursor: "crosshair",
-              background: "conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
-              boxShadow: "inset 0 0 0 14px #16161b, 0 0 0 1px rgba(255,255,255,0.18)",
+              position: "fixed", inset: 0, zIndex: 998,
+              background: "rgba(0,0,0,0.3)", backdropFilter: "blur(2px)",
             }}
           />
-          <input type="color" value={value} onChange={e => onChange(e.target.value)} style={{ width: "100%", height: 40, border: "none", background: "transparent" }} />
-          <div style={{ marginTop: 8, color: "rgba(255,255,255,0.6)", fontSize: 12, textAlign: "center" }}>Color wheel + exact picker</div>
-        </div>
+          {/* Picker panel */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: "fixed", zIndex: 999,
+              bottom: 0, left: 0, right: 0,
+              padding: "20px 20px 32px",
+              borderRadius: "22px 22px 0 0",
+              background: "#0a0e27",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 -20px 60px rgba(0,0,0,0.7)",
+            }}
+          >
+            {/* Handle bar */}
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 18px" }} />
+
+            {/* Color wheel with cursor indicator */}
+            <div style={{ position: "relative", width: 220, height: 220, margin: "0 auto 18px" }}>
+              <div
+                ref={wheelRef}
+                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setHueFromPoint(e.clientX, e.clientY); }}
+                onPointerMove={(e) => { if (e.buttons) setHueFromPoint(e.clientX, e.clientY); }}
+                style={{
+                  width: 220, height: 220, borderRadius: "50%",
+                  cursor: "crosshair",
+                  background: "conic-gradient(#ff0000,#ff8000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)",
+                  boxShadow: "inset 0 0 0 20px #0a0e27, 0 0 0 2px rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.5)",
+                  touchAction: "none",
+                }}
+              />
+              {/* Cursor indicator */}
+              <div style={{
+                position: "absolute",
+                width: 16, height: 16,
+                border: "3px solid white",
+                borderRadius: "50%",
+                left: cursorPos.x - 8,
+                top: cursorPos.y - 8,
+                boxShadow: "0 0 0 1px rgba(0,0,0,0.5)",
+                pointerEvents: "none",
+              }} />
+            </div>
+
+            {/* Current color + exact hex picker */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: value, border: "2px solid rgba(255,255,255,0.18)", flexShrink: 0, boxShadow: `0 4px 16px ${value}88` }} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 0, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600 }}>Exact Colour</p>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    type="color" value={value}
+                    onChange={e => onChange(e.target.value)}
+                    style={{ width: 44, height: 44, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, background: "rgba(255,255,255,0.06)", cursor: "pointer", padding: 2 }}
+                  />
+                  <input
+                    type="text" value={value} readOnly
+                    style={{ flex: 1, height: 44, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, color: "#fff", padding: "0 12px", fontFamily: "monospace", textTransform: "uppercase", cursor: "pointer" }}
+                    onClick={() => { navigator.clipboard.writeText(value); }}
+                    title="Click to copy"
+                  />
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(value); alert("Copied!"); }}
+                    style={{ height: 44, padding: "0 12px", background: "rgba(79,179,217,0.15)", border: "1px solid rgba(79,179,217,0.3)", borderRadius: 10, color: "#4fb3d9", cursor: "pointer", fontWeight: 600, fontSize: 12 }}
+                  >
+                    📋
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Preset swatches */}
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 10 }}>Presets</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 16 }}>
+              {PRESETS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => onChange(c)}
+                  style={{
+                    height: 44, borderRadius: 12, background: c, border: value === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.12)",
+                    cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 8px ${c}66`,
+                  }}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={() => setOpen(false)}
+              style={{
+                width: "100%", padding: "14px", borderRadius: 16,
+                background: "linear-gradient(135deg,#4fb3d9,#2dd4bf)",
+                border: "none", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
