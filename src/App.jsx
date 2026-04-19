@@ -727,9 +727,19 @@ export default function LuminaryPanels() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isSliding, setIsSliding] = useState(false);
+  const [toast, setToast] = useState({ open: false, message: "", type: "info" });
+  const toastTimerRef = useRef(null);
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [exportDataUrl, setExportDataUrl] = useState(null);
+
+  const showToast = useCallback((message, type = "info") => {
+    setToast({ open: true, message, type });
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(prev => ({ ...prev, open: false }));
+    }, 2600);
+  }, []);
 
   // ── History ───────────────────────────────────────────────────────────────
   const [history, setHistory] = useState(() => {
@@ -786,6 +796,10 @@ export default function LuminaryPanels() {
     try { document.head.appendChild(l); } catch (_) {}
     if (document.fonts?.ready) document.fonts.ready.then(() => setFontsOk(true));
     else setFontsOk(true);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -1215,6 +1229,7 @@ export default function LuminaryPanels() {
                   albumIdentifier,
                   fileName: `Luminary_${Date.now()}`,
                 });
+                showToast('Saved to gallery album "Luminary Panels"', "success");
                 alert('Saved to gallery album "Luminary Panels"');
                 return;
               }
@@ -1280,7 +1295,7 @@ export default function LuminaryPanels() {
 
       setExportDataUrl(dataUrl);
     } catch (err) {
-      if (err.name !== "AbortError") alert("Share failed: " + err.message);
+      if (err.name !== "AbortError") showToast("Share failed: " + err.message, "error");
     }
   };
 
@@ -1790,6 +1805,7 @@ export default function LuminaryPanels() {
               }
             } catch (err) {
               console.error("Save project failed:", err);
+              showToast(`Save project failed: ${err.message || err}`, "error");
               alert(`Save project failed: ${err.message || err}`);
             }
           }}
@@ -1809,9 +1825,9 @@ export default function LuminaryPanels() {
                 setHistory(project.history);
                 setHIndex(project.hIndex);
               } else {
-                alert("Project format not recognized");
+                showToast("Project format not recognized", "error");
               }
-            }).catch(() => alert("Failed to load project"));
+            }).catch(() => showToast("Failed to load project", "error"));
           };
           input.click();
         }} style={{ ...outlineBtn, flex:1, color:accent }}>📂 Load Project</button>
@@ -2204,6 +2220,31 @@ export default function LuminaryPanels() {
             ))}
           </nav>
         )}
+
+        {toast.open && (
+          <div
+            style={{
+              position:"fixed",
+              left:12,
+              right:12,
+              bottom: vp.isMobile ? 96 : 16,
+              zIndex: 1700,
+              padding:"12px 14px",
+              borderRadius:14,
+              border: toast.type === "error" ? "1px solid rgba(248,113,113,0.45)" : "1px solid rgba(45,212,191,0.45)",
+              background: toast.type === "error"
+                ? "linear-gradient(135deg, rgba(127,29,29,0.95), rgba(69,10,10,0.92))"
+                : "linear-gradient(135deg, rgba(15,118,110,0.95), rgba(15,76,129,0.9))",
+              color:"#f8fafc",
+              fontSize:13,
+              fontWeight:600,
+              boxShadow:"0 12px 30px rgba(0,0,0,0.35)",
+              backdropFilter:"blur(12px)",
+            }}
+          >
+            {toast.message}
+          </div>
+        )}
       </div>
 
       {/* Settings bottom sheet */}
@@ -2273,6 +2314,7 @@ function Sep({ cardBorder }) {
 
 function ColorField({ value, onChange }) {
   const [open, setOpen] = useState(false);
+  const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#0891b2","#0284c7","#0d47a1","#111827","#f8fafc","#e0f2fe","#ccfbf1"];
   const wheelRef = useRef(null);
   const overlayRef = useRef(null);
 
@@ -2328,6 +2370,10 @@ function ColorField({ value, onChange }) {
   const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
   const [hexInput, setHexInput] = useState(safeHex);
 
+  useEffect(() => {
+    setHexInput(safeHex);
+  }, [safeHex]);
+
   const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
 
   useEffect(() => {
@@ -2362,6 +2408,11 @@ function ColorField({ value, onChange }) {
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
         style={{
+          width: "100%", height: 44, borderRadius: 12,
+          border: "1px solid rgba(255,255,255,0.18)",
+          background: safeHex, cursor: "pointer",
+          boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.2), 0 2px 8px ${safeHex}44`,
+          transition: "all 0.2s",
           width: "100%", height: 44, borderRadius: 999,
           border: "2px solid rgba(255,255,255,0.18)",
           background: safeHex, cursor: "pointer",
