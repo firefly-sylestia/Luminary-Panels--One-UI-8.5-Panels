@@ -158,6 +158,27 @@ function saveProjectToLum(data) {
   URL.revokeObjectURL(url);
 }
 
+async function saveProjectToLumNative(data) {
+  const lumFile = { version: "1.0", timestamp: Date.now(), project: data };
+  const json = JSON.stringify(lumFile);
+  const fileName = `luminary-${Date.now()}.lum`;
+  const { Filesystem, Directory } = await import("@capacitor/filesystem");
+  const { Share } = await import("@capacitor/share");
+  const base64 = btoa(unescape(encodeURIComponent(json)));
+  await Filesystem.writeFile({
+    path: fileName,
+    data: base64,
+    directory: Directory.Documents,
+  });
+  const fileResult = await Filesystem.getUri({ path: fileName, directory: Directory.Documents });
+  await Share.share({
+    title: "Luminary Project",
+    text: "Saved Luminary project file",
+    url: fileResult.uri,
+    dialogTitle: "Save or share project file",
+  });
+}
+
 function loadProjectFromLum(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -198,6 +219,23 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
       ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2);
       ctx.fillStyle = g; ctx.shadowColor = color; ctx.shadowBlur = 10; ctx.fill();
     }
+  } else if (styleId === "pearls") {
+    const n = Math.max(6, Math.floor(p1));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const pr = Math.max(2, thickness * 0.9);
+      const px = cx + Math.cos(a) * (R + pr * 0.75);
+      const py = cy + Math.sin(a) * (R + pr * 0.75);
+      const g = ctx.createRadialGradient(px - pr * 0.35, py - pr * 0.35, pr * 0.12, px, py, pr * 1.3);
+      g.addColorStop(0, "#ffffff");
+      g.addColorStop(0.35, "#f8fafc");
+      g.addColorStop(0.75, color);
+      g.addColorStop(1, shadeHex(color, -45));
+      ctx.beginPath();
+      ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
   } else if (styleId === "glow") {
     const maxGlowSpread = Math.min(p1, 25);
     const maxDepth = Math.min(p2, 12);
@@ -214,6 +252,89 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
       ctx.save(); ctx.translate(ex,ey); ctx.rotate(a+Math.PI/2+jitter);
       ctx.fillText(emList[i%emList.length],0,0); ctx.restore();
     }
+  } else if (styleId === "sparkle") {
+    const n = Math.max(6, Math.floor(p1));
+    const spike = Math.max(3, thickness * 1.8);
+    const inner = Math.max(1.5, thickness * 0.65);
+    ctx.fillStyle = color;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const px = cx + Math.cos(a) * R;
+      const py = cy + Math.sin(a) * R;
+      const rot = a + (i % 2 ? 0.25 : -0.2);
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(rot);
+      ctx.beginPath();
+      for (let p = 0; p < 8; p++) {
+        const rr = p % 2 === 0 ? spike : inner;
+        const pa = (p / 8) * Math.PI * 2;
+        const x = Math.cos(pa) * rr;
+        const y = Math.sin(pa) * rr;
+        if (p === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 9;
+      ctx.fill();
+      ctx.restore();
+    }
+  } else if (styleId === "crystal") {
+    const n = Math.max(8, Math.floor(p1));
+    const size = Math.max(3, thickness * 1.4);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const px = cx + Math.cos(a) * R;
+      const py = cy + Math.sin(a) * R;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(a + Math.PI / 4);
+      const grad = ctx.createLinearGradient(-size, -size, size, size);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(0.45, color);
+      grad.addColorStop(1, shadeHex(color, -55));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, -size * 1.35);
+      ctx.lineTo(size, 0);
+      ctx.lineTo(0, size * 1.35);
+      ctx.lineTo(-size, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  } else if (styleId === "lace") {
+    const n = Math.max(10, Math.floor(p1));
+    const loopR = Math.max(2, thickness * 0.8);
+    ctx.lineWidth = Math.max(1, thickness * 0.45);
+    ctx.strokeStyle = color;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const px = cx + Math.cos(a) * (R + loopR * 0.2);
+      const py = cy + Math.sin(a) * (R + loopR * 0.2);
+      ctx.beginPath();
+      ctx.arc(px, py, loopR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (styleId === "ribbon") {
+    const freq = Math.max(2, p1);
+    const amp = Math.max(1, p2);
+    const points = 240;
+    ctx.lineWidth = Math.max(1.5, thickness * 0.8);
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i <= points; i++) {
+      const t = i / points;
+      const a = t * Math.PI * 2;
+      const rr = R + Math.sin(a * freq) * amp;
+      const px = cx + Math.cos(a) * rr;
+      const py = cy + Math.sin(a) * rr;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.stroke();
   } else {
     ctx.lineWidth=thickness; ctx.beginPath(); ctx.arc(cx,cy,R+(thickness/2),0,Math.PI*2);
     if (styleId==="dashed")      { ctx.setLineDash([thickness*2,thickness*(p1/5)]); ctx.stroke(); }
@@ -453,11 +574,11 @@ function CropModal({ src, onConfirm, onCancel }) {
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1 }}>
             <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Zoom {zoom}%</label>
-            <input type="range" step="1" min={50} max={180} step={1} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
+            <input type="range" step="1" min={50} max={180} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
           </div>
           <div style={{ flex: 1 }}>
             <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Rotate {rotation}°</label>
-            <input type="range" step="1" min={-180} max={180} step={1} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
+            <input type="range" step="1" min={-180} max={180} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
           </div>
         </div>
 
@@ -1064,7 +1185,37 @@ export default function LuminaryPanels() {
       const dataUrl = ec.toDataURL("image/png", 1.0);
 
       if (isAndroidWebView()) {
-        setExportDataUrl(dataUrl);
+        (async () => {
+          try {
+            if (window.Capacitor) {
+              const { Media } = await import("@capacitor-community/media");
+              const albumName = "Luminary Panels";
+              let albumIdentifier = null;
+              const albumsResponse = await Media.getAlbums();
+              const existingAlbum = (albumsResponse.albums || []).find(a => a.name === albumName);
+              if (existingAlbum?.identifier) {
+                albumIdentifier = existingAlbum.identifier;
+              } else {
+                await Media.createAlbum({ name: albumName });
+                const refreshedAlbums = await Media.getAlbums();
+                albumIdentifier = (refreshedAlbums.albums || []).find(a => a.name === albumName)?.identifier || null;
+              }
+
+              if (albumIdentifier) {
+                await Media.savePhoto({
+                  path: dataUrl,
+                  albumIdentifier,
+                  fileName: `Luminary_${Date.now()}`,
+                });
+                alert('Saved to gallery album "Luminary Panels"');
+                return;
+              }
+            }
+          } catch (nativeSaveErr) {
+            console.error("Native gallery save failed, showing fallback modal:", nativeSaveErr);
+          }
+          setExportDataUrl(dataUrl);
+        })();
         return;
       }
 
@@ -1131,7 +1282,7 @@ export default function LuminaryPanels() {
   
   // ── Resolve effective theme ───────────────────────────────────────────────
   const systemDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemDark) || settings.themeMode === "system";
+  const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemDark);
   
   const accent = settings.uiAccent || "#4fb3d9";
   const accent2 = settings.uiAccent || "#2dd4bf";
@@ -1621,7 +1772,23 @@ export default function LuminaryPanels() {
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        <button onClick={() => saveProjectToLum({ history, hIndex, state: s })} style={{ ...outlineBtn, flex:1, color:accent }}>💾 Save Project</button>
+        <button
+          onClick={async () => {
+            try {
+              if (window.Capacitor) {
+                await saveProjectToLumNative({ history, hIndex, state: s });
+              } else {
+                saveProjectToLum({ history, hIndex, state: s });
+              }
+            } catch (err) {
+              console.error("Save project failed:", err);
+              alert(`Save project failed: ${err.message || err}`);
+            }
+          }}
+          style={{ ...outlineBtn, flex:1, color:accent }}
+        >
+          💾 Save Project
+        </button>
         <button onClick={() => {
           const input = document.createElement("input");
           input.type = "file";
@@ -1739,7 +1906,11 @@ export default function LuminaryPanels() {
         <ColorField value={settings.uiAccent || "#4fb3d9"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} />
       </FRow>
       <FRow label="Background Color" textDim={textDim}>
-        <ColorField value={settings.uiBg || "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)"} onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))} />
+        <TxIn
+          value={settings.uiBg || "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)"}
+          onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))}
+          inputSt={inputSt}
+        />
       </FRow>
       <FRow label="Text Color" textDim={textDim}>
         <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} />
@@ -1940,7 +2111,7 @@ export default function LuminaryPanels() {
             </div>
           )}
 
-          <main style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position: vp.isMobile ? "relative" : "fixed", right: vp.isMobile ? "auto" : 20, top: vp.isMobile ? "auto" : 72, width: vp.isMobile ? "100%" : 540, maxHeight: vp.isMobile ? "auto" : "calc(100vh - 140px)", zIndex: vp.isMobile ? "auto" : 40, overflowY: vp.isMobile ? "visible" : "auto" }}>
+          <main style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position: vp.isMobile ? "sticky" : "fixed", right: vp.isMobile ? "auto" : 20, top: vp.isMobile ? 74 : 72, width: vp.isMobile ? "100%" : 540, maxHeight: vp.isMobile ? "none" : "calc(100vh - 140px)", zIndex: vp.isMobile ? 90 : 40, overflowY: vp.isMobile ? "visible" : "auto", alignSelf:"flex-start" }}>
             <div style={{
               background: cardBg, borderRadius:20,
               padding: "18px",
@@ -2099,6 +2270,22 @@ function ColorField({ value, onChange }) {
 
   const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#0891b2","#0284c7","#0d47a1","#000000","#ffffff","#e0f2fe","#ccfbf1"];
 
+  const normalizeHex = useCallback((raw) => {
+    if (!raw || typeof raw !== "string") return "#ffffff";
+    const trimmed = raw.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toLowerCase();
+    if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+      return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`.toLowerCase();
+    }
+    const rgb = trimmed.match(/^rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})/i);
+    if (rgb) {
+      const clamp = (n) => Math.max(0, Math.min(255, Number(n) || 0));
+      const toHex = (n) => clamp(n).toString(16).padStart(2, "0");
+      return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
+    }
+    return "#ffffff";
+  }, []);
+
   const hsvToHex = (h, s, v) => {
     const f = (n, k = (n + h / 60) % 6) => v - (v * s) * Math.max(Math.min(k, 4 - k, 1), 0);
     const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
@@ -2126,16 +2313,18 @@ function ColorField({ value, onChange }) {
     return { h: h * 360, s, v };
   };
 
+  const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
+
   useEffect(() => {
-    if (open && value && value.startsWith("#")) {
-      const hsv = hexToHsv(value);
+    if (open) {
+      const hsv = hexToHsv(safeHex);
       const ang = (hsv.h * Math.PI) / 180;
       const distance = Math.min(hsv.s * 110, 110);
       const x = 110 + Math.cos(ang) * distance;
       const y = 110 + Math.sin(ang) * distance;
       setCursorPos({ x, y });
     }
-  }, [open, value]);
+  }, [open, safeHex]);
 
   const setHueFromPoint = (clientX, clientY) => {
     const rect = wheelRef.current?.getBoundingClientRect();
@@ -2160,8 +2349,8 @@ function ColorField({ value, onChange }) {
         style={{
           width: "100%", height: 44, borderRadius: 999,
           border: "2px solid rgba(255,255,255,0.18)",
-          background: value, cursor: "pointer",
-          boxShadow: `0 2px 12px ${value}55`,
+          background: safeHex, cursor: "pointer",
+          boxShadow: `0 2px 12px ${safeHex}55`,
           transition: "box-shadow 0.2s",
         }}
       />
@@ -2221,23 +2410,23 @@ function ColorField({ value, onChange }) {
 
             {/* Current color + exact hex picker */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: value, border: "2px solid rgba(255,255,255,0.18)", flexShrink: 0, boxShadow: `0 4px 16px ${value}88` }} />
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: safeHex, border: "2px solid rgba(255,255,255,0.18)", flexShrink: 0, boxShadow: `0 4px 16px ${safeHex}88` }} />
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
                 <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 0, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600 }}>Exact Colour</p>
                 <div style={{ display: "flex", gap: 6 }}>
                   <input
-                    type="color" value={value}
+                    type="color" value={safeHex}
                     onChange={e => onChange(e.target.value)}
                     style={{ width: 44, height: 44, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, background: "rgba(255,255,255,0.06)", cursor: "pointer", padding: 2 }}
                   />
                   <input
-                    type="text" value={value} readOnly
+                    type="text" value={safeHex} readOnly
                     style={{ flex: 1, height: 44, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, color: "#fff", padding: "0 12px", fontFamily: "monospace", textTransform: "uppercase", cursor: "pointer" }}
-                    onClick={() => { navigator.clipboard.writeText(value); }}
+                    onClick={() => { navigator.clipboard.writeText(safeHex); }}
                     title="Click to copy"
                   />
                   <button
-                    onClick={() => { navigator.clipboard.writeText(value); alert("Copied!"); }}
+                    onClick={() => { navigator.clipboard.writeText(safeHex); alert("Copied!"); }}
                     style={{ height: 44, padding: "0 12px", background: "rgba(79,179,217,0.15)", border: "1px solid rgba(79,179,217,0.3)", borderRadius: 10, color: "#4fb3d9", cursor: "pointer", fontWeight: 600, fontSize: 12 }}
                   >
                     📋
@@ -2254,7 +2443,7 @@ function ColorField({ value, onChange }) {
                   key={c}
                   onClick={() => onChange(c)}
                   style={{
-                    height: 44, borderRadius: 12, background: c, border: value === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.12)",
+                    height: 44, borderRadius: 12, background: c, border: safeHex === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.12)",
                     cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 8px ${c}66`,
                   }}
                 />
