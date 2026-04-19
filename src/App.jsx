@@ -64,6 +64,9 @@ const DEFAULT_SETTINGS = {
   uiText: "#f0f9ff",
   showScaleBadge: false,
   hardBlurUI: true,
+  uiBlurStrength: 34,
+  uiDarkness: 94,
+  statusBarBoost: 18,
   lightBg: "linear-gradient(135deg,#f5fbff 0%,#f0f7fc 50%,#eef8ff 100%)",
   lightText: "#0f172a",
 };
@@ -736,7 +739,9 @@ export default function LuminaryPanels() {
   const [isSliding, setIsSliding] = useState(false);
 
   const [cropSrc, setCropSrc]         = useState(null);
+  const [cropTarget, setCropTarget]   = useState("avatar");
   const [exportDataUrl, setExportDataUrl] = useState(null);
+  const [saveNotice, setSaveNotice]   = useState("");
 
   // ── History ───────────────────────────────────────────────────────────────
   const [history, setHistory] = useState(() => {
@@ -856,6 +861,12 @@ export default function LuminaryPanels() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    if (!saveNotice) return;
+    const t = setTimeout(() => setSaveNotice(""), 2200);
+    return () => clearTimeout(t);
+  }, [saveNotice]);
+
   const addFont = () => {
     const match = newFontUrl.match(/family=([^&:]+)/);
     if (!match) return;
@@ -896,15 +907,24 @@ export default function LuminaryPanels() {
     const f = e.target.files?.[0];
     if (!f) return;
     const r = new FileReader();
-    r.onload = ev => setCropSrc(ev.target.result);
+    r.onload = ev => {
+      setCropTarget("avatar");
+      setCropSrc(ev.target.result);
+    };
     r.readAsDataURL(f);
     e.target.value = "";
   };
 
   const onCropConfirm = (croppedDataUrl) => {
-    setAvRawSrc(croppedDataUrl);
-    pushState({ avImgX: 0, avImgY: 0 });
+    if (cropTarget === "background") {
+      setBgRawSrc(croppedDataUrl);
+      pushState({ bgImgX: 0, bgImgY: 0, bgScale: 100 });
+    } else {
+      setAvRawSrc(croppedDataUrl);
+      pushState({ avImgX: 0, avImgY: 0 });
+    }
     setCropSrc(null);
+    setCropTarget("avatar");
   };
 
   // ── Canvas Drag Helpers ───────────────────────────────────────────────────
@@ -941,6 +961,10 @@ export default function LuminaryPanels() {
   const onPointerDown = (e) => {
     if (!editMode) return;
     e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget?.setPointerCapture && e.pointerId != null) {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+    }
     const pos = getCanvasPos(e);
 
     for (let i = s.overlays.length - 1; i >= 0; i--) {
@@ -970,6 +994,7 @@ export default function LuminaryPanels() {
   const onPointerMove = (e) => {
     if (!dragData.current || !editMode) return;
     e.preventDefault();
+    e.stopPropagation();
     const pos = getCanvasPos(e);
     const d   = dragData.current;
     d.currOffX = d.startOffX + (pos.x - d.startX);
@@ -978,8 +1003,11 @@ export default function LuminaryPanels() {
     renderGraphics(ctx, s.pillW, s.pillH, vp.safeDpr, false);
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e) => {
     if (!dragData.current) return;
+    if (e?.currentTarget?.releasePointerCapture && e.pointerId != null) {
+      try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
     const d = dragData.current;
     if (d.type === "overlay") {
       pushState({ overlays: s.overlays.map(o => o.id === d.id ? { ...o, x: d.currOffX, y: d.currOffY } : o) });
@@ -1255,7 +1283,7 @@ export default function LuminaryPanels() {
                   albumIdentifier,
                   fileName: `Luminary_${Date.now()}`,
                 });
-                alert('Saved to gallery album "Luminary Panels"');
+                setSaveNotice('Saved to "Luminary Panels"');
                 return;
               }
             }
@@ -1337,6 +1365,9 @@ export default function LuminaryPanels() {
   
   const textPrimary = isDark ? (settings.uiText || "#f0f9ff") : (settings.uiText || "#0f172a");
   const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}66` : `${settings.uiText || "#0f172a"}66`;
+  const uiBlurPx    = Math.max(10, Math.min(70, settings.uiBlurStrength ?? 34));
+  const uiDarkness  = Math.max(70, Math.min(98, settings.uiDarkness ?? 94));
+  const statusBoost = Math.max(0, Math.min(40, settings.statusBarBoost ?? 18));
   const controlBg   = isDark ? `${accent}0f` : `${accent}10`;
   const cardBg      = isDark ? `${accent}08` : `${accent}0d`;
   const cardBorder  = isDark ? `${accent}28` : `${accent}35`;
@@ -1365,7 +1396,7 @@ export default function LuminaryPanels() {
     padding:"11px", cursor:"pointer",
     fontSize:14, fontWeight:500, transition:"all 0.15s",
   };
-  const cp = { cardBg, cardBorder, textDim, accent, cardShadow };
+  const cp = { cardBg, cardBorder, textDim, accent, cardShadow, hardBlurUI: settings.hardBlurUI, uiBlurPx, uiDarkness };
 
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
@@ -1734,7 +1765,10 @@ export default function LuminaryPanels() {
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
         const r = new FileReader();
-        r.onload = ev => setBgRawSrc(ev.target.result);
+        r.onload = ev => {
+          setCropTarget("background");
+          setCropSrc(ev.target.result);
+        };
         r.readAsDataURL(f); e.target.value = "";
       }} />
       <input ref={fileLoaderRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
@@ -1746,7 +1780,7 @@ export default function LuminaryPanels() {
 
       <div style={{ display:"flex", gap:8, marginBottom:16 }}>
         <button onClick={() => avFileRef.current?.click()} style={outlineBtn}>🖼 Avatar (Crop)</button>
-        <button onClick={() => bgFileRef.current?.click()} style={outlineBtn}>🌄 Background</button>
+        <button onClick={() => bgFileRef.current?.click()} style={outlineBtn}>🌄 Background (Crop)</button>
       </div>
 
       <Sep cardBorder={cardBorder} />
@@ -1918,6 +1952,36 @@ export default function LuminaryPanels() {
         <span style={{ color:textPrimary, fontSize:14 }}>Hard Blur UI</span>
         <input type="checkbox" checked={settings.hardBlurUI !== false} onChange={e => setSettings(prev => ({ ...prev, hardBlurUI: e.target.checked }))} />
       </label>
+      <FRow label={`UI Blur Strength — ${uiBlurPx}px`} textDim={textDim}>
+        <input
+          type="range"
+          step="1"
+          min={10}
+          max={70}
+          value={uiBlurPx}
+          onChange={e => setSettings(prev => ({ ...prev, uiBlurStrength: +e.target.value }))}
+        />
+      </FRow>
+      <FRow label={`UI Glass Darkness — ${uiDarkness}%`} textDim={textDim}>
+        <input
+          type="range"
+          step="1"
+          min={70}
+          max={98}
+          value={uiDarkness}
+          onChange={e => setSettings(prev => ({ ...prev, uiDarkness: +e.target.value }))}
+        />
+      </FRow>
+      <FRow label={`Status Bar Boost — ${statusBoost}%`} textDim={textDim}>
+        <input
+          type="range"
+          step="1"
+          min={0}
+          max={40}
+          value={statusBoost}
+          onChange={e => setSettings(prev => ({ ...prev, statusBarBoost: +e.target.value }))}
+        />
+      </FRow>
       <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Show Scale Badge</span>
         <input type="checkbox" checked={settings.showScaleBadge === true} onChange={e => setSettings(prev => ({ ...prev, showScaleBadge: e.target.checked }))} />
@@ -2073,7 +2137,7 @@ export default function LuminaryPanels() {
         </div>
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? "rgba(12,16,24,0.94)" : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? "blur(34px) saturate(1.2)" : "blur(16px)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
+      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.26)` : "blur(16px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.26)` : "blur(16px)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
         {settings.showScaleBadge && (
           <>
             <span style={{ fontSize:11, color:textDim, padding:"8px 12px", minWidth:102, textAlign:"center", fontWeight:500 }}>
@@ -2083,7 +2147,16 @@ export default function LuminaryPanels() {
           </>
         )}
         <button
-          onClick={() => setEditMode(v => !v)}
+          onClick={() => {
+            setEditMode(v => {
+              const next = !v;
+              if (next && vp.isMobile) {
+                setMobileTab("layout");
+                try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (_) {}
+              }
+              return next;
+            });
+          }}
           style={{ background: editMode ? `${accent}22` : "transparent", border:`1px solid ${editMode ? `${accent}99` : "transparent"}`, padding: vp.isMobile ? "11px 18px" : "10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:700, zIndex:vp.isMobile ? 61 : "auto" }}>
           {editMode ? "Done Editing" : "Edit Layers"}
         </button>
@@ -2136,9 +2209,23 @@ export default function LuminaryPanels() {
       `}} />
 
       <div style={{ minHeight:"100dvh", color:textPrimary, fontFamily:"system-ui,-apple-system,sans-serif", background:pageBg, paddingBottom: vp.isMobile ? 110 : 0, paddingTop:"env(safe-area-inset-top)" }}>
+        {vp.isMobile && settings.hardBlurUI && (
+          <div style={{
+            position:"fixed",
+            top:0,
+            left:0,
+            right:0,
+            height:`calc(env(safe-area-inset-top) + 10px)`,
+            background:`rgba(0,0,0,${(Math.min(70, 28 + statusBoost) / 100).toFixed(2)})`,
+            backdropFilter:`blur(${Math.max(8, uiBlurPx - 8)}px)`,
+            WebkitBackdropFilter:`blur(${Math.max(8, uiBlurPx - 8)}px)`,
+            pointerEvents:"none",
+            zIndex:1300,
+          }} />
+        )}
 
         {/* Header */}
-        <header style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? "rgba(7,9,14,0.94)" : "rgba(243,250,253,0.9)") : (isDark ? "rgba(9,9,11,0.88)" : `${pageBg}dd`), backdropFilter: settings.hardBlurUI ? "blur(34px) saturate(1.2)" : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
+        <header style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${uiDarkness / 100})` : "rgba(243,250,253,0.9)") : (isDark ? "rgba(9,9,11,0.88)" : `${pageBg}dd`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <h1 style={{ fontSize:20, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ borderLeft:"1px solid rgba(255,255,255,0.1)", height:20, margin:"0 6px" }} />
@@ -2186,7 +2273,9 @@ export default function LuminaryPanels() {
 
           <main style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position:"fixed", left: vp.isMobile ? 14 : "auto", right: vp.isMobile ? 14 : 20, top: 72, width: vp.isMobile ? "calc(100% - 28px)" : 540, maxWidth: vp.isMobile ? "calc(100% - 28px)" : 540, maxHeight: vp.isMobile ? "none" : "calc(100vh - 140px)", zIndex: vp.isMobile ? 95 : 40, overflowY: vp.isMobile ? "visible" : "auto", alignSelf:"flex-start" }}>
             <div style={{
-              background: cardBg, borderRadius:20,
+              background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : cardBg, borderRadius:20,
+              backdropFilter: settings.hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 4)}px) saturate(1.2)` : "none",
+              WebkitBackdropFilter: settings.hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 4)}px) saturate(1.2)` : "none",
               padding: "18px",
               display:"flex", flexDirection:"column", alignItems:"center", gap:16,
               border:`1px solid ${cardBorder}`, boxShadow: cardShadow,
@@ -2250,7 +2339,7 @@ export default function LuminaryPanels() {
 
         {/* Mobile bottom nav */}
         {vp.isMobile && (
-          <nav style={{ position:"fixed", bottom:10, left:12, right:12, background: settings.hardBlurUI ? "rgba(10,14,24,0.95)" : "rgba(20,20,28,0.84)", backdropFilter: settings.hardBlurUI ? "blur(34px) saturate(1.25)" : "blur(24px)", border:`1px solid rgba(255,255,255,0.16)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
+          <nav style={{ position:"fixed", bottom:10, left:12, right:12, background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : "rgba(20,20,28,0.84)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.25)` : "blur(24px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.25)` : "blur(24px)", border:`1px solid rgba(255,255,255,0.16)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
             {[
               { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"assets", icon:ICONS.assets, label:"Assets" },
@@ -2277,7 +2366,7 @@ export default function LuminaryPanels() {
       {/* Settings bottom sheet */}
       {settingsOpen && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1500, display: "flex", alignItems: "flex-end" }} onClick={() => setSettingsOpen(false)}>
-          <div style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", borderRadius: "22px 22px 0 0", background: "rgba(14,14,20,0.97)", padding: "14px 12px 20px" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", borderRadius: "22px 22px 0 0", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(14,14,20,0.97)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "none", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "none", padding: "14px 12px 20px" }} onClick={(e) => e.stopPropagation()}>
             {panelSettings}
           </div>
         </div>
@@ -2299,15 +2388,39 @@ export default function LuminaryPanels() {
           onClose={() => setExportDataUrl(null)}
         />
       )}
+
+      {saveNotice && (
+        <div style={{
+          position:"fixed",
+          left:"50%",
+          bottom: vp.isMobile ? "calc(86px + env(safe-area-inset-bottom))" : 22,
+          transform:"translateX(-50%)",
+          zIndex: 2000,
+          background:"linear-gradient(135deg, rgba(45,212,191,0.28), rgba(79,179,217,0.3))",
+          border:"1px solid rgba(126,231,255,0.45)",
+          color:"#eaffff",
+          fontWeight:700,
+          fontSize:13,
+          padding:"11px 16px",
+          borderRadius:14,
+          boxShadow:"0 16px 50px rgba(0,0,0,0.42)",
+          backdropFilter:"blur(14px)",
+          WebkitBackdropFilter:"blur(14px)",
+        }}>
+          ✅ {saveNotice}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-function Card({ label, children, cardBg, cardBorder, textDim, cardShadow }) {
+function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, hardBlurUI, uiBlurPx, uiDarkness }) {
   return (
     <div style={{
-      background: cardBg,
+      background: hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : cardBg,
+      backdropFilter: hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 6)}px) saturate(1.22)` : "none",
+      WebkitBackdropFilter: hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 6)}px) saturate(1.22)` : "none",
       borderRadius: 20,
       padding: 18,
       border: `1px solid ${cardBorder}`,
