@@ -51,10 +51,13 @@ const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
 const UI_COLOR_PRESETS = [
-  { id: "ios-26-aurora", label: "iOS 26 Aurora", uiAccent: "#74f2ff", uiBg: "linear-gradient(155deg,#03091c 0%,#0a1f46 38%,#31136a 100%)", uiText: "#e8f7ff" },
+  { id: "aurora", label: "Aurora", uiAccent: "#74f2ff", uiBg: "linear-gradient(155deg,#03091c 0%,#0a1f46 38%,#31136a 100%)", uiText: "#e8f7ff" },
   { id: "ios-26-liquid-gold", label: "Liquid Gold", uiAccent: "#ffd37a", uiBg: "linear-gradient(150deg,#130f0a 0%,#2b1f0d 40%,#3a1642 100%)", uiText: "#fff7e8" },
   { id: "ios-26-ultraviolet", label: "Ultraviolet", uiAccent: "#9a86ff", uiBg: "linear-gradient(145deg,#070612 0%,#1b1146 46%,#0f3a5e 100%)", uiText: "#f0edff" },
   { id: "ios-26-arctic", label: "Arctic Glass", uiAccent: "#5ad0ff", uiBg: "linear-gradient(155deg,#08121f 0%,#12344f 45%,#193f66 100%)", uiText: "#ecfbff" },
+  { id: "rose-luxe", label: "Rose Luxe", uiAccent: "#ff7eb6", uiBg: "linear-gradient(145deg,#1a0c1a 0%,#412241 46%,#873c70 100%)", uiText: "#ffeef8" },
+  { id: "mint-pop", label: "Mint Pop", uiAccent: "#63ffd7", uiBg: "linear-gradient(145deg,#081913 0%,#0d3a32 52%,#1d5f78 100%)", uiText: "#e9fff8" },
+  { id: "sunset-fizz", label: "Sunset Fizz", uiAccent: "#ff9f6b", uiBg: "linear-gradient(145deg,#1d0e11 0%,#4d2034 44%,#7a3e2e 100%)", uiText: "#fff3ea" },
 ];
 const DEFAULT_SETTINGS = {
   autoSave: true,
@@ -74,15 +77,15 @@ const DEFAULT_SETTINGS = {
   statusBarBoost: 18,
   uiGlassSaturation: 126,
   animationSmoothness: 100,
-  uiPreset: "ios-26-aurora",
-  lightBg: "linear-gradient(160deg,#fffdfa 0%,#f6fbff 35%,#eef7ff 62%,#f8f4ff 100%)",
-  lightText: "#2a3446",
+  uiPreset: "aurora",
+  lightBg: "linear-gradient(160deg,#fff8fb 0%,#f4f9ff 35%,#eff4ff 62%,#f7f0ff 100%)",
+  lightText: "#253247",
 };
 const GEOMETRY_LIMITS = {
-  minW: 140,
+  minW: 1,
   maxW: 1200,
   minH: 1,
-  maxH: 150,
+  maxH: 250,
   maxArea: 420000,
 };
 
@@ -405,13 +408,14 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     circScale: 100, avScale: 100, avImgX: 0, avImgY: 0,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
     textureId: "none", textureOpacity: 65,
+    pillBottomBlur: 0,
     pillBgAlpha: 100, avBgAlpha: 100, textAlpha: 100, glowAlpha: 100, edgeAlpha: 100,
   };
 
   if (theme === "cute") {
-    def = { ...def, pillBgColor: "#fde8f0", avBgColor: "#fce4ec", textClr: "#d4af37", glowClr: "#ffd1dc", font: "'Cormorant Garamond', serif", fontWeight: 600, borderStyleId: "lace", avBorderClr: "#ffb3c6", pillBorderWidth: 1.5, pillBorderClr: "#ffb3c6" };
+    def = { ...def, pillBgColor: "#fde8f0", avBgColor: "#fce4ec", textClr: "#d4af37", glowClr: "#ffd1dc", font: "'Cormorant Garamond', serif", fontWeight: 600, borderStyleId: "pearls", avBorderClr: "#f9d0dc", avBorderWidth: 4, avBorderGap: 3, avBorderParam1: 24, pillBorderWidth: 1.5, pillBorderClr: "#ffb3c6", pillBottomBlur: 8 };
   } else if (theme === "glass") {
-    def = { ...def, pillBgColor: "rgba(20,28,52,0.76)", avBgColor: "rgba(34,44,74,0.86)", textClr: "#eef4ff", glowClr: "rgba(122,169,255,0.75)", font: "'Inter', sans-serif", fontWeight: 700, borderStyleId: "glow", avBorderClr: "rgba(170,204,255,0.86)" };
+    def = { ...def, pillBgColor: "rgba(20,28,52,0.76)", avBgColor: "rgba(34,44,74,0.86)", textClr: "#eef4ff", glowClr: "rgba(122,169,255,0.75)", font: "'Inter', sans-serif", fontWeight: 700, borderStyleId: "crystal", avBorderClr: "rgba(170,204,255,0.86)", avBorderWidth: 3, avBorderGap: 2, pillBottomBlur: 14 };
   } else if (theme === "material" || theme === "simple") {
     def = { ...def, pillBgColor: "#ffffff", avBgColor: "#e8def8", textClr: "#1d192b", glowClr: "transparent", font: "'Roboto', sans-serif", fontWeight: 500, borderStyleId: "none", avBorderClr: "transparent" };
   } else {
@@ -788,6 +792,7 @@ export default function LuminaryPanels() {
   const avFileRef     = useRef(null);
   const bgFileRef     = useRef(null);
   const fileLoaderRef = useRef(null);
+  const texturePatternCacheRef = useRef(new Map());
 
   const [fontsOk, setFontsOk]         = useState(false);
   const [pillStyle, setPillStyle]     = useState("glass");
@@ -809,6 +814,9 @@ export default function LuminaryPanels() {
   const [cropTarget, setCropTarget]   = useState("avatar");
   const [exportDataUrl, setExportDataUrl] = useState(null);
   const [saveNotice, setSaveNotice]   = useState("");
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches
+  );
 
   // ── History ───────────────────────────────────────────────────────────────
   const [history, setHistory] = useState(() => {
@@ -899,10 +907,20 @@ export default function LuminaryPanels() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+    const query = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleThemeChange = (e) => setSystemPrefersDark(e.matches);
+    setSystemPrefersDark(query.matches);
+    query.addEventListener?.("change", handleThemeChange);
+    return () => query.removeEventListener?.("change", handleThemeChange);
+  }, []);
+
+  useEffect(() => {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
+        if (parsed?.uiPreset === "ios-26-aurora") parsed.uiPreset = "aurora";
         setSettings(prev => ({ ...prev, ...parsed }));
       }
     } catch (_) {}
@@ -1201,65 +1219,6 @@ export default function LuminaryPanels() {
     ctx.fillStyle = withAlpha(s.pillBgColor || "#1c1c1e", s.pillBgAlpha);
     ctx.fillRect(0, 0, W, H);
 
-    // ── FIX 1: Texture rendering with proper brace structure ──
-    if (s.textureId && s.textureId !== "none") {
-      const texture = TEXTURES.find(t => t.id === s.textureId);
-      if (texture?.css) {
-        const p = document.createElement("canvas");
-        p.width = 80; p.height = 80;
-        const pct = p.getContext("2d");
-        pct.fillStyle = "rgba(0,0,0,0)";
-        pct.fillRect(0, 0, 80, 80);
-        pct.globalAlpha = s.textureOpacity / 100;
-
-        if (texture.css === "grain") {
-          pct.fillStyle = "#ffffff";
-          for (let i = 0; i < 600; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 1.5, 1.5);
-        } else if (texture.css === "brushed") {
-          for (let y = 0; y < 80; y += 1.5) {
-            pct.fillStyle = `rgba(255,255,255,${0.08 + (y % 3 ? 0.05 : 0.12)})`;
-            pct.fillRect(0, y, 80, 2);
-          }
-        } else if (texture.css === "velvet") {
-          const grd = pct.createRadialGradient(20, 20, 2, 20, 20, 60);
-          grd.addColorStop(0, "rgba(255,255,255,0.5)");
-          grd.addColorStop(1, "rgba(255,255,255,0)");
-          pct.fillStyle = grd;
-          pct.fillRect(0, 0, 80, 80);
-          pct.fillStyle = "rgba(255,255,255,0.12)";
-          for (let i = 0; i < 180; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 2, 2);
-        } else if (texture.css === "mesh") {
-          pct.strokeStyle = "rgba(255,255,255,0.25)";
-          pct.lineWidth = 1.2;
-          for (let g = 0; g < 80; g += 8) {
-            pct.beginPath(); pct.moveTo(g, 0); pct.lineTo(g, 80); pct.stroke();
-            pct.beginPath(); pct.moveTo(0, g); pct.lineTo(80, g); pct.stroke();
-          }
-        } else if (texture.css === "soft") {
-          pct.fillStyle = "rgba(255,255,255,0.05)";
-          pct.fillRect(0, 0, 80, 80);
-          for (let i = 0; i < 6; i++) {
-            const x = Math.random() * 80, y = Math.random() * 80;
-            const gr = pct.createRadialGradient(x, y, 2, x, y, 25);
-            gr.addColorStop(0, "rgba(255,255,255,0.14)");
-            gr.addColorStop(1, "rgba(255,255,255,0)");
-            pct.fillStyle = gr;
-            pct.fillRect(0, 0, 80, 80);
-          }
-          pct.fillStyle = "#ffffff";
-          for (let i = 0; i < 150; i++) {
-            pct.fillRect(Math.random() * 80, Math.random() * 80, 1.6, 1.6);
-          }
-        }
-
-        const pattern = ctx.createPattern(p, "repeat");
-        if (pattern) {
-          ctx.fillStyle = pattern;
-          ctx.fillRect(0, 0, W, H);
-        }
-      } // closes if (texture?.css)
-    } // closes if (s.textureId...)
-
     if (bgImg) {
       if (s.bgBlur > 0) ctx.filter = `blur(${s.bgBlur}px)`;
       ctx.globalCompositeOperation = s.bgBlend;
@@ -1273,6 +1232,73 @@ export default function LuminaryPanels() {
       }
       ctx.globalCompositeOperation = "source-over";
       ctx.filter = "none";
+    }
+
+    if (s.textureId && s.textureId !== "none") {
+      const texture = TEXTURES.find(t => t.id === s.textureId);
+      const textureKey = `${texture?.css || "none"}-${s.textureOpacity || 0}`;
+      if (texture?.css) {
+        let cachedPattern = texturePatternCacheRef.current.get(textureKey);
+        if (!cachedPattern) {
+          const p = document.createElement("canvas");
+          p.width = 80; p.height = 80;
+          const pct = p.getContext("2d");
+          pct.fillStyle = "rgba(0,0,0,0)";
+          pct.fillRect(0, 0, 80, 80);
+          pct.globalAlpha = s.textureOpacity / 100;
+
+          if (texture.css === "grain") {
+            pct.fillStyle = "#ffffff";
+            for (let i = 0; i < 420; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 1.4, 1.4);
+          } else if (texture.css === "brushed") {
+            for (let y = 0; y < 80; y += 1.5) {
+              pct.fillStyle = `rgba(255,255,255,${0.08 + (y % 3 ? 0.05 : 0.12)})`;
+              pct.fillRect(0, y, 80, 2);
+            }
+          } else if (texture.css === "velvet") {
+            const grd = pct.createRadialGradient(20, 20, 2, 20, 20, 60);
+            grd.addColorStop(0, "rgba(255,255,255,0.5)");
+            grd.addColorStop(1, "rgba(255,255,255,0)");
+            pct.fillStyle = grd;
+            pct.fillRect(0, 0, 80, 80);
+          } else if (texture.css === "mesh") {
+            pct.strokeStyle = "rgba(255,255,255,0.25)";
+            pct.lineWidth = 1.2;
+            for (let g = 0; g < 80; g += 8) {
+              pct.beginPath(); pct.moveTo(g, 0); pct.lineTo(g, 80); pct.stroke();
+              pct.beginPath(); pct.moveTo(0, g); pct.lineTo(80, g); pct.stroke();
+            }
+          } else if (texture.css === "soft") {
+            pct.fillStyle = "rgba(255,255,255,0.05)";
+            pct.fillRect(0, 0, 80, 80);
+            for (let i = 0; i < 4; i++) {
+              const x = Math.random() * 80, y = Math.random() * 80;
+              const gr = pct.createRadialGradient(x, y, 2, x, y, 25);
+              gr.addColorStop(0, "rgba(255,255,255,0.14)");
+              gr.addColorStop(1, "rgba(255,255,255,0)");
+              pct.fillStyle = gr;
+              pct.fillRect(0, 0, 80, 80);
+            }
+          }
+          cachedPattern = ctx.createPattern(p, "repeat");
+          if (cachedPattern) texturePatternCacheRef.current.set(textureKey, cachedPattern);
+        }
+        if (cachedPattern) {
+          ctx.fillStyle = cachedPattern;
+          ctx.fillRect(0, 0, W, H);
+        }
+      }
+    }
+
+    if ((s.pillBottomBlur ?? 0) > 0) {
+      const bottomGlow = ctx.createLinearGradient(0, H * 0.58, 0, H);
+      bottomGlow.addColorStop(0, "rgba(0,0,0,0)");
+      bottomGlow.addColorStop(1, withAlpha("#000000", Math.min(72, (s.pillBottomBlur ?? 0) * 2.6)));
+      ctx.save();
+      ctx.filter = `blur(${Math.max(1, (s.pillBottomBlur ?? 0) * 0.65)}px)`;
+      ctx.fillStyle = bottomGlow;
+      ctx.fillRect(0, H * 0.45, W, H * 0.7);
+      ctx.restore();
     }
     if (s.edgeBlur > 0) {
       const vig = ctx.createRadialGradient(W/2, H*0.4, Math.min(W,H)*0.1, W/2, H, Math.max(W,H)*0.85);
@@ -1488,8 +1514,7 @@ export default function LuminaryPanels() {
   const bCtrl      = getBorderControls(s.borderStyleId);
   
   // ── Resolve effective theme ───────────────────────────────────────────────
-  const systemDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemDark);
+  const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemPrefersDark);
   
   const accent = settings.uiAccent || "#4fb3d9";
   const accent2 = settings.uiAccent || "#2dd4bf";
@@ -1505,9 +1530,10 @@ export default function LuminaryPanels() {
   const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 24) : uiBlurPxRaw;
   const shouldAnimate = !settings.performanceMode && settings.motionIntensity > 0;
   const pulseDuration = `${Math.max(1.25, (2.4 / Math.max(0.35, settings.motionIntensity || 1)) * (animationSmoothness / 100))}s`;
-  const creamControl = "rgba(248,252,255,0.84)";
-  const creamCard = "rgba(255,255,255,0.76)";
-  const creamBorder = "rgba(80,118,165,0.26)";
+  const uiTransition = `${Math.max(0.14, (0.24 * (animationSmoothness / 100)).toFixed(2))}s cubic-bezier(0.22, 1, 0.36, 1)`;
+  const creamControl = "rgba(255,255,255,0.9)";
+  const creamCard = "rgba(255,255,255,0.84)";
+  const creamBorder = "rgba(87,125,171,0.3)";
   const controlBg   = isDark ? `${accent}0f` : creamControl;
   const cardBg      = isDark ? `${accent}08` : creamCard;
   const cardBorder  = isDark ? `${accent}28` : creamBorder;
@@ -1534,7 +1560,7 @@ export default function LuminaryPanels() {
     border:`1px solid ${cardBorder}`,
     borderRadius:12, color:textPrimary,
     padding:"11px", cursor:"pointer",
-    fontSize:14, fontWeight:500, transition:"all 0.15s",
+    fontSize:14, fontWeight:500, transition:`all ${uiTransition}`,
   };
   const cp = { cardBg, cardBorder, textDim, accent, cardShadow, hardBlurUI: settings.hardBlurUI, uiBlurPx, uiDarkness };
 
@@ -1555,8 +1581,8 @@ export default function LuminaryPanels() {
     <Card label="Geometry & Layout" {...cp}>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Width — ${s.pillW}px`} textDim={textDim} onReset={() => pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW })}>
-          <input type="number" min={GEOMETRY_LIMITS.minW} max={GEOMETRY_LIMITS.maxW} value={s.pillW}
-            onChange={e => pushState({ pillW: Math.max(GEOMETRY_LIMITS.minW, Math.min(GEOMETRY_LIMITS.maxW, +e.target.value)) })}
+          <input type="number" max={GEOMETRY_LIMITS.maxW} value={s.pillW}
+            onChange={e => pushState({ pillW: Math.min(GEOMETRY_LIMITS.maxW, Math.max(1, +e.target.value || 1)) })}
             style={inputSt} />
         </FRow>
         <FRow label={`Height — ${s.pillH}px`} textDim={textDim} onReset={() => pushState({ pillH: getLayoutDefaults(layoutMode, pillStyle).pillH })}>
@@ -1565,28 +1591,6 @@ export default function LuminaryPanels() {
             style={inputSt} />
         </FRow>
       </div>
-      <FRow label="Quick Fit Presets" textDim={textDim}>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-          {[
-            { id: "compact", label: "Compact", apply: () => pushState({ pillW: Math.round(getLayoutDefaults(layoutMode, pillStyle).pillW * 0.82), pillH: Math.round(getLayoutDefaults(layoutMode, pillStyle).pillH * 0.82) }) },
-            { id: "fit", label: "Auto Fit", apply: () => {
-              const usableW = Math.max(220, vp.w - 52);
-              const scale = Math.min(1, usableW / Math.max(1, s.pillW));
-              pushState({ pillW: Math.round(s.pillW * scale), pillH: Math.round(s.pillH * scale) });
-            } },
-            { id: "reset", label: "Layout Default", apply: () => pushState({
-              pillW: getLayoutDefaults(layoutMode, pillStyle).pillW,
-              pillH: getLayoutDefaults(layoutMode, pillStyle).pillH,
-              pillR: getLayoutDefaults(layoutMode, pillStyle).pillR,
-            }) },
-          ].map((preset) => (
-            <button key={preset.id} onClick={preset.apply}
-              style={{ ...outlineBtn, padding:"8px 6px", fontSize:11, minHeight:38 }}>
-              {preset.label}
-            </button>
-          ))}
-        </div>
-      </FRow>
       <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim} onReset={() => pushState({ pillR: getLayoutDefaults(layoutMode, pillStyle).pillR })}>
         <input type="range" step="1" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
           value={Math.min(s.pillR, Math.floor(Math.min(s.pillW, s.pillH)/2))}
@@ -1695,6 +1699,9 @@ export default function LuminaryPanels() {
           <input type="range" step="1" min={0} max={100} value={s.textureOpacity} onChange={e => pushState({ textureOpacity: +e.target.value })} />
         </FRow>
       )}
+      <FRow label={`Bottom Blur Glow — ${s.pillBottomBlur ?? 0}px`} textDim={textDim} onReset={() => pushState({ pillBottomBlur: 0 })}>
+        <input type="range" step="1" min={0} max={40} value={s.pillBottomBlur ?? 0} onChange={e => pushState({ pillBottomBlur: +e.target.value })} />
+      </FRow>
       {advancedMode && (
         <FRow label="Blend Mode (Requires BG Color)" textDim={textDim}>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, maxHeight:150, overflowY:"auto" }}>
@@ -2254,7 +2261,7 @@ export default function LuminaryPanels() {
       <FRow label="Text Color" textDim={textDim}>
         <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} />
       </FRow>
-      <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "ios-26-aurora", uiAccent: "#74f2ff", uiBg: "linear-gradient(155deg,#03091c 0%,#0a1f46 38%,#31136a 100%)", uiText: "#e8f7ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
+      <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#74f2ff", uiBg: "linear-gradient(155deg,#03091c 0%,#0a1f46 38%,#31136a 100%)", uiText: "#e8f7ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>💡 Quick Tips</p>
       <div style={{ background: `rgba(45,212,191,0.08)`, border: `1px solid rgba(45,212,191,0.2)`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 11, color: textPrimary, lineHeight: 1.6 }}>
@@ -2309,7 +2316,7 @@ export default function LuminaryPanels() {
           />
         </div>
       </div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
+      <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center", marginTop:6 }}>
         {[
           { id:"glass",    label:"Glass" },
           { id:"cute",     label:"Cute" },
@@ -2334,7 +2341,7 @@ export default function LuminaryPanels() {
         ))}
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
+      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", borderRadius:30, padding:"4px 8px", marginTop:4, flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
         {settings.showScaleBadge && (
           <>
             <span style={{ fontSize:11, color:textDim, padding:"8px 12px", minWidth:102, textAlign:"center", fontWeight:500 }}>
@@ -2385,8 +2392,12 @@ export default function LuminaryPanels() {
           50%      { opacity: 1;    transform: scale(1.055); }
         }
         @keyframes tabSlide {
-          from { opacity: 0.55; transform: translateX(${swipeDir * 14}px); }
-          to { opacity: 1; transform: translateX(0); }
+          from { opacity: 0.2; transform: translate3d(${swipeDir * 20}px, 8px, 0) scale(0.985); }
+          to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+        }
+        @keyframes panelLift {
+          from { opacity: 0.15; transform: translateY(16px) scale(0.99); filter: blur(1px); }
+          to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
         }
       `}} />
 
@@ -2407,7 +2418,7 @@ export default function LuminaryPanels() {
         )}
 
         {/* Header */}
-        <header ref={headerRef} style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "linear-gradient(130deg, rgba(255,255,255,0.9), rgba(240,248,255,0.86))") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}ee`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation: shouldAnimate ? "headerGlow 4s ease-in-out infinite" : "none" }}>
+        <header ref={headerRef} style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "linear-gradient(130deg, rgba(255,255,255,0.9), rgba(240,248,255,0.86))") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}ee`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation: shouldAnimate ? "headerGlow 4s ease-in-out infinite" : "none", transition:`background ${uiTransition}, border-color ${uiTransition}, backdrop-filter ${uiTransition}` }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <h1 style={{ fontSize:17, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
@@ -2442,7 +2453,7 @@ export default function LuminaryPanels() {
         </header>
 
         {/* Main layout */}
-        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"flex-start", gap:20, padding:"20px 14px", paddingRight: vp.isMobile ? "14px" : 580, maxWidth: "100%", margin:"0 auto" }}>
+        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"flex-start", gap:20, padding:"20px 14px", paddingRight: vp.isMobile ? "14px" : 580, maxWidth: "100%", margin:"0 auto", transition:`padding ${uiTransition}, gap ${uiTransition}` }}>
 
           {!vp.isMobile && (
             <div style={{ flex:"1 1 280px", maxWidth:340, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
@@ -2459,7 +2470,7 @@ export default function LuminaryPanels() {
               WebkitBackdropFilter: settings.hardBlurUI ? `blur(${Math.max(10, uiBlurPx - 6)}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
               padding: "18px",
               display:"flex", flexDirection:"column", alignItems:"center", gap:16,
-              border:`1px solid ${cardBorder}`, boxShadow: cardShadow,
+              border:`1px solid ${cardBorder}`, boxShadow: cardShadow, transition:`all ${uiTransition}`,
             }}>
               {canvasBlock}
             </div>
@@ -2477,7 +2488,7 @@ export default function LuminaryPanels() {
           {/* FIX 4: Removed duplicate isMobileView div — only vp.isMobile is used */}
           {vp.isMobile && (
             <div
-              style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14, marginTop: mobilePreviewOffset, animation:`tabSlide 260ms ease` }}
+              style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14, marginTop: mobilePreviewOffset, animation:`tabSlide 360ms cubic-bezier(0.22, 1, 0.36, 1)` }}
               onTouchStart={(e) => {
                 if (editMode) return;
                 const target = e.target;
@@ -2509,8 +2520,8 @@ export default function LuminaryPanels() {
                 if (dx > 0 && tabIndex > 0) changeMobileTab(MOBILE_TABS[tabIndex - 1]);
               }}
             >
-              {mobileTab === "layout" && <>{panelBaseConfig}{panelEnvironment}</>}
-              {mobileTab === "assets" && panelAssetsAndLayers}
+              {mobileTab === "assets" && <>{panelAssetsAndLayers}{panelEnvironment}</>}
+              {mobileTab === "layout" && panelBaseConfig}
               {mobileTab === "avatar" && <>{panelAvatar}{panelBorder}</>}
               {mobileTab === "text"   && panelTypography}
               {settingsOpen && panelSettings}
@@ -2522,8 +2533,8 @@ export default function LuminaryPanels() {
         {vp.isMobile && (
           <nav style={{ position:"fixed", bottom:10, left:12, right:12, background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : "rgba(20,20,28,0.84)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(24px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(24px)", border:`1px solid rgba(255,255,255,0.16)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
             {[
-              { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"assets", icon:ICONS.assets, label:"Assets" },
+              { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"avatar", icon:ICONS.avatar, label:"Avatar" },
               { id:"text",   icon:ICONS.text,   label:"Text"   },
             ].map(t => (
@@ -2534,7 +2545,7 @@ export default function LuminaryPanels() {
                   border: mobileTab === t.id ? `1px solid rgba(79,179,217,0.25)` : "1px solid transparent",
                   borderRadius:12, padding:"8px 4px",
                   display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer",
-                  transition:"all 0.15s",
+                  transition:`all ${uiTransition}`,
                 }}>
                 <span style={{ fontSize:19 }}>{t.icon}</span>
                 <span style={{ fontSize:10, fontWeight:600 }}>{t.label}</span>
@@ -2607,6 +2618,8 @@ function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, hardBl
       padding: 18,
       border: `1px solid ${cardBorder}`,
       boxShadow: cardShadow || "none",
+      animation:"panelLift 380ms cubic-bezier(0.22, 1, 0.36, 1)",
+      transition:"border-color 220ms ease, box-shadow 280ms ease, background 220ms ease",
     }}>
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:14 }}>{label}</p>
       {children}
