@@ -1,18 +1,18 @@
 #!/bin/bash
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 export PATH=$JAVA_HOME/bin:$PATH
-cd /workspaces/My-app
+cd /workspaces/Luminary-Panels--One-UI-8.5-Panels
 npm run build
 npx cap sync android
 
 # Patch all Java/Kotlin version references in capacitor plugins
-find /workspaces/My-app/node_modules/@capacitor -name "*.gradle" -type f -exec sed -i \
+find /workspaces/Luminary-Panels--One-UI-8.5-Panels/node_modules/@capacitor /workspaces/Luminary-Panels--One-UI-8.5-Panels/node_modules/@capacitor-community -name "*.gradle" -type f -exec sed -i \
   -e 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' \
   -e 's/jvmTarget = "21"/jvmTarget = "17"/g' \
   -e "s/jvmTarget = '21'/jvmTarget = '17'/g" \
   -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} \;
-find /workspaces/My-app/android -name "*.gradle" -type f -exec sed -i \
+find /workspaces/Luminary-Panels--One-UI-8.5-Panels/android -name "*.gradle" -type f -exec sed -i \
   -e 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' \
   -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} \;
 
-cd /workspaces/My-app/android && JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew assembleDebug
+cd /workspaces/Luminary-Panels--One-UI-8.5-Panels/android && ./gradlew assembleDebug
