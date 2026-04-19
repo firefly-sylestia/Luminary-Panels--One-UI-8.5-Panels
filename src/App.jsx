@@ -380,7 +380,7 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     def = { ...def, pillBgColor: "#fde8f0", avBgColor: "#fce4ec", textClr: "#d4af37", glowClr: "#ffd1dc", font: "'Cormorant Garamond', serif", fontWeight: 600, borderStyleId: "lace", avBorderClr: "#ffb3c6", pillBorderWidth: 1.5, pillBorderClr: "#ffb3c6" };
   } else if (theme === "glass") {
     def = { ...def, pillBgColor: "rgba(255,255,255,0.15)", avBgColor: "rgba(255,255,255,0.25)", textClr: "#ffffff", glowClr: "rgba(255,255,255,0.8)", font: "'Inter', sans-serif", fontWeight: 700, borderStyleId: "glow", avBorderClr: "rgba(255,255,255,0.9)" };
-  } else if (theme === "material") {
+  } else if (theme === "material" || theme === "simple") {
     def = { ...def, pillBgColor: "#ffffff", avBgColor: "#e8def8", textClr: "#1d192b", glowClr: "transparent", font: "'Roboto', sans-serif", fontWeight: 500, borderStyleId: "none", avBorderClr: "transparent" };
   } else {
     def = { ...def, pillBgColor: "#1c1c1e", avBgColor: "#2c2c2e", textClr: "#ffffff", glowClr: "transparent", font: "system-ui", fontWeight: 500, borderStyleId: "solid", avBorderClr: "#444" };
@@ -727,6 +727,7 @@ export default function LuminaryPanels() {
 
   const [fontsOk, setFontsOk]         = useState(false);
   const [pillStyle, setPillStyle]     = useState("glass");
+  const uiSliderRafRef = useRef({});
   const [layoutMode, setLayoutMode]   = useState("Standard Pill");
   const [advancedMode, setAdvancedMode] = useState(false);
   const [editMode, setEditMode]       = useState(false);
@@ -789,6 +790,15 @@ export default function LuminaryPanels() {
   const undo  = () => setHIndex(i => Math.max(0, i - 1));
   const redo  = () => setHIndex(i => Math.min(history.length - 1, i + 1));
   const reset = () => pushState(getLayoutDefaults(layoutMode, pillStyle));
+  const setUiSliderValue = (key, value) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return;
+    if (uiSliderRafRef.current[key]) cancelAnimationFrame(uiSliderRafRef.current[key]);
+    uiSliderRafRef.current[key] = requestAnimationFrame(() => {
+      setSettings(prev => ({ ...prev, [key]: parsed }));
+      uiSliderRafRef.current[key] = null;
+    });
+  };
 
   // ── Images ────────────────────────────────────────────────────────────────
   const [bgRawSrc, setBgRawSrc]         = useState(null);
@@ -1041,7 +1051,7 @@ export default function LuminaryPanels() {
     setHistory(item.history);
     setHIndex(Math.max(0, Math.min(item.hIndex ?? item.history.length - 1, item.history.length - 1)));
     if (item.layoutMode) setLayoutMode(item.layoutMode);
-    if (item.pillStyle) setPillStyle(item.pillStyle);
+    if (item.pillStyle) setPillStyle(item.pillStyle === "material" ? "simple" : item.pillStyle);
   };
 
   useEffect(() => {
@@ -1959,7 +1969,7 @@ export default function LuminaryPanels() {
           min={10}
           max={70}
           value={uiBlurPx}
-          onChange={e => setSettings(prev => ({ ...prev, uiBlurStrength: +e.target.value }))}
+          onChange={e => setUiSliderValue("uiBlurStrength", e.target.value)}
         />
       </FRow>
       <FRow label={`UI Glass Darkness — ${uiDarkness}%`} textDim={textDim}>
@@ -1969,7 +1979,7 @@ export default function LuminaryPanels() {
           min={70}
           max={98}
           value={uiDarkness}
-          onChange={e => setSettings(prev => ({ ...prev, uiDarkness: +e.target.value }))}
+          onChange={e => setUiSliderValue("uiDarkness", e.target.value)}
         />
       </FRow>
       <FRow label={`Status Bar Boost — ${statusBoost}%`} textDim={textDim}>
@@ -1979,7 +1989,7 @@ export default function LuminaryPanels() {
           min={0}
           max={40}
           value={statusBoost}
-          onChange={e => setSettings(prev => ({ ...prev, statusBarBoost: +e.target.value }))}
+          onChange={e => setUiSliderValue("statusBarBoost", e.target.value)}
         />
       </FRow>
       <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
@@ -2065,7 +2075,7 @@ export default function LuminaryPanels() {
         <div style={{ marginBottom: 8 }}>🎨 <strong>Colors:</strong> Use the inline modern picker for precise shade + hex control</div>
         <div style={{ marginBottom: 8 }}>📁 <strong>Projects:</strong> Save your work locally with Save Project button</div>
         <div style={{ marginBottom: 8 }}>🧷 <strong>Edit Mode:</strong> Toggle edit to reposition text/avatar/overlays directly on canvas</div>
-        <div>🎭 <strong>Themes:</strong> Switch between Glass, Cute, and Material presets instantly</div>
+        <div>🎭 <strong>Themes:</strong> Switch between Glass, Cute, and Simple presets instantly</div>
       </div>
       <button onClick={() => {
         localStorage.removeItem(STORAGE_KEY);
@@ -2082,7 +2092,7 @@ export default function LuminaryPanels() {
         {[
           { id:"glass",    label:"Glass" },
           { id:"cute",     label:"Cute" },
-          { id:"material", label:"Material" },
+          { id:"simple",   label:"Simple" },
         ].map(t => (
           <button key={t.id}
             onClick={() => {
@@ -2216,7 +2226,7 @@ export default function LuminaryPanels() {
             left:0,
             right:0,
             height:`calc(env(safe-area-inset-top) + 10px)`,
-            background:`rgba(0,0,0,${(Math.min(70, 28 + statusBoost) / 100).toFixed(2)})`,
+            background:`rgba(0,0,0,${(Math.min(86, 22 + (statusBoost * 1.5)) / 100).toFixed(2)})`,
             backdropFilter:`blur(${Math.max(8, uiBlurPx - 8)}px)`,
             WebkitBackdropFilter:`blur(${Math.max(8, uiBlurPx - 8)}px)`,
             pointerEvents:"none",
@@ -2225,7 +2235,7 @@ export default function LuminaryPanels() {
         )}
 
         {/* Header */}
-        <header style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${uiDarkness / 100})` : "rgba(243,250,253,0.9)") : (isDark ? "rgba(9,9,11,0.88)" : `${pageBg}dd`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
+        <header style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "rgba(243,250,253,0.9)") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}dd`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <h1 style={{ fontSize:20, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ borderLeft:"1px solid rgba(255,255,255,0.1)", height:20, margin:"0 6px" }} />
