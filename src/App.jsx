@@ -165,14 +165,6 @@ async function saveProjectToLumNative(data) {
   const { Filesystem, Directory } = await import("@capacitor/filesystem");
   const { Share } = await import("@capacitor/share");
   const base64 = btoa(unescape(encodeURIComponent(json)));
-  const savePath = `projects/${fileName}`;
-  await Filesystem.writeFile({
-    path: savePath,
-    data: base64,
-    directory: Directory.Data,
-    recursive: true,
-  });
-  const fileResult = await Filesystem.getUri({ path: savePath, directory: Directory.Data });
   await Filesystem.writeFile({
     path: fileName,
     data: base64,
@@ -727,19 +719,9 @@ export default function LuminaryPanels() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isSliding, setIsSliding] = useState(false);
-  const [toast, setToast] = useState({ open: false, message: "", type: "info" });
-  const toastTimerRef = useRef(null);
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [exportDataUrl, setExportDataUrl] = useState(null);
-
-  const showToast = useCallback((message, type = "info") => {
-    setToast({ open: true, message, type });
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => {
-      setToast(prev => ({ ...prev, open: false }));
-    }, 2600);
-  }, []);
 
   // ── History ───────────────────────────────────────────────────────────────
   const [history, setHistory] = useState(() => {
@@ -796,10 +778,6 @@ export default function LuminaryPanels() {
     try { document.head.appendChild(l); } catch (_) {}
     if (document.fonts?.ready) document.fonts.ready.then(() => setFontsOk(true));
     else setFontsOk(true);
-  }, []);
-
-  useEffect(() => () => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -1229,7 +1207,6 @@ export default function LuminaryPanels() {
                   albumIdentifier,
                   fileName: `Luminary_${Date.now()}`,
                 });
-                showToast('Saved to gallery album "Luminary Panels"', "success");
                 alert('Saved to gallery album "Luminary Panels"');
                 return;
               }
@@ -1295,7 +1272,7 @@ export default function LuminaryPanels() {
 
       setExportDataUrl(dataUrl);
     } catch (err) {
-      if (err.name !== "AbortError") showToast("Share failed: " + err.message, "error");
+      if (err.name !== "AbortError") alert("Share failed: " + err.message);
     }
   };
 
@@ -1805,7 +1782,6 @@ export default function LuminaryPanels() {
               }
             } catch (err) {
               console.error("Save project failed:", err);
-              showToast(`Save project failed: ${err.message || err}`, "error");
               alert(`Save project failed: ${err.message || err}`);
             }
           }}
@@ -1825,9 +1801,9 @@ export default function LuminaryPanels() {
                 setHistory(project.history);
                 setHIndex(project.hIndex);
               } else {
-                showToast("Project format not recognized", "error");
+                alert("Project format not recognized");
               }
-            }).catch(() => showToast("Failed to load project", "error"));
+            }).catch(() => alert("Failed to load project"));
           };
           input.click();
         }} style={{ ...outlineBtn, flex:1, color:accent }}>📂 Load Project</button>
@@ -2220,31 +2196,6 @@ export default function LuminaryPanels() {
             ))}
           </nav>
         )}
-
-        {toast.open && (
-          <div
-            style={{
-              position:"fixed",
-              left:12,
-              right:12,
-              bottom: vp.isMobile ? 96 : 16,
-              zIndex: 1700,
-              padding:"12px 14px",
-              borderRadius:14,
-              border: toast.type === "error" ? "1px solid rgba(248,113,113,0.45)" : "1px solid rgba(45,212,191,0.45)",
-              background: toast.type === "error"
-                ? "linear-gradient(135deg, rgba(127,29,29,0.95), rgba(69,10,10,0.92))"
-                : "linear-gradient(135deg, rgba(15,118,110,0.95), rgba(15,76,129,0.9))",
-              color:"#f8fafc",
-              fontSize:13,
-              fontWeight:600,
-              boxShadow:"0 12px 30px rgba(0,0,0,0.35)",
-              backdropFilter:"blur(12px)",
-            }}
-          >
-            {toast.message}
-          </div>
-        )}
       </div>
 
       {/* Settings bottom sheet */}
@@ -2314,7 +2265,6 @@ function Sep({ cardBorder }) {
 
 function ColorField({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#0891b2","#0284c7","#0d47a1","#111827","#f8fafc","#e0f2fe","#ccfbf1"];
   const wheelRef = useRef(null);
   const overlayRef = useRef(null);
 
@@ -2358,21 +2308,10 @@ function ColorField({ value, onChange }) {
       else h = (r - g) / d + 4;
       h /= 6;
     }
-    const rgb = trimmed.match(/^rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})/i);
-    if (rgb) {
-      const clamp = (n) => Math.max(0, Math.min(255, Number(n) || 0));
-      const toHex = (n) => clamp(n).toString(16).padStart(2, "0");
-      return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
-    }
-    return "#ffffff";
-  }, []);
-
-  const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
-  const [hexInput, setHexInput] = useState(safeHex);
-
-  useEffect(() => {
-    setHexInput(safeHex);
-  }, [safeHex]);
+    const s = max === 0 ? 0 : d / max;
+    const v = max;
+    return { h: h * 360, s, v };
+  };
 
   const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
 
@@ -2408,11 +2347,6 @@ function ColorField({ value, onChange }) {
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
         style={{
-          width: "100%", height: 44, borderRadius: 12,
-          border: "1px solid rgba(255,255,255,0.18)",
-          background: safeHex, cursor: "pointer",
-          boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.2), 0 2px 8px ${safeHex}44`,
-          transition: "all 0.2s",
           width: "100%", height: 44, borderRadius: 999,
           border: "2px solid rgba(255,255,255,0.18)",
           background: safeHex, cursor: "pointer",
@@ -2422,54 +2356,45 @@ function ColorField({ value, onChange }) {
       />
       {open && (
         <>
+          {/* Backdrop */}
           <div
+            ref={overlayRef}
             onClick={() => setOpen(false)}
             style={{
               position: "fixed", inset: 0, zIndex: 998,
-              background: "rgba(2,6,23,0.45)", backdropFilter: "blur(4px)",
+              background: "rgba(0,0,0,0.3)", backdropFilter: "blur(2px)",
             }}
           />
+          {/* Picker panel */}
           <div
             onClick={e => e.stopPropagation()}
             style={{
               position: "fixed", zIndex: 999,
               bottom: 0, left: 0, right: 0,
-              padding: "16px 16px 24px",
-              borderRadius: "20px 20px 0 0",
-              background: "linear-gradient(180deg, #0f172a, #0b1220)",
-              border: "1px solid rgba(148,163,184,0.2)",
-              boxShadow: "0 -20px 60px rgba(0,0,0,0.55)",
+              padding: "20px 20px 32px",
+              borderRadius: "22px 22px 0 0",
+              background: "#0a0e27",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 -20px 60px rgba(0,0,0,0.7)",
             }}
           >
-            <div style={{ width: 44, height: 4, borderRadius: 999, background: "rgba(148,163,184,0.45)", margin: "0 auto 14px" }} />
+            {/* Handle bar */}
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 18px" }} />
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: safeHex, border: "1px solid rgba(148,163,184,0.35)" }} />
-              <input
-                type="color"
-                value={safeHex}
-                onChange={(e) => onChange(e.target.value)}
-                style={{ width: 52, height: 44, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 12, background: "rgba(255,255,255,0.04)", padding: 2 }}
-              />
-              <input
-                type="text"
-                value={hexInput}
-                onChange={(e) => setHexInput(e.target.value)}
-                onBlur={() => onChange(normalizeHex(hexInput))}
+            {/* Color wheel with cursor indicator */}
+            <div style={{ position: "relative", width: 220, height: 220, margin: "0 auto 18px" }}>
+              <div
+                ref={wheelRef}
+                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setHueFromPoint(e.clientX, e.clientY); }}
+                onPointerMove={(e) => { if (e.buttons) setHueFromPoint(e.clientX, e.clientY); }}
                 style={{
-                  flex: 1, height: 44, borderRadius: 12, border: "1px solid rgba(148,163,184,0.28)",
-                  background: "rgba(255,255,255,0.04)", color: "#e2e8f0", fontFamily: "monospace", padding: "0 12px", textTransform: "uppercase",
+                  width: 220, height: 220, borderRadius: "50%",
+                  cursor: "crosshair",
+                  background: "conic-gradient(#ff0000,#ff8000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)",
+                  boxShadow: "inset 0 0 0 20px #0a0e27, 0 0 0 2px rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.5)",
+                  touchAction: "none",
                 }}
               />
-              <button
-                onClick={() => onChange(normalizeHex(hexInput))}
-                style={{
-                  height: 44, padding: "0 14px", borderRadius: 12, border: "1px solid rgba(45,212,191,0.45)",
-                  background: "rgba(45,212,191,0.16)", color: "#99f6e4", fontWeight: 700, cursor: "pointer",
-                }}
-              >
-                Set
-              </button>
               {/* Cursor indicator */}
               <div style={{
                 position: "absolute",
@@ -2510,18 +2435,14 @@ function ColorField({ value, onChange }) {
               </div>
             </div>
 
-            <p style={{ color: "rgba(148,163,184,0.8)", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700, marginBottom: 10 }}>
-              Presets
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 14 }}>
+            {/* Preset swatches */}
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 10 }}>Presets</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 16 }}>
               {PRESETS.map(c => (
                 <button
                   key={c}
                   onClick={() => onChange(c)}
                   style={{
-                    height: 38, borderRadius: 10, background: c,
-                    border: safeHex === c ? "2px solid #f8fafc" : "1px solid rgba(148,163,184,0.35)",
-                    cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 6px ${c}44`,
                     height: 44, borderRadius: 12, background: c, border: safeHex === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.12)",
                     cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 8px ${c}66`,
                   }}
@@ -2532,9 +2453,9 @@ function ColorField({ value, onChange }) {
             <button
               onClick={() => setOpen(false)}
               style={{
-                width: "100%", padding: "12px", borderRadius: 12,
-                background: "linear-gradient(135deg,#22d3ee,#14b8a6)",
-                border: "none", color: "#ecfeff", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                width: "100%", padding: "14px", borderRadius: 16,
+                background: "linear-gradient(135deg,#4fb3d9,#2dd4bf)",
+                border: "none", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
               }}
             >
               Done
