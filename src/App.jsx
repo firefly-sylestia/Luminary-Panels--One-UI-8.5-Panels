@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const COMBINED_FONT_URL =
@@ -47,12 +47,48 @@ const LAYOUTS = {
   "Circle Toggle": { w: 160, h: 160, r: 80,  cx: 0, cy: 0,  showAv: true  },
 };
 
+const STORAGE_KEY = "luminary-panels-v2";
+const SETTINGS_KEY = "luminary-panels-settings-v1";
+const MOBILE_TABS = ["layout", "assets", "avatar", "text"];
+const DEFAULT_SETTINGS = {
+  autoSave: true,
+  performanceMode: false,
+  autosaveIntervalMs: 700,
+  defaultLayout: "Standard Pill",
+  motionIntensity: 1,
+  exportScale: 4,
+  themeMode: "system",
+  uiAccent: "#4fb3d9",
+  uiBg: "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)",
+  uiText: "#f0f9ff",
+  lightBg: "linear-gradient(135deg,#f5fbff 0%,#f0f7fc 50%,#eef8ff 100%)",
+  lightText: "#0f172a",
+};
+const TEXTURES = [
+  { id: "none",    label: "None",         css: "" },
+  { id: "grain",   label: "Fine Grain",   css: "grain" },
+  { id: "brushed", label: "Brushed Metal",css: "brushed" },
+  { id: "velvet",  label: "Soft Velvet",  css: "velvet" },
+  { id: "mesh",    label: "Mesh",         css: "mesh" },
+  { id: "soft",    label: "Soft Noise",   css: "soft" },
+];
+
 const EMOJIS = ["✨","🌸","🦋","💎","🎀","💫","🦇","🌙","🔪","🩸"];
 
 const UI_ICONS = [
   { name: "WiFi", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 21c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-4.5c-2.5 0-4.8-1-6.5-2.6L7 12.5c1.3 1.2 3 1.9 5 1.9s3.7-.7 5-1.9l1.4 1.4c-1.7 1.6-4 2.6-6.4 2.6z'/></svg>"},
   { name: "Moon", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z'/></svg>"},
 ];
+
+const ICONS = {
+  undo: "⤴",
+  redo: "⤵",
+  reset: "↺",
+  layout: "⊞",
+  assets: "◈",
+  avatar: "⚬",
+  text: "✎",
+};
 
 // ── Viewport Hook ─────────────────────────────────────────────────────────────
 function useViewport() {
@@ -97,7 +133,7 @@ const getBorderControls = (id) => {
     case "dashed":  return { p1:"Gap Spacing",  min1:1,  max1:20, p2:null };
     case "dotted":  return { p1:"Gap Spacing",  min1:1,  max1:20, p2:null };
     case "double":  return { p1:"Inner Gap",    min1:1,  max1:20, p2:null };
-    case "glow":    return { p1:"Glow Spread",  min1:1,  max1:50, p2:"3D Depth",  min2:0, max2:30 };
+    case "glow":    return { p1:"Glow Spread",  min1:1,  max1:30, p2:"Depth",  min2:0, max2:15 };
     case "ribbon":  return { p1:"Wave Freq",    min1:2,  max1:30, p2:"Amplitude", min2:1, max2:20 };
     case "sparkle": return { p1:"Count",        min1:8,  max1:48, p2:null };
     case "crystal": return { p1:"Count",        min1:10, max1:50, p2:null };
@@ -106,6 +142,41 @@ const getBorderControls = (id) => {
     default:        return { p1:null, p2:null };
   }
 };
+
+// Custom save format functions
+function saveProjectToLum(data) {
+  const lumFile = { version: "1.0", timestamp: Date.now(), project: data };
+  const json = JSON.stringify(lumFile);
+  const blob = new Blob([json], { type: "application/x-luminary" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `luminary-${Date.now()}.lum`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function loadProjectFromLum(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const lumFile = JSON.parse(e.target.result);
+        if (lumFile.version && lumFile.project) {
+          resolve(lumFile.project);
+        } else {
+          reject(new Error("Invalid .lum file format"));
+        }
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsText(file);
+  });
+}
 
 // ── Border Engine ─────────────────────────────────────────────────────────────
 function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p1, p2, emojisStr) {
@@ -128,7 +199,9 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
       ctx.fillStyle = g; ctx.shadowColor = color; ctx.shadowBlur = 10; ctx.fill();
     }
   } else if (styleId === "glow") {
-    ctx.shadowColor=color; ctx.shadowBlur=p1; ctx.shadowOffsetX=p2; ctx.shadowOffsetY=p2;
+    const maxGlowSpread = Math.min(p1, 25);
+    const maxDepth = Math.min(p2, 12);
+    ctx.shadowColor=color; ctx.shadowBlur=maxGlowSpread; ctx.shadowOffsetX=maxDepth; ctx.shadowOffsetY=maxDepth;
     ctx.lineWidth=thickness/2; ctx.beginPath(); ctx.arc(cx,cy,R+(thickness/2),0,Math.PI*2); ctx.stroke();
   } else if (styleId === "emoji") {
     const emList = emojisStr ? Array.from(emojisStr) : ["✨"];
@@ -155,12 +228,13 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
 const getLayoutDefaults = (layoutName, theme = "glass") => {
   let def = {
     pillW: 600, pillH: 180, pillR: 90, circX: 0, circY: 0, textX: 0, textY: 0,
-    mainText: "Moon Veil", subText: "Ultra HD Component", fontSize: 42,
+    mainText: "Quick Panel", subText: "Ultra HD Component", fontSize: 42,
     bgStretch: true, bgScale: 100, bgImgX: 0, bgImgY: 0, bgBlur: 0, bgBlend: "source-over",
     pillBorderWidth: 0, pillBorderClr: "#ffffff",
     avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "🌸✨🦋",
     circScale: 100, avScale: 100, avImgX: 0, avImgY: 0,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
+    textureId: "none", textureOpacity: 65,
   };
 
   if (theme === "cute") {
@@ -181,12 +255,16 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CropModal — manual crop with draggable circular crop region
+// CropModal — manual crop with draggable rectangular crop region
 // ─────────────────────────────────────────────────────────────────────────────
 function CropModal({ src, onConfirm, onCancel }) {
-  const [imgDisplay, setImgDisplay]   = useState({ w: 0, h: 0 });
-  const [imgNatural, setImgNatural]   = useState({ w: 0, h: 0 });
-  const [crop, setCrop]               = useState({ x: 0, y: 0, size: 150 });
+  const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
+  const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
+  const [crop, setCrop] = useState({ x: 0, y: 0, w: 180, h: 180 });
+  const [ratio, setRatio] = useState("free");
+  const [customRatio, setCustomRatio] = useState("16:9");
+  const [zoom, setZoom] = useState(100);
+  const [rotation, setRotation] = useState(0);
   const dragRef = useRef(null);
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -198,11 +276,23 @@ function CropModal({ src, onConfirm, onCancel }) {
     const scale = Math.min(MAX_W / img.naturalWidth, MAX_H / img.naturalHeight, 1);
     const dw = Math.round(img.naturalWidth  * scale);
     const dh = Math.round(img.naturalHeight * scale);
-    const initSz = Math.round(Math.min(dw, dh) * 0.65);
+    const initW = Math.round(dw * 0.62);
+    const initH = Math.round(dh * 0.62);
     setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
     setImgDisplay({ w: dw, h: dh });
-    setCrop({ x: Math.round((dw - initSz) / 2), y: Math.round((dh - initSz) / 2), size: initSz });
+    setCrop({ x: Math.round((dw - initW) / 2), y: Math.round((dh - initH) / 2), w: initW, h: initH });
   };
+
+  const parseRatio = useCallback(() => {
+    if (ratio === "free") return null;
+    if (ratio === "1:1") return 1;
+    if (ratio === "4:5") return 4 / 5;
+    if (ratio === "16:9") return 16 / 9;
+    if (ratio === "9:16") return 9 / 16;
+    const parts = customRatio.split(":").map(Number);
+    if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) return parts[0] / parts[1];
+    return null;
+  }, [ratio, customRatio]);
 
   const handlePointerDown = (e, mode) => {
     e.stopPropagation();
@@ -215,15 +305,24 @@ function CropModal({ src, onConfirm, onCancel }) {
     const { mode, px, py, snap } = dragRef.current;
     const dx = e.clientX - px, dy = e.clientY - py;
     if (mode === "move") {
-      setCrop(c => ({
-        ...c,
-        x: clamp(snap.x + dx, 0, imgDisplay.w - snap.size),
-        y: clamp(snap.y + dy, 0, imgDisplay.h - snap.size),
+      setCrop(() => ({
+        x: clamp(snap.x + dx, 0, imgDisplay.w - snap.w),
+        y: clamp(snap.y + dy, 0, imgDisplay.h - snap.h),
+        w: snap.w,
+        h: snap.h,
       }));
     } else if (mode === "resize") {
-      const delta = Math.round((dx + dy) / 2);
-      const maxSz  = Math.min(imgDisplay.w - snap.x, imgDisplay.h - snap.y);
-      setCrop(c => ({ ...c, size: clamp(snap.size + delta, 40, maxSz) }));
+      const ratioValue = parseRatio();
+      let nextW = clamp(snap.w + dx, 40, imgDisplay.w - snap.x);
+      let nextH = clamp(snap.h + dy, 40, imgDisplay.h - snap.y);
+      if (ratioValue) {
+        nextH = Math.round(nextW / ratioValue);
+        if (nextH > imgDisplay.h - snap.y) {
+          nextH = imgDisplay.h - snap.y;
+          nextW = Math.round(nextH * ratioValue);
+        }
+      }
+      setCrop(c => ({ ...c, w: nextW, h: nextH }));
     }
   };
 
@@ -235,15 +334,23 @@ function CropModal({ src, onConfirm, onCancel }) {
     const scY = imgNatural.h / imgDisplay.h;
     const sx = Math.round(crop.x * scX);
     const sy = Math.round(crop.y * scY);
-    const sw = Math.round(crop.size * scX);
-    const sh = Math.round(crop.size * scY);
-    const sz = Math.max(sw, sh);
+    const sw = Math.round(crop.w * scX);
+    const sh = Math.round(crop.h * scY);
     const cvs = document.createElement("canvas");
-    cvs.width = sz; cvs.height = sz;
+    cvs.width = sw; cvs.height = sh;
     const ctx = cvs.getContext("2d");
     const img = new Image();
     img.onload = () => {
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sz, sz);
+      const zoomScale = zoom / 100;
+      const srcW = Math.max(1, Math.round(sw / zoomScale));
+      const srcH = Math.max(1, Math.round(sh / zoomScale));
+      const srcX = clamp(Math.round(sx + (sw - srcW) / 2), 0, img.naturalWidth - srcW);
+      const srcY = clamp(Math.round(sy + (sh - srcH) / 2), 0, img.naturalHeight - srcH);
+      ctx.save();
+      ctx.translate(sw / 2, sh / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, -sw / 2, -sh / 2, sw, sh);
+      ctx.restore();
       onConfirm(cvs.toDataURL("image/png"));
     };
     img.src = src;
@@ -261,7 +368,6 @@ function CropModal({ src, onConfirm, onCancel }) {
         display:"flex", flexDirection:"column", gap:14,
         boxShadow:"0 24px 64px rgba(0,0,0,0.6)",
       }}>
-        {/* Header */}
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
           <h3 style={{ color:"#fff", fontSize:18, fontWeight:700, margin:0 }}>Crop Avatar</h3>
           <button onClick={onCancel} style={{
@@ -271,10 +377,22 @@ function CropModal({ src, onConfirm, onCancel }) {
           }}>✕</button>
         </div>
         <p style={{ color:"rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
-          Drag circle to reposition · Drag blue handle ◉ to resize
+          Freeform crop with custom ratio · Drag to move, handle to resize
         </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {["free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
+            <button key={opt} onClick={() => setRatio(opt)} style={{
+              padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)",
+              background: ratio === opt ? "#0a84ff" : "rgba(255,255,255,0.08)", color: "#fff", cursor: "pointer",
+            }}>{opt}</button>
+          ))}
+          {ratio === "custom" && (
+            <input value={customRatio} onChange={e => setCustomRatio(e.target.value)} placeholder="21:9" style={{
+              borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.08)", color: "#fff", padding: "8px 10px",
+            }} />
+          )}
+        </div>
 
-        {/* Image + crop overlay */}
         <div
           style={{
             position:"relative", display:"flex", justifyContent:"center",
@@ -293,60 +411,64 @@ function CropModal({ src, onConfirm, onCancel }) {
           />
           {imgDisplay.w > 0 && (
             <>
-              {/* Darken mask — 4 surrounding rects */}
               <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
                 <div style={{ position:"absolute", top:0, left:0, right:0, height: crop.y, background:"rgba(0,0,0,0.65)" }} />
-                <div style={{ position:"absolute", top: crop.y + crop.size, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.65)" }} />
-                <div style={{ position:"absolute", top: crop.y, left:0, width: crop.x, height: crop.size, background:"rgba(0,0,0,0.65)" }} />
-                <div style={{ position:"absolute", top: crop.y, left: crop.x + crop.size, right:0, height: crop.size, background:"rgba(0,0,0,0.65)" }} />
+                <div style={{ position:"absolute", top: crop.y + crop.h, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.65)" }} />
+                <div style={{ position:"absolute", top: crop.y, left:0, width: crop.x, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
+                <div style={{ position:"absolute", top: crop.y, left: crop.x + crop.w, right:0, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
               </div>
-              {/* Draggable crop circle */}
               <div
                 onPointerDown={e => handlePointerDown(e, "move")}
                 style={{
                   position:"absolute",
                   left: crop.x, top: crop.y,
-                  width: crop.size, height: crop.size,
+                  width: crop.w, height: crop.h,
                   border:"2.5px solid #0a84ff",
-                  borderRadius:"50%",
+                  borderRadius:"10px",
                   cursor:"move",
                   touchAction:"none",
                   boxSizing:"border-box",
                   boxShadow:"0 0 0 1px rgba(0,0,0,0.4)",
                 }}
               >
-                {/* Crosshair guides */}
                 <div style={{ position:"absolute", top:"50%", left:6, right:6, height:1, background:"rgba(255,255,255,0.3)", transform:"translateY(-50%)", pointerEvents:"none" }} />
                 <div style={{ position:"absolute", left:"50%", top:6, bottom:6, width:1, background:"rgba(255,255,255,0.3)", transform:"translateX(-50%)", pointerEvents:"none" }} />
-                {/* Resize handle */}
                 <div
                   onPointerDown={e => handlePointerDown(e, "resize")}
                   style={{
                     position:"absolute", bottom:-10, right:-10,
                     width:22, height:22,
                     background:"#0a84ff", borderRadius:"50%",
-                    cursor:"se-resize", touchAction:"none",
+                    cursor:"nwse-resize", touchAction:"none",
                     border:"2px solid #fff",
                     display:"flex", alignItems:"center", justifyContent:"center",
                     fontSize:9, color:"#fff", fontWeight:700,
                     boxShadow:"0 2px 8px rgba(0,0,0,0.5)",
                   }}
-                >◉</div>
+                >⇲</div>
               </div>
             </>
           )}
         </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Zoom {zoom}%</label>
+            <input type="range" step="1" min={50} max={180} step={1} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>Rotate {rotation}°</label>
+            <input type="range" step="1" min={-180} max={180} step={1} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
+          </div>
+        </div>
 
-        {/* Size readout */}
         {imgDisplay.w > 0 && (
           <p style={{ color:"rgba(255,255,255,0.35)", fontSize:11, textAlign:"center", margin:0 }}>
-            Crop: {Math.round(crop.size)}×{Math.round(crop.size)}px display
+            Crop: {Math.round(crop.w)}×{Math.round(crop.h)}px display
             {" · "}
-            Output: ~{Math.round(crop.size * (imgNatural.w / imgDisplay.w))}px
+            Output: ~{Math.round(crop.w * (imgNatural.w / imgDisplay.w))}×{Math.round(crop.h * (imgNatural.h / imgDisplay.h))}px
           </p>
         )}
 
-        {/* Buttons */}
         <div style={{ display:"flex", gap:10 }}>
           <button onClick={onCancel} style={{
             flex:1, padding:"13px", background:"rgba(255,255,255,0.08)",
@@ -378,8 +500,8 @@ function ExportModal({ dataUrl, onClose }) {
     }}>
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes glowPulse {
-          0%,100% { box-shadow: 0 0 20px 4px rgba(255,110,180,0.6), 0 0 60px 10px rgba(255,110,180,0.25); }
-          50%      { box-shadow: 0 0 40px 10px rgba(255,110,180,0.9),   0 0 100px 20px rgba(255,179,217,0.4); }
+          0%,100% { box-shadow: 0 0 20px 4px rgba(79,179,217,0.6), 0 0 60px 10px rgba(79,179,217,0.25); }
+          50%      { box-shadow: 0 0 40px 10px rgba(79,179,217,0.9),   0 0 100px 20px rgba(45,212,191,0.4); }
         }
         @keyframes fadeSlideUp {
           from { opacity:0; transform:translateY(30px); }
@@ -387,7 +509,6 @@ function ExportModal({ dataUrl, onClose }) {
         }
       `}} />
 
-      {/* Top bar */}
       <div style={{
         width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center",
         padding:"16px 20px",
@@ -395,7 +516,7 @@ function ExportModal({ dataUrl, onClose }) {
         borderBottom:"1px solid rgba(255,255,255,0.08)",
       }}>
         <div>
-          <p style={{ color:"#fff", fontSize:17, fontWeight:700, margin:0 }}>💾 Save Image</p>
+          <p style={{ color:"#fff", fontSize:17, fontWeight:700, margin:0 }}>Save Image</p>
           <p style={{ color:"rgba(255,255,255,0.45)", fontSize:12, margin:"3px 0 0" }}>Hold finger on image → "Save"</p>
         </div>
         <button onClick={onClose} style={{
@@ -405,7 +526,6 @@ function ExportModal({ dataUrl, onClose }) {
         }}>✕</button>
       </div>
 
-      {/* Full-screen image with glow */}
       <div style={{
         flex:1, width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
         padding:20,
@@ -428,14 +548,13 @@ function ExportModal({ dataUrl, onClose }) {
         />
       </div>
 
-      {/* Instruction pill */}
       <div style={{
         width:"100%", padding:"14px 20px 28px",
         display:"flex", flexDirection:"column", gap:10, alignItems:"center",
       }}>
         <div style={{
-          background:"linear-gradient(135deg, rgba(255,110,180,0.2), rgba(255,179,217,0.15))",
-          border:"1px solid rgba(255,110,180,0.5)",
+          background:"linear-gradient(135deg, rgba(79,179,217,0.2), rgba(45,212,191,0.15))",
+          border:"1px solid rgba(79,179,217,0.5)",
           borderRadius:16, padding:"12px 20px", width:"100%", textAlign:"center",
         }}>
           <p style={{ color:"#fff", fontSize:14, fontWeight:600, margin:"0 0 4px" }}>
@@ -475,17 +594,35 @@ export default function LuminaryPanels() {
   const [pxScale, setPxScale]         = useState(1);
   const [customFonts, setCustomFonts] = useState([]);
   const [newFontUrl, setNewFontUrl]   = useState("");
-  const [mobileTab, setMobileTab]     = useState("layout");
+  const [mobileTab, setMobileTab]     = useState("assets");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [isSliding, setIsSliding] = useState(false);
 
-  // Crop modal state
   const [cropSrc, setCropSrc]         = useState(null);
-
-  // Export modal (Android fallback)
   const [exportDataUrl, setExportDataUrl] = useState(null);
 
   // ── History ───────────────────────────────────────────────────────────────
-  const [history, setHistory] = useState([getLayoutDefaults("Standard Pill", "glass")]);
-  const [hIndex,  setHIndex]  = useState(0);
+  const [history, setHistory] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.history) && parsed.history.length > 0) return parsed.history;
+      }
+    } catch (_) {}
+    return [getLayoutDefaults("Standard Pill", "glass")];
+  });
+  const [hIndex,  setHIndex]  = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Number.isInteger(parsed.hIndex)) return parsed.hIndex;
+      }
+    } catch (_) {}
+    return 0;
+  });
   const s = history[hIndex] ?? history[0];
 
   const pushState = (updates) => {
@@ -522,6 +659,59 @@ export default function LuminaryPanels() {
     else setFontsOk(true);
   }, []);
 
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setSettings(prev => ({ ...prev, ...parsed }));
+      }
+    } catch (_) {}
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {}
+  }, [settings]);
+
+  useEffect(() => {
+    if (!settings.autoSave) return;
+    const timeout = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ history, hIndex }));
+      } catch (_) {}
+    }, settings.autosaveIntervalMs);
+    return () => clearTimeout(timeout);
+  }, [history, hIndex, settings.autoSave, settings.autosaveIntervalMs]);
+
+  useEffect(() => {
+    const onDown = (e) => {
+      if (e.target?.matches?.("input[type='range']")) setIsSliding(true);
+    };
+    const onUp = () => setIsSliding(false);
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (settings.keyboardShortcuts === false) return;
+    const handleKeyDown = (e) => {
+      if (e.target.matches("input, textarea, select")) return;
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+        else if ((e.key === "z" && e.shiftKey) || (e.key === "y")) { e.preventDefault(); redo(); }
+        else if (e.key === "e") { e.preventDefault(); setEditMode(v => !v); }
+        else if (e.key === "s") { e.preventDefault(); exportPNG(); }
+      }
+      if (e.key === "Escape") { setEditMode(false); setCropSrc(null); setExportDataUrl(null); }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [settings.keyboardShortcuts]);
+
   const addFont = () => {
     const match = newFontUrl.match(/family=([^&:]+)/);
     if (!match) return;
@@ -537,13 +727,13 @@ export default function LuminaryPanels() {
   useEffect(() => {
     const measure = () => {
       if (!wrapRef.current) return;
-      const avail = wrapRef.current.clientWidth - (vp.isMobile ? 0 : 40);
+      const avail = wrapRef.current.clientWidth;
       setPxScale(avail < s.pillW ? avail / s.pillW : 1);
     };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [s.pillW, vp.isMobile, vp.w]);
+  }, [s.pillW, vp.w]);
 
   useEffect(() => { if (bgRawSrc) { const i = new Image(); i.onload = () => setBgImg(i); i.src = bgRawSrc; } }, [bgRawSrc]);
   useEffect(() => { if (avRawSrc) { const i = new Image(); i.onload = () => setAvImg(i); i.src = avRawSrc; } }, [avRawSrc]);
@@ -558,7 +748,6 @@ export default function LuminaryPanels() {
     });
   }, [s.overlays, loadedImages]);
 
-  // ── Manual Crop handler ───────────────────────────────────────────────────
   const handleAvatarFileChange = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -570,6 +759,7 @@ export default function LuminaryPanels() {
 
   const onCropConfirm = (croppedDataUrl) => {
     setAvRawSrc(croppedDataUrl);
+    pushState({ avImgX: 0, avImgY: 0 });
     setCropSrc(null);
   };
 
@@ -690,6 +880,65 @@ export default function LuminaryPanels() {
     ctx.fillStyle = s.pillBgColor || "#1c1c1e";
     ctx.fillRect(0, 0, W, H);
 
+    // ── FIX 1: Texture rendering with proper brace structure ──
+    if (s.textureId && s.textureId !== "none") {
+      const texture = TEXTURES.find(t => t.id === s.textureId);
+      if (texture?.css) {
+        const p = document.createElement("canvas");
+        p.width = 80; p.height = 80;
+        const pct = p.getContext("2d");
+        pct.fillStyle = "rgba(0,0,0,0)";
+        pct.fillRect(0, 0, 80, 80);
+        pct.globalAlpha = s.textureOpacity / 100;
+
+        if (texture.css === "grain") {
+          pct.fillStyle = "#ffffff";
+          for (let i = 0; i < 600; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 1.5, 1.5);
+        } else if (texture.css === "brushed") {
+          for (let y = 0; y < 80; y += 1.5) {
+            pct.fillStyle = `rgba(255,255,255,${0.08 + (y % 3 ? 0.05 : 0.12)})`;
+            pct.fillRect(0, y, 80, 2);
+          }
+        } else if (texture.css === "velvet") {
+          const grd = pct.createRadialGradient(20, 20, 2, 20, 20, 60);
+          grd.addColorStop(0, "rgba(255,255,255,0.5)");
+          grd.addColorStop(1, "rgba(255,255,255,0)");
+          pct.fillStyle = grd;
+          pct.fillRect(0, 0, 80, 80);
+          pct.fillStyle = "rgba(255,255,255,0.12)";
+          for (let i = 0; i < 180; i++) pct.fillRect(Math.random() * 80, Math.random() * 80, 2, 2);
+        } else if (texture.css === "mesh") {
+          pct.strokeStyle = "rgba(255,255,255,0.25)";
+          pct.lineWidth = 1.2;
+          for (let g = 0; g < 80; g += 8) {
+            pct.beginPath(); pct.moveTo(g, 0); pct.lineTo(g, 80); pct.stroke();
+            pct.beginPath(); pct.moveTo(0, g); pct.lineTo(80, g); pct.stroke();
+          }
+        } else if (texture.css === "soft") {
+          pct.fillStyle = "rgba(255,255,255,0.05)";
+          pct.fillRect(0, 0, 80, 80);
+          for (let i = 0; i < 6; i++) {
+            const x = Math.random() * 80, y = Math.random() * 80;
+            const gr = pct.createRadialGradient(x, y, 2, x, y, 25);
+            gr.addColorStop(0, "rgba(255,255,255,0.14)");
+            gr.addColorStop(1, "rgba(255,255,255,0)");
+            pct.fillStyle = gr;
+            pct.fillRect(0, 0, 80, 80);
+          }
+          pct.fillStyle = "#ffffff";
+          for (let i = 0; i < 150; i++) {
+            pct.fillRect(Math.random() * 80, Math.random() * 80, 1.6, 1.6);
+          }
+        }
+
+        const pattern = ctx.createPattern(p, "repeat");
+        if (pattern) {
+          ctx.fillStyle = pattern;
+          ctx.fillRect(0, 0, W, H);
+        }
+      } // closes if (texture?.css)
+    } // closes if (s.textureId...)
+
     if (bgImg) {
       if (s.bgBlur > 0) ctx.filter = `blur(${s.bgBlur}px)`;
       ctx.globalCompositeOperation = s.bgBlend;
@@ -705,14 +954,14 @@ export default function LuminaryPanels() {
       ctx.filter = "none";
     }
     if (s.edgeBlur > 0) {
-      const vig = ctx.createRadialGradient(W/2, H/2, Math.max(W,H)*0.1, W/2, H/2, Math.max(W,H)*0.8);
+      const vig = ctx.createRadialGradient(W/2, H*0.4, Math.min(W,H)*0.1, W/2, H, Math.max(W,H)*0.85);
       vig.addColorStop(0, "rgba(0,0,0,0)");
       vig.addColorStop(1, hexToRgba(s.edgeColor, s.edgeBlur / 100));
       ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
 
-    // ── Avatar (only if showAvatar) ──
+    // ── Avatar ──
     if (s.showAvatar) {
       ctx.save();
       ctx.beginPath(); ctx.arc(avCX, avCY, geo.avR, 0, Math.PI*2); ctx.clip();
@@ -799,7 +1048,7 @@ export default function LuminaryPanels() {
   };
 
   const buildCanvas = () => {
-    const MULT = 4;
+    const MULT = settings.exportScale;
     const ec   = document.createElement("canvas");
     ec.width   = s.pillW * MULT;
     ec.height  = s.pillH * MULT;
@@ -809,19 +1058,16 @@ export default function LuminaryPanels() {
     return ec;
   };
 
-  // ── Save (Android: long-press modal | Desktop: download) ─────────────────
   const exportPNG = () => {
     try {
       const ec      = buildCanvas();
       const dataUrl = ec.toDataURL("image/png", 1.0);
 
-      // Android WebView/Capacitor: go straight to save modal
       if (isAndroidWebView()) {
         setExportDataUrl(dataUrl);
         return;
       }
 
-      // Desktop: blob download
       try {
         const byteStr = atob(dataUrl.split(",")[1]);
         const ab = new ArrayBuffer(byteStr.length);
@@ -837,16 +1083,14 @@ export default function LuminaryPanels() {
       } catch (_) {}
 
       setExportDataUrl(dataUrl);
-    } catch (err) { alert("Save failed: " + err.message); }
+    } catch (err) { console.error("Save failed:", err); }
   };
 
-  // ── Share ─────────────────────────────────────────────────────────────────
   const sharePNG = async () => {
     try {
       const ec      = buildCanvas();
       const dataUrl = ec.toDataURL("image/png", 1.0);
 
-      // Try Capacitor Share plugin first
       if (window.Capacitor) {
         try {
           const { Share }     = await import("@capacitor/share");
@@ -859,11 +1103,9 @@ export default function LuminaryPanels() {
           return;
         } catch (capErr) {
           if (capErr.name === "AbortError") return;
-          // fall through to Web Share
         }
       }
 
-      // Web Share API fallback
       if (navigator.share) {
         const byteStr = atob(dataUrl.split(",")[1]);
         const ab = new ArrayBuffer(byteStr.length);
@@ -877,7 +1119,6 @@ export default function LuminaryPanels() {
         }
       }
 
-      // Final fallback: show modal
       setExportDataUrl(dataUrl);
     } catch (err) {
       if (err.name !== "AbortError") alert("Share failed: " + err.message);
@@ -887,14 +1128,25 @@ export default function LuminaryPanels() {
   // ── UI theme values ───────────────────────────────────────────────────────
   const ALL_FONTS  = [...FONTS, ...customFonts];
   const bCtrl      = getBorderControls(s.borderStyleId);
-  const accent     = "#ff6eb4";
-  const accent2    = "#ffb3d9";
-  const textPrimary = "#f2f2f7";
-  const textDim    = "rgba(255,255,255,0.45)";
-  const controlBg  = "rgba(255,255,255,0.06)";
-  const cardBg     = "rgba(255,110,180,0.04)";
-  const cardBorder = "rgba(255,110,180,0.15)";
-  const cardShadow = "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,110,180,0.08)";
+  
+  // ── Resolve effective theme ───────────────────────────────────────────────
+  const systemDark = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemDark) || settings.themeMode === "system";
+  
+  const accent = settings.uiAccent || "#4fb3d9";
+  const accent2 = settings.uiAccent || "#2dd4bf";
+  
+  const textPrimary = isDark ? (settings.uiText || "#f0f9ff") : (settings.uiText || "#0f172a");
+  const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}66` : `${settings.uiText || "#0f172a"}66`;
+  const controlBg   = isDark ? `${accent}0f` : `${accent}10`;
+  const cardBg      = isDark ? `${accent}08` : `${accent}0d`;
+  const cardBorder  = isDark ? `${accent}28` : `${accent}35`;
+  const cardShadow  = isDark
+    ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${accent}18`
+    : `0 4px 16px rgba(79,179,217,0.15), 0 0 0 1px ${accent}28`;
+  const pageBg      = isDark
+    ? (settings.uiBg || "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)")
+    : "#f0f9fc";
 
   const inputSt = {
     display:"block", width:"100%",
@@ -916,27 +1168,34 @@ export default function LuminaryPanels() {
   };
   const cp = { cardBg, cardBorder, textDim, accent, cardShadow };
 
-  // Computed avatar pixel size for display
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
+  const [swipeDir, setSwipeDir] = useState(1);
+  const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
+
+  const changeMobileTab = (next) => {
+    const nextIndex = MOBILE_TABS.indexOf(next);
+    setSwipeDir(nextIndex >= tabIndex ? 1 : -1);
+    setMobileTab(next);
+  };
 
   // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Width — ${s.pillW}px`} textDim={textDim}>
+        <FRow label={`Width — ${s.pillW}px`} textDim={textDim} onReset={() => pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW })}>
           <input type="number" min={100} max={1600} value={s.pillW}
             onChange={e => pushState({ pillW: Math.max(100, Math.min(1600, +e.target.value)) })}
             style={inputSt} />
         </FRow>
-        <FRow label={`Height — ${s.pillH}px`} textDim={textDim}>
+        <FRow label={`Height — ${s.pillH}px`} textDim={textDim} onReset={() => pushState({ pillH: getLayoutDefaults(layoutMode, pillStyle).pillH })}>
           <input type="number" min={100} max={1600} value={s.pillH}
             onChange={e => pushState({ pillH: Math.max(100, Math.min(1600, +e.target.value)) })}
             style={inputSt} />
         </FRow>
       </div>
-      <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim}>
-        <input type="range" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
+      <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim} onReset={() => pushState({ pillR: getLayoutDefaults(layoutMode, pillStyle).pillR })}>
+        <input type="range" step="1" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
           value={Math.min(s.pillR, Math.floor(Math.min(s.pillW, s.pillH)/2))}
           onChange={e => pushState({ pillR: +e.target.value })} />
       </FRow>
@@ -946,59 +1205,114 @@ export default function LuminaryPanels() {
   const panelEnvironment = (
     <Card label="Environment & Background" {...cp}>
       <FRow label="Pill Surface Color" textDim={textDim}>
-        <input type="color" value={s.pillBgColor && s.pillBgColor.startsWith("#") ? s.pillBgColor : "#1c1c1e"}
-          onChange={e => pushState({ pillBgColor: e.target.value })} style={colIn} />
+        <ColorField value={s.pillBgColor && s.pillBgColor.startsWith("#") ? s.pillBgColor : "#1c1c1e"}
+          onChange={v => pushState({ pillBgColor: v })} />
       </FRow>
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Pill Border — ${s.pillBorderWidth}px`} textDim={textDim}>
-          <input type="range" min={0} max={10} value={s.pillBorderWidth}
+        <FRow label={`Pill Border — ${s.pillBorderWidth}px`} textDim={textDim} onReset={() => pushState({ pillBorderWidth: 0 })}>
+          <input type="range" step="1" min={0} max={10} value={s.pillBorderWidth}
             onChange={e => pushState({ pillBorderWidth: +e.target.value })} />
         </FRow>
         <FRow label="Border Color" textDim={textDim}>
-          <input type="color" value={s.pillBorderClr || "#ffffff"}
-            onChange={e => pushState({ pillBorderClr: e.target.value })} style={colIn} />
+          <ColorField value={s.pillBorderClr || "#ffffff"}
+            onChange={v => pushState({ pillBorderClr: v })} />
         </FRow>
       </div>
       <Sep cardBorder={cardBorder} />
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Image Blur — ${s.bgBlur}px`} textDim={textDim}>
-          <input type="range" min={0} max={60} value={s.bgBlur}
+        <FRow label={`Image Blur — ${s.bgBlur}px`} textDim={textDim} onReset={() => pushState({ bgBlur: 0 })}>
+          <input type="range" step="1" min={0} max={60} value={s.bgBlur}
             onChange={e => pushState({ bgBlur: +e.target.value })} />
         </FRow>
         <FRow label="Img Mode" textDim={textDim}>
-          <select value={String(s.bgStretch)} onChange={e => pushState({ bgStretch: e.target.value === "true" })} style={inputSt}>
-            <option value="false">Contain</option>
-            <option value="true">Stretch</option>
-          </select>
+          <div style={{ display:"flex", gap:8 }}>
+            {[{l:"Contain",v:false},{l:"Stretch",v:true}].map(o => (
+              <button key={o.l} onClick={() => pushState({ bgStretch: o.v })}
+                style={{
+                  flex:1, padding:"10px", borderRadius:10, border: s.bgStretch === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.bgStretch === o.v ? `${accent}18` : controlBg,
+                  color: s.bgStretch === o.v ? accent : textPrimary,
+                  fontWeight:600, fontSize:12, cursor:"pointer", transition:"all 0.15s",
+                }}>
+                {o.l}
+              </button>
+            ))}
+          </div>
         </FRow>
       </div>
       {!s.bgStretch && (
         <div style={{ display:"flex", gap:8 }}>
           <FRow label={`Img X (${s.bgImgX}px)`} textDim={textDim}>
-            <input type="range" min={-500} max={500} value={s.bgImgX} onChange={e => pushState({ bgImgX: +e.target.value })} />
+            <input type="range" step="1" min={-500} max={500} value={s.bgImgX} onChange={e => pushState({ bgImgX: +e.target.value })} />
           </FRow>
           <FRow label={`Img Y (${s.bgImgY}px)`} textDim={textDim}>
-            <input type="range" min={-500} max={500} value={s.bgImgY} onChange={e => pushState({ bgImgY: +e.target.value })} />
+            <input type="range" step="1" min={-500} max={500} value={s.bgImgY} onChange={e => pushState({ bgImgY: +e.target.value })} />
           </FRow>
         </div>
       )}
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Vignette — ${s.edgeBlur}%`} textDim={textDim}>
-          <input type="range" min={0} max={100} value={s.edgeBlur} onChange={e => pushState({ edgeBlur: +e.target.value })} />
+        <FRow label={`Vignette — ${s.edgeBlur}%`} textDim={textDim} onReset={() => pushState({ edgeBlur: 0 })}>
+          <input type="range" step="1" min={0} max={100} value={s.edgeBlur} onChange={e => pushState({ edgeBlur: +e.target.value })} />
         </FRow>
         <FRow label="Vignette Tint" textDim={textDim}>
-          <input type="color" value={s.edgeColor || "#000000"} onChange={e => pushState({ edgeColor: e.target.value })} style={colIn} />
+          <ColorField value={s.edgeColor || "#000000"} onChange={v => pushState({ edgeColor: v })} />
         </FRow>
       </div>
       <label style={{ display:"flex", alignItems:"center", gap:10, fontSize:14, color:textPrimary, cursor:"pointer", minHeight:44 }}>
         <input type="checkbox" checked={advancedMode} onChange={e => setAdvancedMode(e.target.checked)} />
         Advanced Image Blending
       </label>
+      <Sep cardBorder={cardBorder} />
+      <FRow label="Texture Preset" textDim={textDim}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+          {TEXTURES.map(t => {
+            const isActive = (s.textureId || "none") === t.id;
+            const previewStyle = {
+              width:"100%", height:52, borderRadius:10, marginBottom:5,
+              background: t.id === "none"     ? "rgba(255,255,255,0.04)"
+                        : t.id === "grain"    ? "rgba(255,255,255,0.06)"
+                        : t.id === "brushed"  ? "repeating-linear-gradient(0deg,rgba(255,255,255,0.08) 0px,rgba(255,255,255,0.02) 2px,transparent 3px)"
+                        : t.id === "velvet"   ? "radial-gradient(ellipse at 30% 30%,rgba(255,255,255,0.22),rgba(255,255,255,0.03))"
+                        : t.id === "mesh"     ? "repeating-linear-gradient(0deg,transparent,transparent 8px,rgba(255,255,255,0.09) 9px),repeating-linear-gradient(90deg,transparent,transparent 8px,rgba(255,255,255,0.09) 9px)"
+                        : "radial-gradient(circle at 20% 20%,rgba(255,255,255,0.14),rgba(255,255,255,0.02))",
+            };
+            return (
+              <button key={t.id} onClick={() => pushState({ textureId: t.id })}
+                style={{
+                  padding:"8px 6px 7px", borderRadius:12, cursor:"pointer",
+                  border: isActive ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: isActive ? `rgba(79,179,217,0.12)` : controlBg,
+                  color: isActive ? "#fff" : textPrimary,
+                  display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+                  transition:"all 0.15s",
+                }}>
+                <div style={previewStyle} />
+                <span style={{ fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:0.5, opacity: isActive ? 1 : 0.7 }}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </FRow>
+      {s.textureId !== "none" && (
+        <FRow label={`Texture Opacity — ${s.textureOpacity}%`} textDim={textDim} onReset={() => pushState({ textureOpacity: 65 })}>
+          <input type="range" step="1" min={0} max={100} value={s.textureOpacity} onChange={e => pushState({ textureOpacity: +e.target.value })} />
+        </FRow>
+      )}
       {advancedMode && (
         <FRow label="Blend Mode (Requires BG Color)" textDim={textDim}>
-          <select value={s.bgBlend} onChange={e => pushState({ bgBlend: e.target.value })} style={inputSt}>
-            {BLEND_MODES.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, maxHeight:150, overflowY:"auto" }}>
+            {BLEND_MODES.map(m => (
+              <button key={m} onClick={() => pushState({ bgBlend: m })}
+                style={{
+                  padding:"8px", borderRadius:8, border: s.bgBlend === m ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.bgBlend === m ? `${accent}18` : controlBg,
+                  color: s.bgBlend === m ? accent : textPrimary,
+                  fontWeight:600, fontSize:9, cursor:"pointer", transition:"all 0.15s", minHeight:36,
+                }}>
+                {m}
+              </button>
+            ))}
+          </div>
         </FRow>
       )}
     </Card>
@@ -1006,7 +1320,6 @@ export default function LuminaryPanels() {
 
   const panelAvatar = (
     <Card label="Avatar & Element Geometry" {...cp}>
-      {/* Show/hide avatar toggle */}
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
         <span style={{ fontSize:14, color:textPrimary, fontWeight:600 }}>Show Avatar Circle</span>
         <button
@@ -1029,36 +1342,36 @@ export default function LuminaryPanels() {
       {s.showAvatar && (
         <>
           <FRow label="Circle Fill Color" textDim={textDim}>
-            <input type="color" value={s.avBgColor && s.avBgColor.startsWith("#") ? s.avBgColor : "#2c2c2e"}
-              onChange={e => pushState({ avBgColor: e.target.value })} style={colIn} />
+            <ColorField value={s.avBgColor && s.avBgColor.startsWith("#") ? s.avBgColor : "#2c2c2e"}
+              onChange={v => pushState({ avBgColor: v })} />
           </FRow>
           <div style={{ display:"flex", gap:8 }}>
-            <FRow label={`Circle Size — ${avDiamPx}px (${s.circScale}%)`} textDim={textDim}>
-              <input type="range" min={20} max={150} value={s.circScale}
+            <FRow label={`Circle Size — ${avDiamPx}px (${s.circScale}%)`} textDim={textDim} onReset={() => pushState({ circScale: 100 })}>
+              <input type="range" step="1" min={20} max={150} value={s.circScale}
                 onChange={e => pushState({ circScale: +e.target.value })} />
             </FRow>
-            <FRow label={`Image Zoom — ${s.avScale}%`} textDim={textDim}>
-              <input type="range" min={20} max={300} value={s.avScale}
+            <FRow label={`Image Zoom — ${s.avScale}%`} textDim={textDim} onReset={() => pushState({ avScale: 100 })}>
+              <input type="range" step="1" min={20} max={300} value={s.avScale}
                 onChange={e => pushState({ avScale: +e.target.value })} />
             </FRow>
           </div>
           <div style={{ display:"flex", gap:8 }}>
-            <FRow label={`Pos X — ${Math.round(s.circX)}px`} textDim={textDim}>
-              <input type="range" min={-400} max={400} value={s.circX}
+            <FRow label={`Pos X — ${Math.round(s.circX)}px`} textDim={textDim} onReset={() => pushState({ circX: 0 })}>
+              <input type="range" step="1" min={-400} max={400} value={s.circX}
                 onChange={e => pushState({ circX: +e.target.value })} />
             </FRow>
-            <FRow label={`Pos Y — ${Math.round(s.circY)}px`} textDim={textDim}>
-              <input type="range" min={-400} max={400} value={s.circY}
+            <FRow label={`Pos Y — ${Math.round(s.circY)}px`} textDim={textDim} onReset={() => pushState({ circY: 0 })}>
+              <input type="range" step="1" min={-400} max={400} value={s.circY}
                 onChange={e => pushState({ circY: +e.target.value })} />
             </FRow>
           </div>
           <div style={{ display:"flex", gap:8 }}>
-            <FRow label={`Img Offset X — ${s.avImgX}`} textDim={textDim}>
-              <input type="range" min={-200} max={200} value={s.avImgX}
+            <FRow label={`Img Offset X — ${s.avImgX}`} textDim={textDim} onReset={() => pushState({ avImgX: 0 })}>
+              <input type="range" step="1" min={-200} max={200} value={s.avImgX}
                 onChange={e => pushState({ avImgX: +e.target.value })} />
             </FRow>
-            <FRow label={`Img Offset Y — ${s.avImgY}`} textDim={textDim}>
-              <input type="range" min={-200} max={200} value={s.avImgY}
+            <FRow label={`Img Offset Y — ${s.avImgY}`} textDim={textDim} onReset={() => pushState({ avImgY: 0 })}>
+              <input type="range" step="1" min={-200} max={200} value={s.avImgY}
                 onChange={e => pushState({ avImgY: +e.target.value })} />
             </FRow>
           </div>
@@ -1088,21 +1401,21 @@ export default function LuminaryPanels() {
       {s.borderStyleId !== "none" && (
         <React.Fragment>
           <div style={{ display:"flex", gap:8 }}>
-            <FRow label={`Thickness: ${s.avBorderWidth}px`} textDim={textDim}>
-              <input type="range" min={1} max={20} value={s.avBorderWidth}
+            <FRow label={`Thickness: ${s.avBorderWidth}px`} textDim={textDim} onReset={() => pushState({ avBorderWidth: 3 })}>
+              <input type="range" step="1" min={1} max={20} value={s.avBorderWidth}
                 onChange={e => pushState({ avBorderWidth: +e.target.value })} />
             </FRow>
-            <FRow label={`Gap: ${s.avBorderGap}px`} textDim={textDim}>
-              <input type="range" min={-10} max={30} value={s.avBorderGap}
+            <FRow label={`Gap: ${s.avBorderGap}px`} textDim={textDim} onReset={() => pushState({ avBorderGap: 0 })}>
+              <input type="range" step="1" min={-10} max={30} value={s.avBorderGap}
                 onChange={e => pushState({ avBorderGap: +e.target.value })} />
             </FRow>
           </div>
-          {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e => pushState({ avBorderParam1: +e.target.value })} /></FRow>}
-          {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} /></FRow>}
+          {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" step="1" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e => pushState({ avBorderParam1: +e.target.value })} /></FRow>}
+          {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" step="1" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} /></FRow>}
           {bCtrl.hasText && <FRow label="Emojis" textDim={textDim}><TxIn value={s.avBorderEmojis} onChange={v => pushState({ avBorderEmojis: v })} inputSt={inputSt} /></FRow>}
           <FRow label="Border Color" textDim={textDim}>
-            <input type="color" value={s.avBorderClr && s.avBorderClr.startsWith("#") ? s.avBorderClr : "#ffffff"}
-              onChange={e => pushState({ avBorderClr: e.target.value })} style={colIn} />
+            <ColorField value={s.avBorderClr && s.avBorderClr.startsWith("#") ? s.avBorderClr : "#ffffff"}
+              onChange={v => pushState({ avBorderClr: v })} />
           </FRow>
         </React.Fragment>
       )}
@@ -1125,43 +1438,59 @@ export default function LuminaryPanels() {
         </div>
       </FRow>
       <FRow label="Font Family" textDim={textDim}>
-        <select value={s.font} onChange={e => pushState({ font: e.target.value })} style={inputSt}>
-          {ALL_FONTS.map((f, i) => <option key={i} value={f.value}>{f.label}</option>)}
-        </select>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, maxHeight:200, overflowY:"auto", paddingRight:4 }}>
+          {ALL_FONTS.map((f, i) => (
+            <button key={i} onClick={() => pushState({ font: f.value })}
+              style={{
+                padding:"12px 10px", borderRadius:10, border: s.font === f.value ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: s.font === f.value ? `${accent}18` : controlBg,
+                color: s.font === f.value ? accent : textPrimary,
+                fontFamily: f.value, fontSize:13, fontWeight:600, cursor:"pointer", transition:"all 0.15s", minHeight:44,
+              }}>
+              {f.label}
+            </button>
+          ))}
+        </div>
       </FRow>
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Size: ${s.fontSize}px`} textDim={textDim}>
-          <input type="range" min={10} max={150} value={s.fontSize}
+        <FRow label={`Size: ${s.fontSize}px`} textDim={textDim} onReset={() => pushState({ fontSize: getLayoutDefaults(layoutMode, pillStyle).fontSize })}>
+          <input type="range" step="1" min={10} max={150} value={s.fontSize}
             onChange={e => pushState({ fontSize: +e.target.value })} />
         </FRow>
-        <FRow label={`Weight: ${s.fontWeight}`} textDim={textDim}>
-          <select value={s.fontWeight} onChange={e => pushState({ fontWeight: +e.target.value })} style={inputSt}>
-            <option value={300}>Light</option>
-            <option value={400}>Regular</option>
-            <option value={500}>Medium</option>
-            <option value={600}>Semi-Bold</option>
-            <option value={700}>Bold</option>
-          </select>
+        <FRow label={`Weight: ${s.fontWeight}`} textDim={textDim} onReset={() => pushState({ fontWeight: getLayoutDefaults(layoutMode, pillStyle).fontWeight })}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6 }}>
+            {[{l:"L",v:300},{l:"R",v:400},{l:"M",v:500},{l:"SB",v:600},{l:"B",v:700}].map(o => (
+              <button key={o.v} onClick={() => pushState({ fontWeight: o.v })}
+                style={{
+                  padding:"8px", borderRadius:8, border: s.fontWeight === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.fontWeight === o.v ? `${accent}18` : controlBg,
+                  color: s.fontWeight === o.v ? accent : textPrimary,
+                  fontWeight:o.v, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+                }}>
+                {o.l}
+              </button>
+            ))}
+          </div>
         </FRow>
       </div>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label="Text Color" textDim={textDim}>
-          <input type="color" value={s.textClr && s.textClr.startsWith("#") ? s.textClr : "#ffffff"}
-            onChange={e => pushState({ textClr: e.target.value })} style={colIn} />
+          <ColorField value={s.textClr && s.textClr.startsWith("#") ? s.textClr : "#ffffff"}
+            onChange={v => pushState({ textClr: v })} />
         </FRow>
         <FRow label="Glow Color" textDim={textDim}>
-          <input type="color"
+          <ColorField
             value={s.glowClr && s.glowClr !== "transparent" && s.glowClr.startsWith("#") ? s.glowClr : "#ffffff"}
-            onChange={e => pushState({ glowClr: e.target.value })} style={colIn} />
+            onChange={v => pushState({ glowClr: v })} />
         </FRow>
       </div>
       <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Pos X — ${Math.round(s.textX)}px`} textDim={textDim}>
-          <input type="range" min={-400} max={400} value={s.textX}
+        <FRow label={`Pos X — ${Math.round(s.textX)}px`} textDim={textDim} onReset={() => pushState({ textX: 0 })}>
+          <input type="range" step="1" min={-400} max={400} value={s.textX}
             onChange={e => pushState({ textX: +e.target.value })} />
         </FRow>
-        <FRow label={`Pos Y — ${Math.round(s.textY)}px`} textDim={textDim}>
-          <input type="range" min={-400} max={400} value={s.textY}
+        <FRow label={`Pos Y — ${Math.round(s.textY)}px`} textDim={textDim} onReset={() => pushState({ textY: 0 })}>
+          <input type="range" step="1" min={-400} max={400} value={s.textY}
             onChange={e => pushState({ textY: +e.target.value })} />
         </FRow>
       </div>
@@ -1191,7 +1520,6 @@ export default function LuminaryPanels() {
 
   const panelAssetsAndLayers = (
     <Card label="Assets & Overlays" {...cp}>
-      {/* File inputs — hidden */}
       <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -1212,16 +1540,6 @@ export default function LuminaryPanels() {
       </div>
 
       <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Quick Icons</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:8, marginBottom:16 }}>
-        {UI_ICONS.map(ic => (
-          <button key={ic.name} onClick={() => addOverlay("image", ic.src)}
-            style={{ background:controlBg, border:`1px solid ${cardBorder}`, borderRadius:8, padding:8, cursor:"pointer", display:"flex", justifyContent:"center", alignItems:"center", minHeight:40 }}>
-            <img src={ic.src} alt={ic.name} style={{ width:20, height:20, opacity:0.7 }} />
-          </button>
-        ))}
-      </div>
-
       <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Add Overlay</p>
       <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:6, marginBottom:14 }}>
         {EMOJIS.map(em => (
@@ -1240,19 +1558,47 @@ export default function LuminaryPanels() {
         <p style={{ fontSize:13, color:textDim, fontStyle:"italic" }}>No overlays yet.</p>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-          {s.overlays.map(ov => (
-            <div key={ov.id} style={{ display:"flex", alignItems:"center", gap:10, background:controlBg, padding:"10px 12px", borderRadius:10, border:`1px solid ${cardBorder}` }}>
-              <span style={{ fontSize:18, width:28, flexShrink:0 }}>{ov.type === "emoji" ? ov.content : "🖼️"}</span>
-              <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
-                <input type="range" min={20} max={300} value={ov.size}
+          {s.overlays.map((ov, idx) => (
+            <div key={ov.id} style={{ display:"flex", alignItems:"center", gap:8, background:controlBg, padding:"10px 12px", borderRadius:10, border:`1px solid ${cardBorder}` }}>
+              <span style={{ fontSize:16, width:24, flexShrink:0 }}>{ov.type === "emoji" ? ov.content : "🖼️"}</span>
+              <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
+                <input type="range" step="1" min={20} max={300} value={ov.size}
                   onChange={e => updateOverlay(ov.id, { size: +e.target.value })} style={{ flex:1 }} />
+                <span style={{ fontSize:11, color:textDim, minWidth:32, textAlign:"right" }}>{ov.size}px</span>
               </div>
+              <button onClick={() => {
+                const newOv = { ...ov, id: Date.now().toString() };
+                pushState({ overlays: [...s.overlays, newOv] });
+              }}
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, padding:4, minWidth:32, title:"Duplicate" }}>
+                📋
+              </button>
+              <button onClick={() => {
+                if (idx > 0) {
+                  const newOvs = [...s.overlays];
+                  [newOvs[idx], newOvs[idx-1]] = [newOvs[idx-1], newOvs[idx]];
+                  pushState({ overlays: newOvs });
+                }
+              }}
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:14, opacity:idx > 0 ? 1 : 0.3, padding:4, minWidth:32 }}>
+                ↑
+              </button>
+              <button onClick={() => {
+                if (idx < s.overlays.length - 1) {
+                  const newOvs = [...s.overlays];
+                  [newOvs[idx], newOvs[idx+1]] = [newOvs[idx+1], newOvs[idx]];
+                  pushState({ overlays: newOvs });
+                }
+              }}
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:14, opacity:idx < s.overlays.length - 1 ? 1 : 0.3, padding:4, minWidth:32 }}>
+                ↓
+              </button>
               <button onClick={() => updateOverlay(ov.id, { locked: !ov.locked })}
-                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:18, opacity:ov.locked?1:0.4, padding:4, minWidth:36 }}>
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, opacity:ov.locked?1:0.4, padding:4, minWidth:32 }}>
                 {ov.locked ? "🔒" : "🔓"}
               </button>
               <button onClick={() => removeOverlay(ov.id)}
-                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:18, padding:4, minWidth:36 }}>
+                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, padding:4, minWidth:32, color:"#ff5555" }}>
                 🗑️
               </button>
             </div>
@@ -1262,56 +1608,219 @@ export default function LuminaryPanels() {
     </Card>
   );
 
+  const panelSettings = (
+    <Card label="Settings" {...cp}>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Auto Save</span>
+        <input type="checkbox" checked={settings.autoSave} onChange={e => setSettings(prev => ({ ...prev, autoSave: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Performance Mode</span>
+        <input type="checkbox" checked={settings.performanceMode} onChange={e => setSettings(prev => ({ ...prev, performanceMode: e.target.checked }))} />
+      </label>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
+      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+        <button onClick={() => saveProjectToLum({ history, hIndex, state: s })} style={{ ...outlineBtn, flex:1, color:accent }}>💾 Save Project</button>
+        <button onClick={() => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".lum,.json";
+          input.onchange = (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            loadProjectFromLum(file).then(project => {
+              if (project?.history && Array.isArray(project.history) && project.hIndex !== undefined) {
+                setHistory(project.history);
+                setHIndex(project.hIndex);
+              } else {
+                alert("Project format not recognized");
+              }
+            }).catch(() => alert("Failed to load project"));
+          };
+          input.click();
+        }} style={{ ...outlineBtn, flex:1, color:accent }}>📂 Load Project</button>
+      </div>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Quality of Life</p>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Show Grid</span>
+        <input type="checkbox" checked={settings.showGrid !== false} onChange={e => setSettings(prev => ({ ...prev, showGrid: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Lock All Overlays</span>
+        <input type="checkbox" onChange={e => {
+          if (e.target.checked) {
+            pushState({ overlays: s.overlays.map(o => ({ ...o, locked: true })) });
+          } else {
+            pushState({ overlays: s.overlays.map(o => ({ ...o, locked: false })) });
+          }
+        }} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Keyboard Shortcuts</span>
+        <input type="checkbox" checked={settings.keyboardShortcuts !== false} onChange={e => setSettings(prev => ({ ...prev, keyboardShortcuts: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Motion Effects</span>
+        <input type="checkbox" checked={settings.motionIntensity > 0} onChange={e => setSettings(prev => ({ ...prev, motionIntensity: e.target.checked ? 1 : 0 }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Show Dimensions</span>
+        <input type="checkbox" checked={settings.showDimensions !== false} onChange={e => setSettings(prev => ({ ...prev, showDimensions: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Color Picker Preview</span>
+        <input type="checkbox" checked={settings.colorPreview !== false} onChange={e => setSettings(prev => ({ ...prev, colorPreview: e.target.checked }))} />
+      </label>
+      <FRow label="Autosave Delay" textDim={textDim}>
+        <div style={{ display:"flex", gap:8 }}>
+          {[{l:"Fast",v:300},{l:"Normal",v:700},{l:"Slow",v:1500}].map(o => (
+            <button key={o.v} onClick={() => setSettings(prev => ({ ...prev, autosaveIntervalMs: o.v }))}
+              style={{
+                flex:1, padding:"8px", borderRadius:8, border: settings.autosaveIntervalMs === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.autosaveIntervalMs === o.v ? `${accent}18` : controlBg,
+                color: settings.autosaveIntervalMs === o.v ? accent : textPrimary,
+                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+              }}>
+              {o.l}
+            </button>
+          ))}
+        </div>
+      </FRow>
+      <FRow label="Default Layout" textDim={textDim}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
+          {Object.keys(LAYOUTS).map(k => (
+            <button key={k} onClick={() => setSettings(prev => ({ ...prev, defaultLayout: k }))}
+              style={{
+                padding:"8px", borderRadius:8, border: settings.defaultLayout === k ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.defaultLayout === k ? `${accent}18` : controlBg,
+                color: settings.defaultLayout === k ? accent : textPrimary,
+                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+              }}>
+              {k}
+            </button>
+          ))}
+        </div>
+      </FRow>
+      <FRow label="Export Quality Scale" textDim={textDim}>
+        <div style={{ display:"flex", gap:8 }}>
+          {[2,3,4,5].map(v => (
+            <button key={v} onClick={() => setSettings(prev => ({ ...prev, exportScale: v }))}
+              style={{
+                flex:1, padding:"8px", borderRadius:8, border: settings.exportScale === v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.exportScale === v ? `${accent}18` : controlBg,
+                color: settings.exportScale === v ? accent : textPrimary,
+                fontWeight:600, cursor:"pointer", transition:"all 0.15s",
+              }}>
+              {v}x
+            </button>
+          ))}
+        </div>
+      </FRow>
+      <FRow label="Theme Mode" textDim={textDim}>
+        <div style={{ display:"flex", gap:8 }}>
+          {[{l:"System",v:"system"},{l:"Dark",v:"dark"},{l:"Light",v:"light"}].map(o => (
+            <button key={o.v} onClick={() => setSettings(prev => ({ ...prev, themeMode: o.v }))}
+              style={{
+                flex:1, padding:"8px", borderRadius:8, border: settings.themeMode === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.themeMode === o.v ? `${accent}18` : controlBg,
+                color: settings.themeMode === o.v ? accent : textPrimary,
+                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+              }}>
+              {o.l}
+            </button>
+          ))}
+        </div>
+      </FRow>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Customization</p>
+      <FRow label="Accent Color" textDim={textDim}>
+        <ColorField value={settings.uiAccent || "#4fb3d9"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} />
+      </FRow>
+      <FRow label="Background Color" textDim={textDim}>
+        <ColorField value={settings.uiBg || "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)"} onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))} />
+      </FRow>
+      <FRow label="Text Color" textDim={textDim}>
+        <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} />
+      </FRow>
+      <button onClick={() => setSettings(prev => ({ ...prev, uiAccent: "#4fb3d9", uiBg: "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)", uiText: "#f0f9ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Keyboard Shortcuts</p>
+      <div style={{ background: `${accent}08`, border: `1px solid ${accent}20`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 12, color: textPrimary, fontFamily: "monospace" }}>
+        <div style={{ marginBottom: 6 }}><strong>Ctrl+Z</strong> - Undo</div>
+        <div style={{ marginBottom: 6 }}><strong>Ctrl+Shift+Z</strong> - Redo</div>
+        <div style={{ marginBottom: 6 }}><strong>Ctrl+E</strong> - Toggle Edit Mode</div>
+        <div style={{ marginBottom: 6 }}><strong>Ctrl+S</strong> - Save Image</div>
+        <div><strong>Esc</strong> - Close all modals</div>
+      </div>
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>💡 Quick Tips</p>
+      <div style={{ background: `rgba(45,212,191,0.08)`, border: `1px solid rgba(45,212,191,0.2)`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 11, color: textPrimary, lineHeight: 1.6 }}>
+        <div style={{ marginBottom: 8 }}>✨ <strong>Edit Mode:</strong> Click Edit to move text, avatar, and overlays around freely</div>
+        <div style={{ marginBottom: 8 }}>🎨 <strong>Colors:</strong> Click the color box to open the wheel picker, or paste hex codes</div>
+        <div style={{ marginBottom: 8 }}>📁 <strong>Projects:</strong> Save your work locally with Save Project button</div>
+        <div style={{ marginBottom: 8 }}>⌨️ <strong>Shortcuts:</strong> Enable keyboard shortcuts in QoL settings</div>
+        <div>🎭 <strong>Themes:</strong> Switch between Glass, Cute, and Material presets instantly</div>
+      </div>
+      <button onClick={() => {
+        localStorage.removeItem(STORAGE_KEY);
+        setHistory([getLayoutDefaults(settings.defaultLayout, pillStyle)]);
+        setHIndex(0);
+      }} style={{ ...outlineBtn, color:"#ff5555" }}>Clear Saved Project</button>
+    </Card>
+  );
+
   // ── Canvas preview block ──────────────────────────────────────────────────
   const canvasBlock = (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, width:"100%" }} ref={wrapRef}>
-
-      {/* Theme preset row */}
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center" }}>
         {[
-          { id:"glass",    label:"🧊 Glass" },
-          { id:"cute",     label:"🌸 Cute" },
-          { id:"material", label:"🎨 Material" },
+          { id:"glass",    label:"Glass" },
+          { id:"cute",     label:"Cute" },
+          { id:"material", label:"Material" },
         ].map(t => (
           <button key={t.id}
-            onClick={() => { setPillStyle(t.id); pushState(getLayoutDefaults(layoutMode, t.id)); }}
+            onClick={() => {
+              setPillStyle(t.id);
+              const next = getLayoutDefaults(layoutMode, t.id);
+              pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+            }}
             style={{
               ...outlineBtn, flex:"none",
               background: pillStyle === t.id ? accent : controlBg,
               color: pillStyle === t.id ? "#fff" : textPrimary,
-              border: pillStyle === t.id ? `1px solid ${accent}` : `1px solid ${cardBorder}`,
+              border: pillStyle === t.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
               fontWeight: pillStyle === t.id ? 700 : 500,
+              padding: "10px 18px",
             }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Canvas container — pulsing ring glow */}
       <div style={{ position:"relative", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-        {/* Outer pulse ring */}
         <div style={{
           position:"absolute",
           width: s.pillW * pxScale + 32,
           height: s.pillH * pxScale + 32,
           borderRadius: (Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale) + 16,
-          border:"1.5px solid rgba(255,110,180,0.45)",
+          border:`1.5px solid ${accent}72`,
           pointerEvents:"none",
-          animation:"ringPulse 2.4s ease-in-out infinite",
+          animation: settings.performanceMode ? "none" : `ringPulse ${Math.max(1.3, 2.4 / settings.motionIntensity)}s ease-in-out infinite`,
           maxWidth:"calc(100% + 32px)",
         }} />
-        {/* Inner glow canvas wrapper */}
         <div style={{
           borderRadius: Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale,
           overflow:"hidden",
-          animation:"canvasPulse 2.4s ease-in-out infinite",
+          animation: settings.performanceMode ? "none" : `canvasPulse ${Math.max(1.3, 2.4 / settings.motionIntensity)}s ease-in-out infinite`,
           width: s.pillW * pxScale,
           height: s.pillH * pxScale,
           maxWidth:"100%",
           flexShrink: 0,
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
-          border: `1px solid rgba(255,110,180,0.35)`,
+          border: `1px solid ${accent}59`,
         }}>
           <canvas
             ref={canvasRef}
@@ -1324,23 +1833,26 @@ export default function LuminaryPanels() {
         </div>
       </div>
 
-      {/* Controls bar */}
-      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2 }}>
+      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
+        <span style={{ fontSize:12, color:textDim, padding:"8px 12px", minWidth:60, textAlign:"center", fontWeight:500 }}>
+          {Math.round(pxScale * 100)}%
+        </span>
+        <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
         <button
           onClick={() => setEditMode(v => !v)}
-          style={{ background:"transparent", border:"none", padding:"10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:600 }}>
-          {editMode ? "✅ Done Editing" : "🖱 Edit Elements"}
+          style={{ background:"transparent", border:"none", padding:"10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:600, zIndex:vp.isMobile ? 61 : "auto" }}>
+          {editMode ? "Done" : "Edit"}
         </button>
         <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
         <button
           onClick={exportPNG}
-          style={{ background:"linear-gradient(135deg,#ff6eb4,#ffb3d9)", border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
-          💾 Save
+          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
+          Save
         </button>
         <button
           onClick={sharePNG}
-          style={{ background:"linear-gradient(135deg,#ff6eb4,#ff9ecd)", border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
-          🔗 Share
+          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, opacity:0.9, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
+          Share
         </button>
       </div>
     </div>
@@ -1351,52 +1863,74 @@ export default function LuminaryPanels() {
     <div style={{ width:"100%", overflowX:"hidden" }}>
       <style dangerouslySetInnerHTML={{ __html: `
         *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
-        body { background: #09090b; overflow-x: hidden; }
+        * { -webkit-tap-highlight-color: transparent; }
+        ::selection { background: rgba(79,179,217,0.25); color: #fff; }
+        body { background: ${isDark ? "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)" : "#f0f9fc"}; overflow-x: hidden; }
         ::-webkit-scrollbar { width:5px; }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#ff6eb4,#ffb3d9); border-radius:5px; }
-        input[type=range] { -webkit-appearance:none; height:5px; border-radius:5px; background:rgba(255,255,255,0.12); width:100%; outline:none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg,#ff6eb4,#ffb3d9); box-shadow:0 2px 8px rgba(255,110,180,0.5); cursor:pointer; }
-        input[type=checkbox] { width:16px; height:16px; accent-color: #ff6eb4; cursor:pointer; }
-        select option { background:#1c1c1e; color:#f2f2f7; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#4fb3d9,#2dd4bf); border-radius:5px; }
+        input,select,button { border-radius: 16px; }
+        input[type=range] { -webkit-appearance:none; height:7px; border-radius:999px; background:rgba(79,179,217,0.15); width:100%; outline:none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg,#4fb3d9,#2dd4bf); box-shadow:0 2px 8px rgba(79,179,217,0.5); cursor:pointer; }
+        input[type=checkbox] { width:16px; height:16px; accent-color: #4fb3d9; cursor:pointer; }
+        select option { background:#1c1c1e; color:#f0f9ff; }
         @keyframes headerGlow {
-          0%,100% { box-shadow: 0 1px 0 rgba(255,110,180,0.25), 0 4px 30px rgba(255,110,180,0.08); }
-          50%      { box-shadow: 0 1px 0 rgba(255,179,217,0.4), 0 4px 40px rgba(255,110,180,0.18); }
+          0%,100% { box-shadow: 0 1px 0 rgba(79,179,217,0.25), 0 4px 30px rgba(79,179,217,0.08); }
+          50%      { box-shadow: 0 1px 0 rgba(45,212,191,0.4), 0 4px 40px rgba(79,179,217,0.18); }
         }
         @keyframes canvasPulse {
-          0%,100% { box-shadow: 0 0 28px 4px rgba(255,110,180,0.28), 0 0 60px 12px rgba(255,110,180,0.1), 0 20px 60px rgba(0,0,0,0.7); }
-          50%      { box-shadow: 0 0 48px 14px rgba(255,110,180,0.48), 0 0 100px 30px rgba(255,179,217,0.2), 0 20px 60px rgba(0,0,0,0.7); }
+          0%,100% { box-shadow: 0 0 38px 8px rgba(79,179,217,0.34), 0 0 70px 16px rgba(79,179,217,0.16), 0 20px 60px rgba(0,0,0,0.7); }
+          50%      { box-shadow: 0 0 66px 20px rgba(79,179,217,0.72), 0 0 120px 40px rgba(45,212,191,0.35), 0 20px 60px rgba(0,0,0,0.7); }
         }
         @keyframes ringPulse {
           0%,100% { opacity: 0.55; transform: scale(1); }
-          50%      { opacity: 1;    transform: scale(1.035); }
+          50%      { opacity: 1;    transform: scale(1.055); }
+        }
+        @keyframes tabSlide {
+          from { opacity: 0.55; transform: translateX(${swipeDir * 14}px); }
+          to { opacity: 1; transform: translateX(0); }
         }
       `}} />
 
-      <div style={{ minHeight:"100vh", color:"#f2f2f7", fontFamily:"system-ui,-apple-system,sans-serif", background:"linear-gradient(160deg,#09090b 0%,#0d0d1a 50%,#09090b 100%)", paddingBottom: vp.isMobile ? 82 : 0 }}>
+      <div style={{ minHeight:"100vh", color:textPrimary, fontFamily:"system-ui,-apple-system,sans-serif", background:pageBg, paddingBottom: vp.isMobile ? 110 : 0 }}>
 
         {/* Header */}
-        <header style={{ position:"sticky", top:0, zIndex:100, background:"rgba(9,9,11,0.88)", backdropFilter:"blur(20px)", borderBottom:`1px solid rgba(255,110,180,0.18)`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
+        <header style={{ position:"sticky", top:0, zIndex:100, background: isDark ? "rgba(9,9,11,0.88)" : `${pageBg}dd`, backdropFilter:"blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <h1 style={{ fontSize:20, fontWeight:800, background:"linear-gradient(90deg,#ff6eb4,#ffb3d9,#ffd6ec)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
+            <h1 style={{ fontSize:20, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ borderLeft:"1px solid rgba(255,255,255,0.1)", height:20, margin:"0 6px" }} />
-            <select value={layoutMode}
-              onChange={e => { setLayoutMode(e.target.value); pushState(getLayoutDefaults(e.target.value, pillStyle)); }}
-              style={{ ...inputSt, width:180, padding:"7px 10px", fontWeight:600, fontSize:13 }}>
-              {Object.keys(LAYOUTS).map(k => <option key={k} value={k}>{k}</option>)}
-            </select>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+              {Object.keys(LAYOUTS).map(k => (
+                <button key={k} onClick={() => {
+                  setLayoutMode(k);
+                  const next = getLayoutDefaults(k, pillStyle);
+                  pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+                }}
+                  style={{
+                    padding:"6px 12px", borderRadius:8, fontSize:12, fontWeight:600,
+                    border: layoutMode === k ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                    background: layoutMode === k ? `${accent}18` : controlBg,
+                    color: layoutMode === k ? accent : textPrimary,
+                    cursor:"pointer", transition:"all 0.15s",
+                  }}>
+                  {k}
+                </button>
+              ))}
+            </div>
           </div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+            <button onClick={() => setSettingsOpen(v => !v)}
+              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", fontSize:13 }}>Settings</button>
             <button onClick={undo} disabled={hIndex === 0}
-              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", opacity: hIndex === 0 ? 0.3 : 1, fontSize:13 }}>↶ Undo</button>
+              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", opacity: hIndex === 0 ? 0.3 : 1, fontSize:13 }}>{ICONS.undo} Undo</button>
             <button onClick={redo} disabled={hIndex === history.length - 1}
-              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", opacity: hIndex === history.length - 1 ? 0.3 : 1, fontSize:13 }}>↷ Redo</button>
+              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", opacity: hIndex === history.length - 1 ? 0.3 : 1, fontSize:13 }}>{ICONS.redo} Redo</button>
             <button onClick={reset}
-              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", color:"#ff5555", borderColor:"rgba(255,85,85,0.3)", fontSize:13 }}>↻ Reset</button>
+              style={{ ...outlineBtn, flex:"none", padding:"8px 14px", color:"#ff5555", borderColor:"rgba(255,85,85,0.3)", fontSize:13 }}>{ICONS.reset} Reset</button>
           </div>
         </header>
 
         {/* Main layout */}
-        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"center", gap:20, padding:"20px 14px", maxWidth:1600, margin:"0 auto" }}>
+        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"flex-start", gap:20, padding:"20px 14px", paddingRight: vp.isMobile ? "14px" : 580, maxWidth: "100%", margin:"0 auto" }}>
 
           {!vp.isMobile && (
             <div style={{ flex:"1 1 280px", maxWidth:340, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
@@ -1406,21 +1940,12 @@ export default function LuminaryPanels() {
             </div>
           )}
 
-          <main style={{ flex:"2 1 400px", maxWidth: vp.isMobile ? "100%" : 660, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
-            {/* Sticky preview on mobile */}
+          <main style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position: vp.isMobile ? "relative" : "fixed", right: vp.isMobile ? "auto" : 20, top: vp.isMobile ? "auto" : 72, width: vp.isMobile ? "100%" : 540, maxHeight: vp.isMobile ? "auto" : "calc(100vh - 140px)", zIndex: vp.isMobile ? "auto" : 40, overflowY: vp.isMobile ? "visible" : "auto" }}>
             <div style={{
-              background: cardBg, borderRadius:24,
-              padding: vp.isMobile ? "16px 14px" : "28px 20px",
-              width:"100%", display:"flex", flexDirection:"column", alignItems:"center", gap:20,
+              background: cardBg, borderRadius:20,
+              padding: "18px",
+              display:"flex", flexDirection:"column", alignItems:"center", gap:16,
               border:`1px solid ${cardBorder}`, boxShadow: cardShadow,
-              ...(vp.isMobile ? {
-                position:"sticky", top:56, zIndex:50,
-                borderRadius:"0 0 24px 24px",
-                background:"rgba(9,9,11,0.92)",
-                backdropFilter:"blur(20px)",
-                borderTop:"none",
-                paddingTop:12,
-              } : {}),
             }}>
               {canvasBlock}
             </div>
@@ -1431,34 +1956,65 @@ export default function LuminaryPanels() {
               {panelAvatar}
               {panelBorder}
               {panelTypography}
+              {settingsOpen && panelSettings}
             </div>
           )}
 
-          {/* Mobile panels */}
+          {/* FIX 4: Removed duplicate isMobileView div — only vp.isMobile is used */}
           {vp.isMobile && (
-            <div style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14 }}>
+            <div
+              style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14, animation:`tabSlide 260ms ease` }}
+              onTouchStart={(e) => {
+                const target = e.target;
+                if (target.closest("input[type='range'],input,select,textarea,button,label,[role='button']")) return;
+                dragData.current = {
+                  ...dragData.current,
+                  swipeStartX: e.touches[0].clientX,
+                  swipeStartY: e.touches[0].clientY,
+                };
+              }}
+              onTouchMove={(e) => {
+                if (!dragData.current?.swipeStartX) return;
+                const dx = Math.abs(e.touches[0].clientX - dragData.current.swipeStartX);
+                const dy = Math.abs(e.touches[0].clientY - dragData.current.swipeStartY);
+                // Cancel swipe if mostly vertical scroll
+                if (dy > dx && dy > 10) { dragData.current = { ...dragData.current, swipeStartX: null }; }
+              }}
+              onTouchEnd={(e) => {
+                if (isSliding) return;
+                const start = dragData.current?.swipeStartX;
+                if (!start) return;
+                const dx = e.changedTouches[0].clientX - start;
+                const dy = e.changedTouches[0].clientY - (dragData.current?.swipeStartY ?? 0);
+                dragData.current = null;
+                if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+                if (dx < 0 && tabIndex < MOBILE_TABS.length - 1) changeMobileTab(MOBILE_TABS[tabIndex + 1]);
+                if (dx > 0 && tabIndex > 0) changeMobileTab(MOBILE_TABS[tabIndex - 1]);
+              }}
+            >
               {mobileTab === "layout" && <>{panelBaseConfig}{panelEnvironment}</>}
               {mobileTab === "assets" && panelAssetsAndLayers}
               {mobileTab === "avatar" && <>{panelAvatar}{panelBorder}</>}
               {mobileTab === "text"   && panelTypography}
+              {settingsOpen && panelSettings}
             </div>
           )}
         </div>
 
         {/* Mobile bottom nav */}
         {vp.isMobile && (
-          <nav style={{ position:"fixed", bottom:0, left:0, right:0, background:"rgba(9,9,11,0.94)", backdropFilter:"blur(16px)", borderTop:`1px solid rgba(255,255,255,0.08)`, display:"flex", padding:"6px 8px", paddingBottom:"calc(6px + env(safe-area-inset-bottom))", gap:4, zIndex:1000 }}>
+          <nav style={{ position:"fixed", bottom:10, left:12, right:12, background:"rgba(20,20,28,0.84)", backdropFilter:"blur(24px)", border:`1px solid rgba(255,255,255,0.12)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
             {[
-              { id:"layout", icon:"📐", label:"Layout" },
-              { id:"assets", icon:"🖼️", label:"Assets" },
-              { id:"avatar", icon:"👤", label:"Avatar" },
-              { id:"text",   icon:"Aa", label:"Text"   },
+              { id:"layout", icon:ICONS.layout, label:"Layout" },
+              { id:"assets", icon:ICONS.assets, label:"Assets" },
+              { id:"avatar", icon:ICONS.avatar, label:"Avatar" },
+              { id:"text",   icon:ICONS.text,   label:"Text"   },
             ].map(t => (
-              <button key={t.id} onClick={() => setMobileTab(t.id)}
+              <button key={t.id} onClick={() => changeMobileTab(t.id)}
                 style={{
-                  flex:1, background: mobileTab === t.id ? "rgba(255,110,180,0.15)" : "transparent",
+                  flex:1, background: mobileTab === t.id ? "rgba(79,179,217,0.15)" : "transparent",
                   color: mobileTab === t.id ? accent : textDim,
-                  border: mobileTab === t.id ? `1px solid rgba(255,110,180,0.25)` : "1px solid transparent",
+                  border: mobileTab === t.id ? `1px solid rgba(79,179,217,0.25)` : "1px solid transparent",
                   borderRadius:12, padding:"8px 4px",
                   display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer",
                   transition:"all 0.15s",
@@ -1470,6 +2026,15 @@ export default function LuminaryPanels() {
           </nav>
         )}
       </div>
+
+      {/* Settings bottom sheet */}
+      {settingsOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1500, display: "flex", alignItems: "flex-end" }} onClick={() => setSettingsOpen(false)}>
+          <div style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", borderRadius: "22px 22px 0 0", background: "rgba(14,14,20,0.97)", padding: "14px 12px 20px" }} onClick={(e) => e.stopPropagation()}>
+            {panelSettings}
+          </div>
+        </div>
+      )}
 
       {/* Crop modal */}
       {cropSrc && (
@@ -1507,10 +2072,13 @@ function Card({ label, children, cardBg, cardBorder, textDim, cardShadow }) {
   );
 }
 
-function FRow({ label, children, textDim }) {
+function FRow({ label, children, textDim, onReset }) {
   return (
     <div style={{ flex:1, marginBottom:11 }}>
-      <label style={{ display:"block", fontSize:12, color:textDim, marginBottom:5, fontWeight:500 }}>{label}</label>
+      <label style={{ display:"flex", fontSize:12, color:textDim, marginBottom:5, fontWeight:500, alignItems:"center", justifyContent:"space-between", gap:6 }}>
+        <span>{label}</span>
+        {onReset && <button onClick={onReset} style={{ border:"1px solid rgba(255,255,255,0.18)", background:"rgba(255,255,255,0.06)", color:"#fff", fontSize:11, padding:"3px 8px", borderRadius:999 }}>Reset</button>}
+      </label>
       {children}
     </div>
   );
@@ -1522,4 +2090,190 @@ function TxIn({ value, onChange, placeholder, inputSt }) {
 
 function Sep({ cardBorder }) {
   return <div style={{ borderTop:`1px solid ${cardBorder}`, margin:"10px 0 14px" }} />;
+}
+
+function ColorField({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const wheelRef = useRef(null);
+  const overlayRef = useRef(null);
+
+  const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#0891b2","#0284c7","#0d47a1","#000000","#ffffff","#e0f2fe","#ccfbf1"];
+
+  const hsvToHex = (h, s, v) => {
+    const f = (n, k = (n + h / 60) % 6) => v - (v * s) * Math.max(Math.min(k, 4 - k, 1), 0);
+    const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
+    return `#${toHex(f(5))}${toHex(f(3))}${toHex(f(1))}`;
+  };
+
+  const [cursorPos, setCursorPos] = useState({ x: 110, y: 110 });
+
+  const hexToHsv = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const d = max - min;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    const s = max === 0 ? 0 : d / max;
+    const v = max;
+    return { h: h * 360, s, v };
+  };
+
+  useEffect(() => {
+    if (open && value && value.startsWith("#")) {
+      const hsv = hexToHsv(value);
+      const ang = (hsv.h * Math.PI) / 180;
+      const distance = Math.min(hsv.s * 110, 110);
+      const x = 110 + Math.cos(ang) * distance;
+      const y = 110 + Math.sin(ang) * distance;
+      setCursorPos({ x, y });
+    }
+  }, [open, value]);
+
+  const setHueFromPoint = (clientX, clientY) => {
+    const rect = wheelRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const ang = Math.atan2(clientY - cy, clientX - cx);
+    const hue = ((ang * 180) / Math.PI + 360) % 360;
+    const rad = Math.hypot(clientX - cx, clientY - cy);
+    const radius = rect.width / 2;
+    const saturation = Math.min(rad / radius, 1);
+    const x = 110 + Math.cos(ang) * (saturation * 110);
+    const y = 110 + Math.sin(ang) * (saturation * 110);
+    setCursorPos({ x, y });
+    onChange(hsvToHex(hue, saturation, 1));
+  };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+        style={{
+          width: "100%", height: 44, borderRadius: 999,
+          border: "2px solid rgba(255,255,255,0.18)",
+          background: value, cursor: "pointer",
+          boxShadow: `0 2px 12px ${value}55`,
+          transition: "box-shadow 0.2s",
+        }}
+      />
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div
+            ref={overlayRef}
+            onClick={() => setOpen(false)}
+            style={{
+              position: "fixed", inset: 0, zIndex: 998,
+              background: "rgba(0,0,0,0.3)", backdropFilter: "blur(2px)",
+            }}
+          />
+          {/* Picker panel */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: "fixed", zIndex: 999,
+              bottom: 0, left: 0, right: 0,
+              padding: "20px 20px 32px",
+              borderRadius: "22px 22px 0 0",
+              background: "#0a0e27",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 -20px 60px rgba(0,0,0,0.7)",
+            }}
+          >
+            {/* Handle bar */}
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 18px" }} />
+
+            {/* Color wheel with cursor indicator */}
+            <div style={{ position: "relative", width: 220, height: 220, margin: "0 auto 18px" }}>
+              <div
+                ref={wheelRef}
+                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setHueFromPoint(e.clientX, e.clientY); }}
+                onPointerMove={(e) => { if (e.buttons) setHueFromPoint(e.clientX, e.clientY); }}
+                style={{
+                  width: 220, height: 220, borderRadius: "50%",
+                  cursor: "crosshair",
+                  background: "conic-gradient(#ff0000,#ff8000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)",
+                  boxShadow: "inset 0 0 0 20px #0a0e27, 0 0 0 2px rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.5)",
+                  touchAction: "none",
+                }}
+              />
+              {/* Cursor indicator */}
+              <div style={{
+                position: "absolute",
+                width: 16, height: 16,
+                border: "3px solid white",
+                borderRadius: "50%",
+                left: cursorPos.x - 8,
+                top: cursorPos.y - 8,
+                boxShadow: "0 0 0 1px rgba(0,0,0,0.5)",
+                pointerEvents: "none",
+              }} />
+            </div>
+
+            {/* Current color + exact hex picker */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: value, border: "2px solid rgba(255,255,255,0.18)", flexShrink: 0, boxShadow: `0 4px 16px ${value}88` }} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, marginBottom: 0, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600 }}>Exact Colour</p>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    type="color" value={value}
+                    onChange={e => onChange(e.target.value)}
+                    style={{ width: 44, height: 44, border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, background: "rgba(255,255,255,0.06)", cursor: "pointer", padding: 2 }}
+                  />
+                  <input
+                    type="text" value={value} readOnly
+                    style={{ flex: 1, height: 44, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, color: "#fff", padding: "0 12px", fontFamily: "monospace", textTransform: "uppercase", cursor: "pointer" }}
+                    onClick={() => { navigator.clipboard.writeText(value); }}
+                    title="Click to copy"
+                  />
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(value); alert("Copied!"); }}
+                    style={{ height: 44, padding: "0 12px", background: "rgba(79,179,217,0.15)", border: "1px solid rgba(79,179,217,0.3)", borderRadius: 10, color: "#4fb3d9", cursor: "pointer", fontWeight: 600, fontSize: 12 }}
+                  >
+                    📋
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Preset swatches */}
+            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 10 }}>Presets</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 16 }}>
+              {PRESETS.map(c => (
+                <button
+                  key={c}
+                  onClick={() => onChange(c)}
+                  style={{
+                    height: 44, borderRadius: 12, background: c, border: value === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.12)",
+                    cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 8px ${c}66`,
+                  }}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={() => setOpen(false)}
+              style={{
+                width: "100%", padding: "14px", borderRadius: 16,
+                background: "linear-gradient(135deg,#4fb3d9,#2dd4bf)",
+                border: "none", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
