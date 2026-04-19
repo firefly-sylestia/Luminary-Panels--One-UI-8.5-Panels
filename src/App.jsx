@@ -49,6 +49,7 @@ const LAYOUTS = {
 
 const STORAGE_KEY = "luminary-panels-v2";
 const SETTINGS_KEY = "luminary-panels-settings-v1";
+const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const MOBILE_TABS = ["layout", "assets", "avatar", "text"];
 const DEFAULT_SETTINGS = {
   autoSave: true,
@@ -61,6 +62,8 @@ const DEFAULT_SETTINGS = {
   uiAccent: "#4fb3d9",
   uiBg: "#0a0e27",
   uiText: "#f0f9ff",
+  showScaleBadge: false,
+  hardBlurUI: true,
   lightBg: "linear-gradient(135deg,#f5fbff 0%,#f0f7fc 50%,#eef8ff 100%)",
   lightText: "#0f172a",
 };
@@ -124,6 +127,16 @@ function shadeHex(hex, amt) {
   const g = Math.min(255, Math.max(0, ((n >> 8) & 0xff) + amt));
   const b = Math.min(255, Math.max(0, (n & 0xff) + amt));
   return `rgb(${r},${g},${b})`;
+}
+
+function withAlpha(color, alphaPct = 100) {
+  if (!color || color === "transparent") return "transparent";
+  const pct = Math.max(0, Math.min(100, Number(alphaPct ?? 100)));
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) return hexToRgba(color, pct / 100);
+  const rgba = color.match(/^rgba?\(([^)]+)\)$/i);
+  if (!rgba) return color;
+  const [r = 0, g = 0, b = 0] = rgba[1].split(",").map(v => Number(v.trim()) || 0);
+  return `rgba(${r},${g},${b},${pct / 100})`;
 }
 
 const getBorderControls = (id) => {
@@ -357,6 +370,7 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     circScale: 100, avScale: 100, avImgX: 0, avImgY: 0,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
     textureId: "none", textureOpacity: 65,
+    pillBgAlpha: 100, avBgAlpha: 100, textAlpha: 100, glowAlpha: 100, edgeAlpha: 100,
   };
 
   if (theme === "cute") {
@@ -746,6 +760,15 @@ export default function LuminaryPanels() {
     return 0;
   });
   const s = history[hIndex] ?? history[0];
+  const [projectLibrary, setProjectLibrary] = useState(() => {
+    try {
+      const raw = localStorage.getItem(PROJECT_LIBRARY_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  });
 
   const pushState = (updates) => {
     setHistory(prev => {
@@ -819,7 +842,6 @@ export default function LuminaryPanels() {
   }, []);
 
   useEffect(() => {
-    if (settings.keyboardShortcuts === false) return;
     const handleKeyDown = (e) => {
       if (e.target.matches("input, textarea, select")) return;
       if (e.ctrlKey || e.metaKey) {
@@ -832,7 +854,7 @@ export default function LuminaryPanels() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [settings.keyboardShortcuts]);
+  }, []);
 
   const addFont = () => {
     const match = newFontUrl.match(/family=([^&:]+)/);
@@ -973,6 +995,31 @@ export default function LuminaryPanels() {
   const updateOverlay = (id, upd) => pushState({ overlays: s.overlays.map(o => o.id === id ? { ...o, ...upd } : o) });
   const removeOverlay = (id)      => pushState({ overlays: s.overlays.filter(o => o.id !== id) });
 
+  const saveCurrentToLibrary = () => {
+    const snapshot = {
+      id: Date.now().toString(),
+      savedAt: Date.now(),
+      label: `${s.mainText || "Untitled"} • ${layoutMode}`,
+      history,
+      hIndex,
+      layoutMode,
+      pillStyle,
+    };
+    setProjectLibrary(prev => [snapshot, ...prev].slice(0, 12));
+  };
+
+  const loadLibraryItem = (item) => {
+    if (!item?.history?.length) return;
+    setHistory(item.history);
+    setHIndex(Math.max(0, Math.min(item.hIndex ?? item.history.length - 1, item.history.length - 1)));
+    if (item.layoutMode) setLayoutMode(item.layoutMode);
+    if (item.pillStyle) setPillStyle(item.pillStyle);
+  };
+
+  useEffect(() => {
+    try { localStorage.setItem(PROJECT_LIBRARY_KEY, JSON.stringify(projectLibrary)); } catch (_) {}
+  }, [projectLibrary]);
+
   // ── Rendering Engine ──────────────────────────────────────────────────────
   const renderGraphics = useCallback((ctx, W, H, scaleMultiplier, isExport) => {
     if (!fontsOk) return;
@@ -999,7 +1046,7 @@ export default function LuminaryPanels() {
     ctx.save();
     roundedRectPath(ctx, 0, 0, W, H, geo.pillR);
     ctx.clip();
-    ctx.fillStyle = s.pillBgColor || "#1c1c1e";
+    ctx.fillStyle = withAlpha(s.pillBgColor || "#1c1c1e", s.pillBgAlpha);
     ctx.fillRect(0, 0, W, H);
 
     // ── FIX 1: Texture rendering with proper brace structure ──
@@ -1078,7 +1125,7 @@ export default function LuminaryPanels() {
     if (s.edgeBlur > 0) {
       const vig = ctx.createRadialGradient(W/2, H*0.4, Math.min(W,H)*0.1, W/2, H, Math.max(W,H)*0.85);
       vig.addColorStop(0, "rgba(0,0,0,0)");
-      vig.addColorStop(1, hexToRgba(s.edgeColor, s.edgeBlur / 100));
+      vig.addColorStop(1, withAlpha(s.edgeColor, (s.edgeBlur * (s.edgeAlpha ?? 100)) / 100));
       ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
     }
     ctx.restore();
@@ -1088,7 +1135,7 @@ export default function LuminaryPanels() {
       ctx.save();
       ctx.beginPath(); ctx.arc(avCX, avCY, geo.avR, 0, Math.PI*2); ctx.clip();
       if (s.avBgColor && s.avBgColor !== "transparent") {
-        ctx.fillStyle = s.avBgColor;
+        ctx.fillStyle = withAlpha(s.avBgColor, s.avBgAlpha);
         ctx.fillRect(avCX - geo.avR, avCY - geo.avR, geo.avR*2, geo.avR*2);
       }
       if (avImg) {
@@ -1107,9 +1154,9 @@ export default function LuminaryPanels() {
     roundedRectPath(ctx, 0, 0, W, H, geo.pillR); ctx.clip();
     ctx.font = `${s.fontWeight} ${s.fontSize}px ${s.font}`;
     ctx.textBaseline = "middle";
-    ctx.shadowColor  = s.glowClr;
+    ctx.shadowColor  = withAlpha(s.glowClr, s.glowAlpha);
     ctx.shadowBlur   = s.glowClr !== "transparent" ? 22 : 0;
-    ctx.fillStyle    = s.textClr;
+    ctx.fillStyle    = withAlpha(s.textClr, s.textAlpha);
     const yOff = s.subText ? -(s.fontSize * 0.25) : 0;
     ctx.fillText(s.mainText, tx, ty + yOff);
     if (s.subText) {
@@ -1123,7 +1170,7 @@ export default function LuminaryPanels() {
     if (s.pillBorderWidth > 0 && s.edgeBlur === 0) {
       ctx.save();
       roundedRectPath(ctx, 1, 1, W-2, H-2, geo.pillR > 1 ? geo.pillR - 1 : 0);
-      ctx.strokeStyle = s.pillBorderClr;
+      ctx.strokeStyle = withAlpha(s.pillBorderClr, s.pillBorderAlpha ?? 100);
       ctx.lineWidth   = s.pillBorderWidth;
       ctx.stroke();
       ctx.restore();
@@ -1358,7 +1405,9 @@ export default function LuminaryPanels() {
   const panelEnvironment = (
     <Card label="Environment & Background" {...cp}>
       <FRow label="Pill Surface Color" textDim={textDim}>
-        <ColorField value={s.pillBgColor && s.pillBgColor.startsWith("#") ? s.pillBgColor : "#1c1c1e"}
+        <ColorField value={s.pillBgColor || "#1c1c1e"}
+          alpha={s.pillBgAlpha ?? 100}
+          onAlphaChange={v => pushState({ pillBgAlpha: v })}
           onChange={v => pushState({ pillBgColor: v })} />
       </FRow>
       <div style={{ display:"flex", gap:8 }}>
@@ -1368,6 +1417,8 @@ export default function LuminaryPanels() {
         </FRow>
         <FRow label="Border Color" textDim={textDim}>
           <ColorField value={s.pillBorderClr || "#ffffff"}
+            alpha={s.pillBorderAlpha ?? 100}
+            onAlphaChange={v => pushState({ pillBorderAlpha: v })}
             onChange={v => pushState({ pillBorderClr: v })} />
         </FRow>
       </div>
@@ -1408,7 +1459,7 @@ export default function LuminaryPanels() {
           <input type="range" step="1" min={0} max={100} value={s.edgeBlur} onChange={e => pushState({ edgeBlur: +e.target.value })} />
         </FRow>
         <FRow label="Vignette Tint" textDim={textDim}>
-          <ColorField value={s.edgeColor || "#000000"} onChange={v => pushState({ edgeColor: v })} />
+          <ColorField value={s.edgeColor || "#000000"} alpha={s.edgeAlpha ?? 100} onAlphaChange={v => pushState({ edgeAlpha: v })} onChange={v => pushState({ edgeColor: v })} />
         </FRow>
       </div>
       <label style={{ display:"flex", alignItems:"center", gap:10, fontSize:14, color:textPrimary, cursor:"pointer", minHeight:44 }}>
@@ -1495,7 +1546,9 @@ export default function LuminaryPanels() {
       {s.showAvatar && (
         <>
           <FRow label="Circle Fill Color" textDim={textDim}>
-            <ColorField value={s.avBgColor && s.avBgColor.startsWith("#") ? s.avBgColor : "#2c2c2e"}
+            <ColorField value={s.avBgColor || "#2c2c2e"}
+              alpha={s.avBgAlpha ?? 100}
+              onAlphaChange={v => pushState({ avBgAlpha: v })}
               onChange={v => pushState({ avBgColor: v })} />
           </FRow>
           <div style={{ display:"flex", gap:8 }}>
@@ -1567,7 +1620,7 @@ export default function LuminaryPanels() {
           {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" step="1" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} /></FRow>}
           {bCtrl.hasText && <FRow label="Emojis" textDim={textDim}><TxIn value={s.avBorderEmojis} onChange={v => pushState({ avBorderEmojis: v })} inputSt={inputSt} /></FRow>}
           <FRow label="Border Color" textDim={textDim}>
-            <ColorField value={s.avBorderClr && s.avBorderClr.startsWith("#") ? s.avBorderClr : "#ffffff"}
+          <ColorField value={s.avBorderClr || "#ffffff"}
               onChange={v => pushState({ avBorderClr: v })} />
           </FRow>
         </React.Fragment>
@@ -1628,12 +1681,16 @@ export default function LuminaryPanels() {
       </div>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label="Text Color" textDim={textDim}>
-          <ColorField value={s.textClr && s.textClr.startsWith("#") ? s.textClr : "#ffffff"}
+          <ColorField value={s.textClr || "#ffffff"}
+            alpha={s.textAlpha ?? 100}
+            onAlphaChange={v => pushState({ textAlpha: v })}
             onChange={v => pushState({ textClr: v })} />
         </FRow>
         <FRow label="Glow Color" textDim={textDim}>
           <ColorField
-            value={s.glowClr && s.glowClr !== "transparent" && s.glowClr.startsWith("#") ? s.glowClr : "#ffffff"}
+            value={s.glowClr && s.glowClr !== "transparent" ? s.glowClr : "#ffffff"}
+            alpha={s.glowAlpha ?? 100}
+            onAlphaChange={v => pushState({ glowAlpha: v })}
             onChange={v => pushState({ glowClr: v })} />
         </FRow>
       </div>
@@ -1791,6 +1848,7 @@ export default function LuminaryPanels() {
         >
           💾 Save Project
         </button>
+        <button onClick={saveCurrentToLibrary} style={{ ...outlineBtn, flex:1, color:accent }}>⭐ Save In App</button>
         <button onClick={() => {
           const input = document.createElement("input");
           input.type = "file";
@@ -1810,6 +1868,24 @@ export default function LuminaryPanels() {
           input.click();
         }} style={{ ...outlineBtn, flex:1, color:accent }}>📂 Load Project</button>
       </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
+        {(projectLibrary.length === 0) ? (
+          <div style={{ border:`1px dashed ${cardBorder}`, borderRadius:14, padding:"14px 12px", color:textDim, fontSize:12 }}>
+            No in-app saves yet. Tap <strong style={{ color:textPrimary }}>Save In App</strong> to keep named checkpoints.
+          </div>
+        ) : projectLibrary.map(item => (
+          <div key={item.id} style={{ background:`linear-gradient(145deg, ${controlBg}, ${cardBg})`, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+            <div>
+              <div style={{ color:textPrimary, fontSize:13, fontWeight:600 }}>{item.label}</div>
+              <div style={{ color:textDim, fontSize:11 }}>{new Date(item.savedAt).toLocaleString()}</div>
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              <button onClick={() => loadLibraryItem(item)} style={{ ...outlineBtn, flex:"none", padding:"6px 10px", fontSize:12, borderRadius:10 }}>Load</button>
+              <button onClick={() => setProjectLibrary(prev => prev.filter(p => p.id !== item.id))} style={{ ...outlineBtn, flex:"none", padding:"6px 10px", fontSize:12, borderRadius:10, color:"#ff6666" }}>Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Quality of Life</p>
       <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
@@ -1827,10 +1903,6 @@ export default function LuminaryPanels() {
         }} />
       </label>
       <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Keyboard Shortcuts</span>
-        <input type="checkbox" checked={settings.keyboardShortcuts !== false} onChange={e => setSettings(prev => ({ ...prev, keyboardShortcuts: e.target.checked }))} />
-      </label>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Motion Effects</span>
         <input type="checkbox" checked={settings.motionIntensity > 0} onChange={e => setSettings(prev => ({ ...prev, motionIntensity: e.target.checked ? 1 : 0 }))} />
       </label>
@@ -1841,6 +1913,14 @@ export default function LuminaryPanels() {
       <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Color Picker Preview</span>
         <input type="checkbox" checked={settings.colorPreview !== false} onChange={e => setSettings(prev => ({ ...prev, colorPreview: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Hard Blur UI</span>
+        <input type="checkbox" checked={settings.hardBlurUI !== false} onChange={e => setSettings(prev => ({ ...prev, hardBlurUI: e.target.checked }))} />
+      </label>
+      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Show Scale Badge</span>
+        <input type="checkbox" checked={settings.showScaleBadge === true} onChange={e => setSettings(prev => ({ ...prev, showScaleBadge: e.target.checked }))} />
       </label>
       <FRow label="Autosave Delay" textDim={textDim}>
         <div style={{ display:"flex", gap:8 }}>
@@ -1915,21 +1995,12 @@ export default function LuminaryPanels() {
       </FRow>
       <button onClick={() => setSettings(prev => ({ ...prev, uiAccent: "#4fb3d9", uiBg: "#0a0e27", uiText: "#f0f9ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
       <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Keyboard Shortcuts</p>
-      <div style={{ background: `${accent}08`, border: `1px solid ${accent}20`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 12, color: textPrimary, fontFamily: "monospace" }}>
-        <div style={{ marginBottom: 6 }}><strong>Ctrl+Z</strong> - Undo</div>
-        <div style={{ marginBottom: 6 }}><strong>Ctrl+Shift+Z</strong> - Redo</div>
-        <div style={{ marginBottom: 6 }}><strong>Ctrl+E</strong> - Toggle Edit Mode</div>
-        <div style={{ marginBottom: 6 }}><strong>Ctrl+S</strong> - Save Image</div>
-        <div><strong>Esc</strong> - Close all modals</div>
-      </div>
-      <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>💡 Quick Tips</p>
       <div style={{ background: `rgba(45,212,191,0.08)`, border: `1px solid rgba(45,212,191,0.2)`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 11, color: textPrimary, lineHeight: 1.6 }}>
         <div style={{ marginBottom: 8 }}>✨ <strong>Edit Mode:</strong> Click Edit to move text, avatar, and overlays around freely</div>
         <div style={{ marginBottom: 8 }}>🎨 <strong>Colors:</strong> Use the inline modern picker for precise shade + hex control</div>
         <div style={{ marginBottom: 8 }}>📁 <strong>Projects:</strong> Save your work locally with Save Project button</div>
-        <div style={{ marginBottom: 8 }}>⌨️ <strong>Shortcuts:</strong> Enable keyboard shortcuts in QoL settings</div>
+        <div style={{ marginBottom: 8 }}>🧷 <strong>Edit Mode:</strong> Toggle edit to reposition text/avatar/overlays directly on canvas</div>
         <div>🎭 <strong>Themes:</strong> Switch between Glass, Cute, and Material presets instantly</div>
       </div>
       <button onClick={() => {
@@ -2002,25 +2073,29 @@ export default function LuminaryPanels() {
         </div>
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", background:"rgba(255,255,255,0.05)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
-        <span style={{ fontSize:12, color:textDim, padding:"8px 12px", minWidth:60, textAlign:"center", fontWeight:500 }}>
-          {Math.round(pxScale * 100)}%
-        </span>
-        <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
+      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? "rgba(12,16,24,0.94)" : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? "blur(34px) saturate(1.2)" : "blur(16px)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
+        {settings.showScaleBadge && (
+          <>
+            <span style={{ fontSize:11, color:textDim, padding:"8px 12px", minWidth:102, textAlign:"center", fontWeight:500 }}>
+              Preview {Math.round(pxScale * 100)}%
+            </span>
+            <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
+          </>
+        )}
         <button
           onClick={() => setEditMode(v => !v)}
-          style={{ background:"transparent", border:"none", padding:"10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:600, zIndex:vp.isMobile ? 61 : "auto" }}>
-          {editMode ? "Done" : "Edit"}
+          style={{ background: editMode ? `${accent}22` : "transparent", border:`1px solid ${editMode ? `${accent}99` : "transparent"}`, padding: vp.isMobile ? "11px 18px" : "10px 16px", color: editMode ? accent : textPrimary, cursor:"pointer", fontSize:14, fontWeight:700, zIndex:vp.isMobile ? 61 : "auto" }}>
+          {editMode ? "Done Editing" : "Edit Layers"}
         </button>
         <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
         <button
           onClick={exportPNG}
-          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
+          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px", minHeight:44 }}>
           Save
         </button>
         <button
           onClick={sharePNG}
-          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, opacity:0.9, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px" }}>
+          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, opacity:0.9, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px", minHeight:44 }}>
           Share
         </button>
       </div>
@@ -2034,7 +2109,7 @@ export default function LuminaryPanels() {
         *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
         * { -webkit-tap-highlight-color: transparent; }
         ::selection { background: rgba(79,179,217,0.25); color: #fff; }
-        body { background: ${isDark ? "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)" : "#f0f9fc"}; overflow-x: hidden; }
+        html, body, #root { height: 100%; margin: 0; background: ${isDark ? "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)" : "#f0f9fc"}; overflow-x: hidden; overscroll-behavior: none; }
         ::-webkit-scrollbar { width:5px; }
         ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#4fb3d9,#2dd4bf); border-radius:5px; }
         input,select,button { border-radius: 16px; }
@@ -2060,10 +2135,10 @@ export default function LuminaryPanels() {
         }
       `}} />
 
-      <div style={{ minHeight:"100vh", color:textPrimary, fontFamily:"system-ui,-apple-system,sans-serif", background:pageBg, paddingBottom: vp.isMobile ? 110 : 0 }}>
+      <div style={{ minHeight:"100dvh", color:textPrimary, fontFamily:"system-ui,-apple-system,sans-serif", background:pageBg, paddingBottom: vp.isMobile ? 110 : 0, paddingTop:"env(safe-area-inset-top)" }}>
 
         {/* Header */}
-        <header style={{ position:"sticky", top:0, zIndex:100, background: isDark ? "rgba(9,9,11,0.88)" : `${pageBg}dd`, backdropFilter:"blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
+        <header style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? "rgba(7,9,14,0.94)" : "rgba(243,250,253,0.9)") : (isDark ? "rgba(9,9,11,0.88)" : `${pageBg}dd`), backdropFilter: settings.hardBlurUI ? "blur(34px) saturate(1.2)" : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"11px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:10, animation:"headerGlow 4s ease-in-out infinite" }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <h1 style={{ fontSize:20, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ borderLeft:"1px solid rgba(255,255,255,0.1)", height:20, margin:"0 6px" }} />
@@ -2134,6 +2209,7 @@ export default function LuminaryPanels() {
             <div
               style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14, marginTop: mobilePreviewOffset, animation:`tabSlide 260ms ease` }}
               onTouchStart={(e) => {
+                if (editMode) return;
                 const target = e.target;
                 if (target.closest("input[type='range'],input,select,textarea,button,label,[role='button']")) return;
                 dragData.current = {
@@ -2143,6 +2219,7 @@ export default function LuminaryPanels() {
                 };
               }}
               onTouchMove={(e) => {
+                if (editMode) return;
                 if (!dragData.current?.swipeStartX) return;
                 const dx = Math.abs(e.touches[0].clientX - dragData.current.swipeStartX);
                 const dy = Math.abs(e.touches[0].clientY - dragData.current.swipeStartY);
@@ -2150,6 +2227,7 @@ export default function LuminaryPanels() {
                 if (dy > dx && dy > 10) { dragData.current = { ...dragData.current, swipeStartX: null }; }
               }}
               onTouchEnd={(e) => {
+                if (editMode) return;
                 if (isSliding) return;
                 const start = dragData.current?.swipeStartX;
                 if (!start) return;
@@ -2172,7 +2250,7 @@ export default function LuminaryPanels() {
 
         {/* Mobile bottom nav */}
         {vp.isMobile && (
-          <nav style={{ position:"fixed", bottom:10, left:12, right:12, background:"rgba(20,20,28,0.84)", backdropFilter:"blur(24px)", border:`1px solid rgba(255,255,255,0.12)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
+          <nav style={{ position:"fixed", bottom:10, left:12, right:12, background: settings.hardBlurUI ? "rgba(10,14,24,0.95)" : "rgba(20,20,28,0.84)", backdropFilter: settings.hardBlurUI ? "blur(34px) saturate(1.25)" : "blur(24px)", border:`1px solid rgba(255,255,255,0.16)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
             {[
               { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"assets", icon:ICONS.assets, label:"Assets" },
@@ -2261,7 +2339,7 @@ function Sep({ cardBorder }) {
   return <div style={{ borderTop:`1px solid ${cardBorder}`, margin:"10px 0 14px" }} />;
 }
 
-function ColorField({ value, onChange }) {
+function ColorField({ value, onChange, alpha = 100, onAlphaChange }) {
   const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#22c55e","#84cc16","#f59e0b","#ef4444","#a855f7","#111827","#ffffff"];
   const areaRef = useRef(null);
   const [draftHex, setDraftHex] = useState("");
@@ -2310,6 +2388,7 @@ function ColorField({ value, onChange }) {
   const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
   const parsed = useMemo(() => hexToHsv(safeHex), [hexToHsv, safeHex]);
   const [hsv, setHsv] = useState(parsed);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     setHsv(parsed);
@@ -2341,6 +2420,7 @@ function ColorField({ value, onChange }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div
+          onClick={() => setOpen(v => !v)}
           style={{
             width: 44,
             height: 44,
@@ -2349,6 +2429,7 @@ function ColorField({ value, onChange }) {
             border: "2px solid rgba(255,255,255,0.2)",
             boxShadow: `0 6px 20px ${safeHex}88`,
             flexShrink: 0,
+            cursor: "pointer",
           }}
         />
         <input
@@ -2381,6 +2462,8 @@ function ColorField({ value, onChange }) {
           }}
         />
       </div>
+      {open && (
+      <>
       <div
         ref={areaRef}
         onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setSVFromPoint(e.clientX, e.clientY); }}
@@ -2448,6 +2531,14 @@ function ColorField({ value, onChange }) {
           />
         ))}
       </div>
+      {onAlphaChange && (
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, color:"rgba(255,255,255,0.75)", minWidth:82 }}>Opacity {alpha}%</span>
+          <input type="range" min={0} max={100} value={alpha} onChange={(e) => onAlphaChange(Number(e.target.value))} />
+        </div>
+      )}
+      </>
+      )}
     </div>
   );
 }
