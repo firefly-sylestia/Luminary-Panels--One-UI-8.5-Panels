@@ -66,9 +66,33 @@ const DEFAULT_SETTINGS = {
   uiBlurStrength: 34,
   uiDarkness: 94,
   statusBarBoost: 18,
-  lightBg: "linear-gradient(135deg,#fff8ef 0%,#f9f0df 48%,#f2e8d5 100%)",
-  lightText: "#3f3428",
+  lightBg: "linear-gradient(160deg,#fffdfa 0%,#f6fbff 35%,#eef7ff 62%,#f8f4ff 100%)",
+  lightText: "#2a3446",
 };
+const GEOMETRY_LIMITS = {
+  minW: 140,
+  maxW: 1200,
+  minH: 110,
+  maxH: 900,
+  maxArea: 420000,
+};
+
+function clampGeometry(next, isMobile = false) {
+  const minW = GEOMETRY_LIMITS.minW;
+  const maxW = isMobile ? 980 : GEOMETRY_LIMITS.maxW;
+  const minH = GEOMETRY_LIMITS.minH;
+  const maxH = isMobile ? 760 : GEOMETRY_LIMITS.maxH;
+  let w = Math.max(minW, Math.min(maxW, Number(next.pillW) || minW));
+  let h = Math.max(minH, Math.min(maxH, Number(next.pillH) || minH));
+  if (w * h > GEOMETRY_LIMITS.maxArea) {
+    const ratio = Math.sqrt(GEOMETRY_LIMITS.maxArea / (w * h));
+    w = Math.round(w * ratio);
+    h = Math.round(h * ratio);
+  }
+  const maxR = Math.floor(Math.min(w, h) / 2);
+  const r = Math.max(0, Math.min(maxR, Number(next.pillR) || 0));
+  return { ...next, pillW: w, pillH: h, pillR: r };
+}
 const TEXTURES = [
   { id: "none",    label: "None",         css: "" },
   { id: "grain",   label: "Fine Grain",   css: "grain" },
@@ -750,6 +774,8 @@ export default function LuminaryPanels() {
 
   const canvasRef     = useRef(null);
   const wrapRef       = useRef(null);
+  const headerRef     = useRef(null);
+  const previewDockRef = useRef(null);
   const avFileRef     = useRef(null);
   const bgFileRef     = useRef(null);
   const fileLoaderRef = useRef(null);
@@ -767,6 +793,8 @@ export default function LuminaryPanels() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isSliding, setIsSliding] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(72);
+  const [previewDockHeight, setPreviewDockHeight] = useState(340);
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
@@ -808,7 +836,7 @@ export default function LuminaryPanels() {
   const pushState = (updates) => {
     setHistory(prev => {
       const base = prev[hIndex] ?? prev[0];
-      const next = { ...base, ...updates };
+      const next = clampGeometry({ ...base, ...updates }, vp.isMobile);
       let h = [...prev.slice(0, hIndex + 1), next];
       if (h.length > 20) h = h.slice(h.length - 20);
       setHIndex(h.length - 1);
@@ -941,6 +969,24 @@ export default function LuminaryPanels() {
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, [s.pillW, vp.w]);
+
+  useEffect(() => {
+    const measureShell = () => {
+      if (headerRef.current) {
+        setHeaderHeight(Math.ceil(headerRef.current.getBoundingClientRect().height));
+      }
+      if (previewDockRef.current) {
+        setPreviewDockHeight(Math.ceil(previewDockRef.current.getBoundingClientRect().height));
+      }
+    };
+    measureShell();
+    window.addEventListener("resize", measureShell);
+    return () => window.removeEventListener("resize", measureShell);
+  }, [vp.isMobile, layoutMode, settingsOpen, mobileTab, s.pillW, s.pillH, pxScale]);
+
+  useEffect(() => {
+    setHistory(prev => prev.map(item => clampGeometry(item, vp.isMobile)));
+  }, [vp.isMobile]);
 
   useEffect(() => { if (bgRawSrc) { const i = new Image(); i.onload = () => setBgImg(i); i.src = bgRawSrc; } }, [bgRawSrc]);
   useEffect(() => { if (avRawSrc) { const i = new Image(); i.onload = () => setAvImg(i); i.src = avRawSrc; } }, [avRawSrc]);
@@ -1439,15 +1485,15 @@ export default function LuminaryPanels() {
   const accent = settings.uiAccent || "#4fb3d9";
   const accent2 = settings.uiAccent || "#2dd4bf";
   
-  const lightText = settings.lightText || "#3f3428";
+  const lightText = settings.lightText || "#2a3446";
   const textPrimary = isDark ? (settings.uiText || "#f0f9ff") : lightText;
-  const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}66` : `${lightText}88`;
+  const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}66` : `${lightText}99`;
   const uiBlurPx    = Math.max(10, Math.min(70, settings.uiBlurStrength ?? 34));
   const uiDarkness  = Math.max(70, Math.min(98, settings.uiDarkness ?? 94));
   const statusBoost = Math.max(0, Math.min(40, settings.statusBarBoost ?? 18));
-  const creamControl = "rgba(255,248,235,0.7)";
-  const creamCard = "rgba(255,251,243,0.66)";
-  const creamBorder = "rgba(153,122,84,0.28)";
+  const creamControl = "rgba(248,252,255,0.84)";
+  const creamCard = "rgba(255,255,255,0.76)";
+  const creamBorder = "rgba(80,118,165,0.26)";
   const controlBg   = isDark ? `${accent}0f` : creamControl;
   const cardBg      = isDark ? `${accent}08` : creamCard;
   const cardBorder  = isDark ? `${accent}28` : creamBorder;
@@ -1456,7 +1502,7 @@ export default function LuminaryPanels() {
     : `0 4px 16px rgba(79,179,217,0.15), 0 0 0 1px ${accent}28`;
   const pageBg      = isDark
     ? (settings.uiBg || "#0a0e27")
-    : (settings.lightBg || "linear-gradient(135deg,#fff8ef 0%,#f9f0df 48%,#f2e8d5 100%)");
+    : (settings.lightBg || "linear-gradient(160deg,#fffdfa 0%,#f6fbff 35%,#eef7ff 62%,#f8f4ff 100%)");
 
   const inputSt = {
     display:"block", width:"100%",
@@ -1480,7 +1526,7 @@ export default function LuminaryPanels() {
 
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
-  const mobilePreviewOffset = Math.min(460, Math.max(280, (s.pillH * Math.min(1, (vp.w - 72) / s.pillW)) + 130));
+  const mobilePreviewOffset = Math.max(300, headerHeight + previewDockHeight + 26);
   const [swipeDir, setSwipeDir] = useState(1);
   const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
 
@@ -1495,16 +1541,38 @@ export default function LuminaryPanels() {
     <Card label="Geometry & Layout" {...cp}>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Width — ${s.pillW}px`} textDim={textDim} onReset={() => pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW })}>
-          <input type="number" min={100} max={1600} value={s.pillW}
-            onChange={e => pushState({ pillW: Math.max(100, Math.min(1600, +e.target.value)) })}
+          <input type="number" min={GEOMETRY_LIMITS.minW} max={GEOMETRY_LIMITS.maxW} value={s.pillW}
+            onChange={e => pushState({ pillW: Math.max(GEOMETRY_LIMITS.minW, Math.min(GEOMETRY_LIMITS.maxW, +e.target.value)) })}
             style={inputSt} />
         </FRow>
         <FRow label={`Height — ${s.pillH}px`} textDim={textDim} onReset={() => pushState({ pillH: getLayoutDefaults(layoutMode, pillStyle).pillH })}>
-          <input type="number" min={100} max={1600} value={s.pillH}
-            onChange={e => pushState({ pillH: Math.max(100, Math.min(1600, +e.target.value)) })}
+          <input type="number" min={GEOMETRY_LIMITS.minH} max={GEOMETRY_LIMITS.maxH} value={s.pillH}
+            onChange={e => pushState({ pillH: Math.max(GEOMETRY_LIMITS.minH, Math.min(GEOMETRY_LIMITS.maxH, +e.target.value)) })}
             style={inputSt} />
         </FRow>
       </div>
+      <FRow label="Quick Fit Presets" textDim={textDim}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+          {[
+            { id: "compact", label: "Compact", apply: () => pushState({ pillW: Math.round(getLayoutDefaults(layoutMode, pillStyle).pillW * 0.82), pillH: Math.round(getLayoutDefaults(layoutMode, pillStyle).pillH * 0.82) }) },
+            { id: "fit", label: "Auto Fit", apply: () => {
+              const usableW = Math.max(220, vp.w - 52);
+              const scale = Math.min(1, usableW / Math.max(1, s.pillW));
+              pushState({ pillW: Math.round(s.pillW * scale), pillH: Math.round(s.pillH * scale) });
+            } },
+            { id: "reset", label: "Layout Default", apply: () => pushState({
+              pillW: getLayoutDefaults(layoutMode, pillStyle).pillW,
+              pillH: getLayoutDefaults(layoutMode, pillStyle).pillH,
+              pillR: getLayoutDefaults(layoutMode, pillStyle).pillR,
+            }) },
+          ].map((preset) => (
+            <button key={preset.id} onClick={preset.apply}
+              style={{ ...outlineBtn, padding:"8px 6px", fontSize:11, minHeight:38 }}>
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </FRow>
       <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim} onReset={() => pushState({ pillR: getLayoutDefaults(layoutMode, pillStyle).pillR })}>
         <input type="range" step="1" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
           value={Math.min(s.pillR, Math.floor(Math.min(s.pillW, s.pillH)/2))}
@@ -2171,6 +2239,7 @@ export default function LuminaryPanels() {
           width: s.pillW * pxScale,
           height: s.pillH * pxScale,
           maxWidth:"100%",
+          maxHeight: vp.isMobile ? "58dvh" : "70vh",
           flexShrink: 0,
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
@@ -2241,7 +2310,7 @@ export default function LuminaryPanels() {
         *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
         * { -webkit-tap-highlight-color: transparent; }
         ::selection { background: rgba(79,179,217,0.25); color: #fff; }
-        html, body, #root { height: 100%; margin: 0; background: ${isDark ? "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)" : (settings.lightBg || "linear-gradient(135deg,#fff8ef 0%,#f9f0df 48%,#f2e8d5 100%)")}; overflow-x: hidden; overscroll-behavior: none; }
+        html, body, #root { height: 100%; margin: 0; background: ${isDark ? "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)" : (settings.lightBg || "linear-gradient(160deg,#fffdfa 0%,#f6fbff 35%,#eef7ff 62%,#f8f4ff 100%)")}; overflow-x: hidden; overscroll-behavior: none; }
         ::-webkit-scrollbar { width:5px; }
         ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#4fb3d9,#2dd4bf); border-radius:5px; }
         input,select,button { border-radius: 16px; }
@@ -2284,7 +2353,7 @@ export default function LuminaryPanels() {
         )}
 
         {/* Header */}
-        <header style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "rgba(255,248,238,0.88)") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}dd`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation:"headerGlow 4s ease-in-out infinite" }}>
+        <header ref={headerRef} style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "linear-gradient(130deg, rgba(255,255,255,0.9), rgba(240,248,255,0.86))") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}ee`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation:"headerGlow 4s ease-in-out infinite" }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <h1 style={{ fontSize:17, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
@@ -2329,7 +2398,7 @@ export default function LuminaryPanels() {
             </div>
           )}
 
-          <main style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position:"fixed", left: vp.isMobile ? 14 : "auto", right: vp.isMobile ? 14 : 20, top: 72, width: vp.isMobile ? "calc(100% - 28px)" : 540, maxWidth: vp.isMobile ? "calc(100% - 28px)" : 540, maxHeight: vp.isMobile ? "none" : "calc(100vh - 140px)", zIndex: vp.isMobile ? 95 : 40, overflowY: vp.isMobile ? "visible" : "auto", alignSelf:"flex-start" }}>
+          <main ref={previewDockRef} style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position:"fixed", left: vp.isMobile ? 14 : "auto", right: vp.isMobile ? 14 : 20, top: headerHeight + 8, width: vp.isMobile ? "calc(100% - 28px)" : 540, maxWidth: vp.isMobile ? "calc(100% - 28px)" : 540, maxHeight: vp.isMobile ? "calc(100dvh - 170px)" : "calc(100vh - 140px)", zIndex: vp.isMobile ? 95 : 40, overflowY: vp.isMobile ? "visible" : "auto", alignSelf:"flex-start" }}>
             <div style={{
               background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : cardBg, borderRadius:20,
               backdropFilter: settings.hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 4)}px) saturate(1.2)` : "none",
