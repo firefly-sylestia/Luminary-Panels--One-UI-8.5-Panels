@@ -165,6 +165,14 @@ async function saveProjectToLumNative(data) {
   const { Filesystem, Directory } = await import("@capacitor/filesystem");
   const { Share } = await import("@capacitor/share");
   const base64 = btoa(unescape(encodeURIComponent(json)));
+  const savePath = `projects/${fileName}`;
+  await Filesystem.writeFile({
+    path: savePath,
+    data: base64,
+    directory: Directory.Data,
+    recursive: true,
+  });
+  const fileResult = await Filesystem.getUri({ path: savePath, directory: Directory.Data });
   await Filesystem.writeFile({
     path: fileName,
     data: base64,
@@ -2308,10 +2316,17 @@ function ColorField({ value, onChange }) {
       else h = (r - g) / d + 4;
       h /= 6;
     }
-    const s = max === 0 ? 0 : d / max;
-    const v = max;
-    return { h: h * 360, s, v };
-  };
+    const rgb = trimmed.match(/^rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})/i);
+    if (rgb) {
+      const clamp = (n) => Math.max(0, Math.min(255, Number(n) || 0));
+      const toHex = (n) => clamp(n).toString(16).padStart(2, "0");
+      return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
+    }
+    return "#ffffff";
+  }, []);
+
+  const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
+  const [hexInput, setHexInput] = useState(safeHex);
 
   const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
 
@@ -2356,45 +2371,54 @@ function ColorField({ value, onChange }) {
       />
       {open && (
         <>
-          {/* Backdrop */}
           <div
-            ref={overlayRef}
             onClick={() => setOpen(false)}
             style={{
               position: "fixed", inset: 0, zIndex: 998,
-              background: "rgba(0,0,0,0.3)", backdropFilter: "blur(2px)",
+              background: "rgba(2,6,23,0.45)", backdropFilter: "blur(4px)",
             }}
           />
-          {/* Picker panel */}
           <div
             onClick={e => e.stopPropagation()}
             style={{
               position: "fixed", zIndex: 999,
               bottom: 0, left: 0, right: 0,
-              padding: "20px 20px 32px",
-              borderRadius: "22px 22px 0 0",
-              background: "#0a0e27",
-              border: "1px solid rgba(255,255,255,0.12)",
-              boxShadow: "0 -20px 60px rgba(0,0,0,0.7)",
+              padding: "16px 16px 24px",
+              borderRadius: "20px 20px 0 0",
+              background: "linear-gradient(180deg, #0f172a, #0b1220)",
+              border: "1px solid rgba(148,163,184,0.2)",
+              boxShadow: "0 -20px 60px rgba(0,0,0,0.55)",
             }}
           >
-            {/* Handle bar */}
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.2)", margin: "0 auto 18px" }} />
+            <div style={{ width: 44, height: 4, borderRadius: 999, background: "rgba(148,163,184,0.45)", margin: "0 auto 14px" }} />
 
-            {/* Color wheel with cursor indicator */}
-            <div style={{ position: "relative", width: 220, height: 220, margin: "0 auto 18px" }}>
-              <div
-                ref={wheelRef}
-                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setHueFromPoint(e.clientX, e.clientY); }}
-                onPointerMove={(e) => { if (e.buttons) setHueFromPoint(e.clientX, e.clientY); }}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: safeHex, border: "1px solid rgba(148,163,184,0.35)" }} />
+              <input
+                type="color"
+                value={safeHex}
+                onChange={(e) => onChange(e.target.value)}
+                style={{ width: 52, height: 44, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 12, background: "rgba(255,255,255,0.04)", padding: 2 }}
+              />
+              <input
+                type="text"
+                value={hexInput}
+                onChange={(e) => setHexInput(e.target.value)}
+                onBlur={() => onChange(normalizeHex(hexInput))}
                 style={{
-                  width: 220, height: 220, borderRadius: "50%",
-                  cursor: "crosshair",
-                  background: "conic-gradient(#ff0000,#ff8000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)",
-                  boxShadow: "inset 0 0 0 20px #0a0e27, 0 0 0 2px rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.5)",
-                  touchAction: "none",
+                  flex: 1, height: 44, borderRadius: 12, border: "1px solid rgba(148,163,184,0.28)",
+                  background: "rgba(255,255,255,0.04)", color: "#e2e8f0", fontFamily: "monospace", padding: "0 12px", textTransform: "uppercase",
                 }}
               />
+              <button
+                onClick={() => onChange(normalizeHex(hexInput))}
+                style={{
+                  height: 44, padding: "0 14px", borderRadius: 12, border: "1px solid rgba(45,212,191,0.45)",
+                  background: "rgba(45,212,191,0.16)", color: "#99f6e4", fontWeight: 700, cursor: "pointer",
+                }}
+              >
+                Set
+              </button>
               {/* Cursor indicator */}
               <div style={{
                 position: "absolute",
@@ -2435,14 +2459,18 @@ function ColorField({ value, onChange }) {
               </div>
             </div>
 
-            {/* Preset swatches */}
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600, marginBottom: 10 }}>Presets</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 16 }}>
+            <p style={{ color: "rgba(148,163,184,0.8)", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700, marginBottom: 10 }}>
+              Presets
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8, marginBottom: 14 }}>
               {PRESETS.map(c => (
                 <button
                   key={c}
                   onClick={() => onChange(c)}
                   style={{
+                    height: 38, borderRadius: 10, background: c,
+                    border: safeHex === c ? "2px solid #f8fafc" : "1px solid rgba(148,163,184,0.35)",
+                    cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 6px ${c}44`,
                     height: 44, borderRadius: 12, background: c, border: safeHex === c ? "3px solid #fff" : "2px solid rgba(255,255,255,0.12)",
                     cursor: "pointer", transition: "transform 0.1s", boxShadow: `0 2px 8px ${c}66`,
                   }}
@@ -2453,9 +2481,9 @@ function ColorField({ value, onChange }) {
             <button
               onClick={() => setOpen(false)}
               style={{
-                width: "100%", padding: "14px", borderRadius: 16,
-                background: "linear-gradient(135deg,#4fb3d9,#2dd4bf)",
-                border: "none", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer",
+                width: "100%", padding: "12px", borderRadius: 12,
+                background: "linear-gradient(135deg,#22d3ee,#14b8a6)",
+                border: "none", color: "#ecfeff", fontSize: 14, fontWeight: 700, cursor: "pointer",
               }}
             >
               Done
