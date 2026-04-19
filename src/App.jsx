@@ -50,6 +50,12 @@ const STORAGE_KEY = "luminary-panels-v2";
 const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
+const UI_COLOR_PRESETS = [
+  { id: "ios-26-aurora", label: "iOS 26 Aurora", uiAccent: "#74f2ff", uiBg: "linear-gradient(155deg,#03091c 0%,#0a1f46 38%,#31136a 100%)", uiText: "#e8f7ff" },
+  { id: "ios-26-liquid-gold", label: "Liquid Gold", uiAccent: "#ffd37a", uiBg: "linear-gradient(150deg,#130f0a 0%,#2b1f0d 40%,#3a1642 100%)", uiText: "#fff7e8" },
+  { id: "ios-26-ultraviolet", label: "Ultraviolet", uiAccent: "#9a86ff", uiBg: "linear-gradient(145deg,#070612 0%,#1b1146 46%,#0f3a5e 100%)", uiText: "#f0edff" },
+  { id: "ios-26-arctic", label: "Arctic Glass", uiAccent: "#5ad0ff", uiBg: "linear-gradient(155deg,#08121f 0%,#12344f 45%,#193f66 100%)", uiText: "#ecfbff" },
+];
 const DEFAULT_SETTINGS = {
   autoSave: true,
   performanceMode: true,
@@ -66,14 +72,17 @@ const DEFAULT_SETTINGS = {
   uiBlurStrength: 34,
   uiDarkness: 94,
   statusBarBoost: 18,
+  uiGlassSaturation: 126,
+  animationSmoothness: 100,
+  uiPreset: "ios-26-aurora",
   lightBg: "linear-gradient(160deg,#fffdfa 0%,#f6fbff 35%,#eef7ff 62%,#f8f4ff 100%)",
   lightText: "#2a3446",
 };
 const GEOMETRY_LIMITS = {
   minW: 140,
   maxW: 1200,
-  minH: 110,
-  maxH: 900,
+  minH: 1,
+  maxH: 150,
   maxArea: 420000,
 };
 
@@ -81,7 +90,7 @@ function clampGeometry(next, isMobile = false) {
   const minW = GEOMETRY_LIMITS.minW;
   const maxW = isMobile ? 980 : GEOMETRY_LIMITS.maxW;
   const minH = GEOMETRY_LIMITS.minH;
-  const maxH = isMobile ? 760 : GEOMETRY_LIMITS.maxH;
+  const maxH = GEOMETRY_LIMITS.maxH;
   let w = Math.max(minW, Math.min(maxW, Number(next.pillW) || minW));
   let h = Math.max(minH, Math.min(maxH, Number(next.pillH) || minH));
   if (w * h > GEOMETRY_LIMITS.maxArea) {
@@ -681,7 +690,7 @@ function CropModal({ src, onConfirm, onCancel }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // ExportModal — full-screen save modal for Android WebView
 // ─────────────────────────────────────────────────────────────────────────────
-function ExportModal({ dataUrl, onClose }) {
+function ExportModal({ dataUrl, onClose, performanceMode = false }) {
   return (
     <div style={{
       position:"fixed", inset:0, zIndex:9999,
@@ -730,7 +739,7 @@ function ExportModal({ dataUrl, onClose }) {
           style={{
             maxWidth:"100%", maxHeight:"100%",
             borderRadius:16,
-            animation:"glowPulse 2s ease-in-out infinite",
+            animation: performanceMode ? "none" : "glowPulse 2s ease-in-out infinite",
             userSelect:"none",
             WebkitUserSelect:"none",
             WebkitTouchCallout:"default",
@@ -1488,9 +1497,14 @@ export default function LuminaryPanels() {
   const lightText = settings.lightText || "#2a3446";
   const textPrimary = isDark ? (settings.uiText || "#f0f9ff") : lightText;
   const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}66` : `${lightText}99`;
-  const uiBlurPx    = Math.max(10, Math.min(70, settings.uiBlurStrength ?? 34));
+  const uiBlurPxRaw = Math.max(10, Math.min(70, settings.uiBlurStrength ?? 34));
   const uiDarkness  = Math.max(70, Math.min(98, settings.uiDarkness ?? 94));
   const statusBoost = Math.max(0, Math.min(40, settings.statusBarBoost ?? 18));
+  const uiSaturation = Math.max(105, Math.min(180, settings.uiGlassSaturation ?? 126));
+  const animationSmoothness = Math.max(50, Math.min(170, settings.animationSmoothness ?? 100));
+  const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 24) : uiBlurPxRaw;
+  const shouldAnimate = !settings.performanceMode && settings.motionIntensity > 0;
+  const pulseDuration = `${Math.max(1.25, (2.4 / Math.max(0.35, settings.motionIntensity || 1)) * (animationSmoothness / 100))}s`;
   const creamControl = "rgba(248,252,255,0.84)";
   const creamCard = "rgba(255,255,255,0.76)";
   const creamBorder = "rgba(80,118,165,0.26)";
@@ -2005,6 +2019,16 @@ export default function LuminaryPanels() {
         <span style={{ color:textPrimary, fontSize:14 }}>Performance Mode</span>
         <input type="checkbox" checked={settings.performanceMode} onChange={e => setSettings(prev => ({ ...prev, performanceMode: e.target.checked }))} />
       </label>
+      <FRow label={`Animation Smoothness — ${animationSmoothness}%`} textDim={textDim}>
+        <input
+          type="range"
+          step="1"
+          min={50}
+          max={170}
+          value={animationSmoothness}
+          onChange={e => setUiSliderValue("animationSmoothness", e.target.value)}
+        />
+      </FRow>
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
@@ -2190,6 +2214,36 @@ export default function LuminaryPanels() {
         </div>
       </FRow>
       <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Premium UI Presets</p>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:8, marginBottom:10 }}>
+        {UI_COLOR_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            onClick={() => setSettings(prev => ({ ...prev, uiPreset: preset.id, uiAccent: preset.uiAccent, uiBg: preset.uiBg, uiText: preset.uiText }))}
+            style={{
+              ...outlineBtn,
+              padding:"9px 8px",
+              minHeight:42,
+              fontSize:11,
+              background: settings.uiPreset === preset.id ? `${accent}26` : controlBg,
+              border: settings.uiPreset === preset.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`
+            }}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <FRow label={`Glass Saturation — ${uiSaturation}%`} textDim={textDim}>
+        <input
+          type="range"
+          step="1"
+          min={105}
+          max={180}
+          value={uiSaturation}
+          onChange={e => setUiSliderValue("uiGlassSaturation", e.target.value)}
+        />
+      </FRow>
+      <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Customization</p>
       <FRow label="Accent Color" textDim={textDim}>
         <ColorField value={settings.uiAccent || "#4fb3d9"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} />
@@ -2200,7 +2254,7 @@ export default function LuminaryPanels() {
       <FRow label="Text Color" textDim={textDim}>
         <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} />
       </FRow>
-      <button onClick={() => setSettings(prev => ({ ...prev, uiAccent: "#4fb3d9", uiBg: "#0a0e27", uiText: "#f0f9ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
+      <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "ios-26-aurora", uiAccent: "#74f2ff", uiBg: "linear-gradient(155deg,#03091c 0%,#0a1f46 38%,#31136a 100%)", uiText: "#e8f7ff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>💡 Quick Tips</p>
       <div style={{ background: `rgba(45,212,191,0.08)`, border: `1px solid rgba(45,212,191,0.2)`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 11, color: textPrimary, lineHeight: 1.6 }}>
@@ -2229,13 +2283,13 @@ export default function LuminaryPanels() {
           borderRadius: (Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale) + 16,
           border:`1.5px solid ${accent}72`,
           pointerEvents:"none",
-          animation: settings.performanceMode ? "none" : `ringPulse ${Math.max(1.3, 2.4 / settings.motionIntensity)}s ease-in-out infinite`,
+          animation: shouldAnimate ? `ringPulse ${pulseDuration} ease-in-out infinite` : "none",
           maxWidth:"calc(100% + 32px)",
         }} />
         <div style={{
           borderRadius: Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale,
           overflow:"hidden",
-          animation: settings.performanceMode ? "none" : `canvasPulse ${Math.max(1.3, 2.4 / settings.motionIntensity)}s ease-in-out infinite`,
+          animation: shouldAnimate ? `canvasPulse ${pulseDuration} ease-in-out infinite` : "none",
           width: s.pillW * pxScale,
           height: s.pillH * pxScale,
           maxWidth:"100%",
@@ -2280,7 +2334,7 @@ export default function LuminaryPanels() {
         ))}
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.26)` : "blur(16px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.26)` : "blur(16px)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
+      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", borderRadius:30, padding:"4px 8px", flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto" }}>
         {settings.showScaleBadge && (
           <>
             <span style={{ fontSize:11, color:textDim, padding:"8px 12px", minWidth:102, textAlign:"center", fontWeight:500 }}>
@@ -2345,15 +2399,15 @@ export default function LuminaryPanels() {
             right:0,
             height:`calc(env(safe-area-inset-top) + 10px)`,
             background:`rgba(0,0,0,${(Math.min(86, 22 + (statusBoost * 1.5)) / 100).toFixed(2)})`,
-            backdropFilter:`blur(${Math.max(8, uiBlurPx - 8)}px)`,
-            WebkitBackdropFilter:`blur(${Math.max(8, uiBlurPx - 8)}px)`,
+            backdropFilter:`blur(${Math.max(8, uiBlurPx - 10)}px)`,
+            WebkitBackdropFilter:`blur(${Math.max(8, uiBlurPx - 10)}px)`,
             pointerEvents:"none",
             zIndex:1300,
           }} />
         )}
 
         {/* Header */}
-        <header ref={headerRef} style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "linear-gradient(130deg, rgba(255,255,255,0.9), rgba(240,248,255,0.86))") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}ee`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation:"headerGlow 4s ease-in-out infinite" }}>
+        <header ref={headerRef} style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "linear-gradient(130deg, rgba(255,255,255,0.9), rgba(240,248,255,0.86))") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}ee`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:"8px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation: shouldAnimate ? "headerGlow 4s ease-in-out infinite" : "none" }}>
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
             <h1 style={{ fontSize:17, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
             <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
@@ -2401,8 +2455,8 @@ export default function LuminaryPanels() {
           <main ref={previewDockRef} style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position:"fixed", left: vp.isMobile ? 14 : "auto", right: vp.isMobile ? 14 : 20, top: headerHeight + 8, width: vp.isMobile ? "calc(100% - 28px)" : 540, maxWidth: vp.isMobile ? "calc(100% - 28px)" : 540, maxHeight: vp.isMobile ? "calc(100dvh - 170px)" : "calc(100vh - 140px)", zIndex: vp.isMobile ? 95 : 40, overflowY: vp.isMobile ? "visible" : "auto", alignSelf:"flex-start" }}>
             <div style={{
               background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : cardBg, borderRadius:20,
-              backdropFilter: settings.hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 4)}px) saturate(1.2)` : "none",
-              WebkitBackdropFilter: settings.hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 4)}px) saturate(1.2)` : "none",
+              backdropFilter: settings.hardBlurUI ? `blur(${Math.max(10, uiBlurPx - 6)}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
+              WebkitBackdropFilter: settings.hardBlurUI ? `blur(${Math.max(10, uiBlurPx - 6)}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
               padding: "18px",
               display:"flex", flexDirection:"column", alignItems:"center", gap:16,
               border:`1px solid ${cardBorder}`, boxShadow: cardShadow,
@@ -2466,7 +2520,7 @@ export default function LuminaryPanels() {
 
         {/* Mobile bottom nav */}
         {vp.isMobile && (
-          <nav style={{ position:"fixed", bottom:10, left:12, right:12, background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : "rgba(20,20,28,0.84)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.25)` : "blur(24px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.25)` : "blur(24px)", border:`1px solid rgba(255,255,255,0.16)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
+          <nav style={{ position:"fixed", bottom:10, left:12, right:12, background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : "rgba(20,20,28,0.84)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(24px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(24px)", border:`1px solid rgba(255,255,255,0.16)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
             {[
               { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"assets", icon:ICONS.assets, label:"Assets" },
@@ -2493,7 +2547,7 @@ export default function LuminaryPanels() {
       {/* Settings bottom sheet */}
       {settingsOpen && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1500, display: "flex", alignItems: "flex-end" }} onClick={() => setSettingsOpen(false)}>
-          <div style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", borderRadius: "22px 22px 0 0", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(14,14,20,0.97)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "none", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.22)` : "none", padding: "14px 12px 20px" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ width: "100%", maxHeight: "82vh", overflowY: "auto", borderRadius: "22px 22px 0 0", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(14,14,20,0.97)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none", padding: "14px 12px 20px" }} onClick={(e) => e.stopPropagation()}>
             {panelSettings}
           </div>
         </div>
@@ -2513,6 +2567,7 @@ export default function LuminaryPanels() {
         <ExportModal
           dataUrl={exportDataUrl}
           onClose={() => setExportDataUrl(null)}
+          performanceMode={settings.performanceMode}
         />
       )}
 
