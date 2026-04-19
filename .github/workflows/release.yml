@@ -31,11 +31,40 @@ jobs:
         run: npm install
       
       - name: Build release APK
-        env:
-          ANDROID_HOME: /usr/local/android-sdk
         run: |
           export JAVA_HOME=${{ steps.setup-java.outputs.path }}
-          ./build-release.sh
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          
+          # Build web assets
+          npm run build
+          
+          # Sync with Capacitor
+          npx cap sync android
+          
+          # Patch Gradle files
+          find ./node_modules/@capacitor ./node_modules/@capacitor-community -name "*.gradle" -type f -exec sed -i \
+            -e 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' \
+            -e 's/jvmTarget = "21"/jvmTarget = "17"/g' \
+            -e "s/jvmTarget = '21'/jvmTarget = '17'/g" \
+            -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} \;
+          
+          find ./android -name "*.gradle" -type f -exec sed -i \
+            -e 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' \
+            -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} \;
+          
+          # Build release APK
+          cd android && ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/luminary.keystore \
+            -Pandroid.injected.signing.store.password=luminary123 \
+            -Pandroid.injected.signing.key.alias=luminary_key \
+            -Pandroid.injected.signing.key.password=luminary123
+      
+      - name: Rename APK
+        run: |
+          APK_PATH=$(find ./android -name "app-release.apk" | head -1)
+          if [ -n "$APK_PATH" ]; then
+            cp "$APK_PATH" "./Luminary-Panels-1.1.1-release.apk"
+          fi
       
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
