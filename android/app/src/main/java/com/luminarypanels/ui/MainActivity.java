@@ -1,4 +1,4 @@
-package com.luminarypnels.ui;
+package com.luminarypanels.ui;
 
 import android.graphics.Color;
 import android.os.Bundle;
