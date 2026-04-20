@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
+const __APP_VERSION__ = "1.1.1";
+
 const COMBINED_FONT_URL =
   "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
 
@@ -52,6 +54,9 @@ const LAYOUTS = {
 const STORAGE_KEY = "luminary-panels-v2";
 const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
+const INSTALL_TRACK_KEY = "luminary-panels-install-tracked-v1";
+const ICON_ASSET_MANIFEST = "/ui-icons.json";
+const RELEASE_MANIFEST_URL = "/release.json";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
 
 const UI_COLOR_PRESETS = [
@@ -87,6 +92,7 @@ const DEFAULT_SETTINGS = {
   lightBg: "linear-gradient(160deg,#fff8fb 0%,#f4f9ff 35%,#eff4ff 62%,#f7f0ff 100%)",
   lightText: "#253247",
   hapticFeedback: true,
+  showSliders: false,
 };
 
 const GEOMETRY_LIMITS = {
@@ -170,6 +176,10 @@ styleEnhance.textContent = `
     touch-action: pan-y !important;
     -webkit-user-select: none;
     user-select: none;
+  }
+
+  .sliders-hidden input[type="range"] {
+    display: none !important;
   }
 
   .gpu-layer {
@@ -1485,6 +1495,9 @@ function UiIcon({ name, size = 16, color = "currentColor", stroke = 2 }) {
     avatar: <><circle cx="12" cy="8" r="3.2"/><path d="M4.5 19.5a7.5 7.5 0 0 1 15 0"/></>,
     text: <><path d="M4 6h16M12 6v12M8 18h8"/></>,
     geometry: <><path d="M4 20 20 4M6 6h6v6M18 18h-6v-6"/></>,
+    rocket: <><path d="M14 4c3 0 6 3 6 6-2 1-4 1-6 0-1-2-1-4 0-6Z"/><path d="M10 14 4 20m6-6 4 4"/><path d="M7 17l-3 3M9 9l6 6"/></>,
+    palette: <><path d="M12 3a9 9 0 1 0 0 18h1.1a2.4 2.4 0 0 0 .3-4.8H12a2 2 0 0 1 0-4h5a4 4 0 0 0 0-8h-5Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14" cy="7" r="1"/></>,
+    sparkles: <><path d="M12 3 13.8 8.2 19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m5 3 .8 2.2L8 6l-2.2.8L5 9l-.8-2.2L2 6l2.2-.8L5 3Zm14 10 .8 2.2L22 16l-2.2.8L19 19l-.8-2.2L16 16l2.2-.8L19 13Z"/></>,
   };
   return <svg {...common}>{icons[name] || icons.layout}</svg>;
 }
@@ -1612,6 +1625,10 @@ export default function LuminaryPanels() {
   const [previewDockHeight, setPreviewDockHeight] = useState(340);
   const [expandedSections, setExpandedSections] = useState({ animation: false, geometry: false });
   const [expandedOverlayId, setExpandedOverlayId] = useState(null);
+  const [headerExpanded, setHeaderExpanded] = useState(false);
+  const [installCount, setInstallCount] = useState(null);
+  const [releaseInfo, setReleaseInfo] = useState({ latestVersion: null, downloadUrl: null, hasUpdate: false, checkedAt: null });
+  const [iconManifest, setIconManifest] = useState([]);
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
@@ -1681,6 +1698,34 @@ export default function LuminaryPanels() {
       fontWeight: s.fontWeight,
     });
   };
+
+
+  const versionCompare = (a, b) => {
+    const parse = (v) => String(v || "0").split(".").map(n => Number.parseInt(n, 10) || 0);
+    const av = parse(a);
+    const bv = parse(b);
+    const maxLen = Math.max(av.length, bv.length);
+    for (let i = 0; i < maxLen; i += 1) {
+      const diff = (av[i] || 0) - (bv[i] || 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  };
+
+  const checkForUpdates = useCallback(async () => {
+    try {
+      const res = await fetch(`${RELEASE_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("manifest unavailable");
+      const data = await res.json();
+      const latestVersion = data?.version || null;
+      const downloadUrl = data?.downloadUrl || null;
+      const hasUpdate = latestVersion ? versionCompare(latestVersion, __APP_VERSION__) > 0 : false;
+      setReleaseInfo({ latestVersion, downloadUrl, hasUpdate, checkedAt: Date.now() });
+    } catch (_) {
+      setReleaseInfo(prev => ({ ...prev, checkedAt: Date.now() }));
+    }
+  }, []);
+
   const setUiSliderValue = (key, value) => {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return;
@@ -1734,6 +1779,33 @@ export default function LuminaryPanels() {
     if (document.fonts?.ready) document.fonts.ready.then(() => setFontsOk(true));
     else setFontsOk(true);
   }, []);
+
+  useEffect(() => {
+    fetch(ICON_ASSET_MANIFEST, { cache: "force-cache" })
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (Array.isArray(data?.icons)) setIconManifest(data.icons);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const hasTracked = localStorage.getItem(INSTALL_TRACK_KEY) === "1";
+    const endpoint = hasTracked
+      ? "https://api.countapi.xyz/get/luminary-panels/installs"
+      : "https://api.countapi.xyz/hit/luminary-panels/installs";
+    fetch(endpoint)
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (Number.isFinite(data?.value)) setInstallCount(data.value);
+        if (!hasTracked) localStorage.setItem(INSTALL_TRACK_KEY, "1");
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    checkForUpdates();
+  }, [checkForUpdates]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
@@ -2642,6 +2714,17 @@ export default function LuminaryPanels() {
             onChange={v => pushState({ pillBorderClr: v })} textPrimary={textPrimary} />
         </FRow>
       </div>
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
+      </div>
+
       <Sep cardBorder={cardBorder} />
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Image Blur — ${s.bgBlur}px`} textDim={textDim} onReset={() => pushState({ bgBlur: 0 })}>
@@ -2702,6 +2785,17 @@ export default function LuminaryPanels() {
         <span style={{ color:textPrimary, fontSize:14 }}>Advanced Image Blending</span>
         <IOSToggle checked={advancedMode} onChange={setAdvancedMode} accent={accent} hapticEnabled={settings.hapticFeedback} />
       </div>
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
+      </div>
+
       <Sep cardBorder={cardBorder} />
       <FRow label="Texture Preset" textDim={textDim}>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
@@ -3024,6 +3118,17 @@ export default function LuminaryPanels() {
             onChange={e => pushState({ textY: +e.target.value })} style={{width:"100%"}} />
         </FRow>
       </div>
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
+      </div>
+
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textAlign:"center", textTransform:"uppercase", letterSpacing:0.7 }}>Nudge Grid</p>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, padding:"0 12px" }}>
@@ -3076,6 +3181,17 @@ export default function LuminaryPanels() {
       <div style={{ display:"flex", gap:8, marginBottom:16 }}>
         <button onClick={() => { microHaptic(settings.hapticFeedback); avFileRef.current?.click(); }} style={outlineBtn}>🖼 Avatar (Crop)</button>
         <button onClick={() => { microHaptic(settings.hapticFeedback); bgFileRef.current?.click(); }} style={outlineBtn}>🌄 Background (Crop)</button>
+      </div>
+
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
       </div>
 
       <Sep cardBorder={cardBorder} />
@@ -3258,6 +3374,11 @@ export default function LuminaryPanels() {
         <IOSToggle checked={settings.showScaleBadge === true} onChange={v => setSettings(p => ({ ...p, showScaleBadge: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
       </div>
 
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Show Slider Bars</span>
+        <IOSToggle checked={settings.showSliders === true} onChange={v => setSettings(p => ({ ...p, showSliders: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
+      </div>
+
       <div style={{ marginBottom: 16 }}>
         <button
           className="btn-bouncy"
@@ -3324,6 +3445,17 @@ export default function LuminaryPanels() {
         )}
       </div>
 
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
+      </div>
+
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
       <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
@@ -3376,7 +3508,6 @@ export default function LuminaryPanels() {
           </div>
         ))}
       </div>
-      <Sep cardBorder={cardBorder} />
       <FRow label="Autosave Delay" textDim={textDim}>
         <div style={{ display:"flex", gap:8 }}>
           {[{l:"Fast",v:300},{l:"Normal",v:700},{l:"Slow",v:1500}].map(o => (
@@ -3449,6 +3580,17 @@ export default function LuminaryPanels() {
           ))}
         </div>
       </FRow>
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
+      </div>
+
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Presets</p>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:10, marginBottom:10 }}>
@@ -3481,6 +3623,17 @@ export default function LuminaryPanels() {
           </button>
         ))}
       </div>
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
+      </div>
+
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Customization</p>
       <FRow label="Accent Color" textDim={textDim}>
@@ -3493,6 +3646,17 @@ export default function LuminaryPanels() {
         <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} textPrimary={textPrimary} />
       </FRow>
       <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
+      </div>
+
       <Sep cardBorder={cardBorder} />
       <button onClick={() => {
         localStorage.removeItem(STORAGE_KEY);
@@ -3712,7 +3876,7 @@ export default function LuminaryPanels() {
         }
       `}} />
 
-      <div style={{
+      <div className={settings.showSliders ? "" : "sliders-hidden"} style={{
         minHeight:"100dvh",
         color:textPrimary,
         fontFamily:"system-ui,-apple-system,sans-serif",
@@ -3727,98 +3891,109 @@ export default function LuminaryPanels() {
             position:"sticky",
             top:0,
             zIndex:100,
-            background: isDark
-              ? `rgba(10,14,28,${Math.min(0.98, 0.8 + statusBoost / 200).toFixed(2)})`
-              : `rgba(246,251,255,${Math.min(0.98, 0.84 + statusBoost / 200).toFixed(2)})`,
-            backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.3)` : "blur(16px)",
-            WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.3)` : "blur(16px)",
-            borderBottom:`1px solid ${cardBorder}`,
-            padding:`calc(max(env(safe-area-inset-top), 10px) + 4px) 12px 8px`,
-            display:"flex",
-            alignItems:"center",
-            justifyContent:"space-between",
-            flexWrap:"wrap",
-            gap:6,
+            padding:`calc(max(env(safe-area-inset-top), 10px) + 2px) 12px 8px`,
             transition: `background ${uiTransition}, border-color ${uiTransition}`,
           }}
         >
-          <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
-            <h1 className="lum-brand-title">Luminary Panels</h1>
-            <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
-              {Object.keys(LAYOUTS).map(k => (
-                <button key={k}
-                  className="btn-bouncy"
-                  onClick={() => {
-                    microHaptic(settings.hapticFeedback);
-                    setLayoutMode(k);
-                    const next = getLayoutDefaults(k, pillStyle);
-                    pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
-                  }}
-                  style={{
-                    padding:"5px 12px",
-                    borderRadius:999,
-                    fontSize:11,
-                    fontWeight: layoutMode === k ? 700 : 500,
-                    border: layoutMode === k ? "none" : `1px solid ${cardBorder}`,
-                    background: layoutMode === k
-                      ? `linear-gradient(135deg, ${accent}, ${accent2})`
-                      : controlBg,
-                    color: layoutMode === k ? "#fff" : textPrimary,
-                    cursor:"pointer",
-                    boxShadow: layoutMode === k ? `0 4px 14px ${accent}44` : "none",
-                    letterSpacing: layoutMode === k ? 0.2 : 0,
-                    animation: layoutMode === k ? "morphPillIn 360ms var(--ease-spring)" : "none",
-                  }}>
-                  {k}
-                </button>
-              ))}
+          <div
+            style={{
+              margin:"0 auto",
+              width:"min(860px, 100%)",
+              background: isDark ? "rgba(10,14,28,0.76)" : "rgba(246,251,255,0.86)",
+              backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.34)` : "blur(20px)",
+              WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.34)` : "blur(20px)",
+              border:`1px solid ${cardBorder}`,
+              borderRadius: headerExpanded ? 28 : 999,
+              boxShadow: `0 14px 40px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.08)`,
+              padding: headerExpanded ? "10px" : "6px 8px",
+              display:"flex",
+              flexDirection:"column",
+              gap:8,
+              animation: headerExpanded ? "bouncySlideDown 420ms var(--ease-spring)" : "none",
+            }}
+          >
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
+              <button
+                className="btn-bouncy"
+                onClick={() => setHeaderExpanded(v => !v)}
+                style={{
+                  border:"none",
+                  borderRadius:999,
+                  background:`linear-gradient(135deg, ${accent}38, ${accent2}22)`,
+                  color:textPrimary,
+                  minWidth:140,
+                  padding:"9px 12px",
+                  display:"inline-flex",
+                  alignItems:"center",
+                  justifyContent:"space-between",
+                  gap:8,
+                  fontWeight:700,
+                  fontSize:12,
+                }}
+              >
+                <span style={{display:"inline-flex", alignItems:"center", gap:6}}><UiIcon name="sparkles" size={15} color={accent} /> LP</span>
+                <span style={{opacity:0.8, fontSize:11}}>{headerExpanded ? "Close" : "Open"}</span>
+              </button>
+
+              <div style={{display:"flex", alignItems:"center", gap:6}}>
+                {[{ id:"settings", icon:ICONS.settings, onClick:() => { settingsOpen ? closeSettings() : openSettings(); } }, { id:"undo", icon:ICONS.undo, onClick:undo }, { id:"redo", icon:ICONS.redo, onClick:redo }, { id:"reset", icon:ICONS.reset, onClick:reset }].map((btn) => (
+                  <button key={btn.id} className="btn-bouncy" onClick={btn.onClick}
+                    style={{
+                      width:36,
+                      height:36,
+                      borderRadius:14,
+                      border:`1px solid ${cardBorder}`,
+                      background:controlBg,
+                      display:"inline-flex",
+                      alignItems:"center",
+                      justifyContent:"center",
+                      color:textPrimary,
+                    }}
+                  ><UiIcon name={btn.icon} size={15} color={textPrimary} /></button>
+                ))}
+              </div>
             </div>
-          </div>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems: "center" }}>
-            <button
-              ref={settingsBtnRef}
-              className="btn-bouncy"
-              onClick={() => { settingsOpen ? closeSettings() : openSettings(); }}
-              style={{
-                flex:"none",
-                padding:"7px 14px",
-                fontSize:12,
-                fontWeight:600,
-                borderRadius:999,
-                border: settingsOpen ? "none" : `1px solid ${cardBorder}`,
-                background: settingsOpen
-                  ? `linear-gradient(135deg, ${accent}, ${accent2})`
-                  : controlBg,
-                color: settingsOpen ? "#fff" : textPrimary,
-                cursor: "pointer",
-                boxShadow: settingsOpen ? `0 4px 16px ${accent}44` : "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                transition: `all ${uiTransition}`,
-              }}
-            ><UiIcon name={ICONS.settings} size={13} color={settingsOpen ? "#fff" : textPrimary} />Settings</button>
-            <button className="btn-bouncy" onClick={undo} disabled={hIndex === 0}
-              style={{
-                flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
-                borderRadius:999, border:`1px solid ${cardBorder}`, background:controlBg,
-                color:textPrimary, cursor:"pointer", opacity: hIndex === 0 ? 0.3 : 1,
-                display: "inline-flex", alignItems: "center", gap: 6, transition: `all ${uiTransition}`,
-              }}><UiIcon name={ICONS.undo} size={13} color={textPrimary} />Undo</button>
-            <button className="btn-bouncy" onClick={redo} disabled={hIndex === history.length - 1}
-              style={{
-                flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
-                borderRadius:999, border:`1px solid ${cardBorder}`, background:controlBg,
-                color:textPrimary, cursor:"pointer", opacity: hIndex === history.length - 1 ? 0.3 : 1,
-                display: "inline-flex", alignItems: "center", gap: 6, transition: `all ${uiTransition}`,
-              }}><UiIcon name={ICONS.redo} size={13} color={textPrimary} />Redo</button>
-            <button className="btn-bouncy" onClick={reset}
-              style={{
-                flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
-                borderRadius:999, border:"1px solid rgba(255,85,85,0.28)", background:"rgba(255,85,85,0.10)",
-                color:"#ff6b6b", cursor:"pointer",
-                display: "inline-flex", alignItems: "center", gap: 6, transition: `all ${uiTransition}`,
-              }}><UiIcon name={ICONS.reset} size={13} color="#ff6b6b" />Reset</button>
+
+            {headerExpanded && (
+              <>
+                <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"2px 4px"}}>
+                  <h1 className="lum-brand-title" style={{fontSize:14}}>Luminary Panels</h1>
+                  <span style={{fontSize:11, color:textDim}}>
+                    {installCount ? `${installCount.toLocaleString()} installs` : "Install counter syncing..."}
+                  </span>
+                </div>
+
+                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                  {Object.keys(LAYOUTS).map(k => (
+                    <button key={k} className="btn-bouncy" onClick={() => {
+                      microHaptic(settings.hapticFeedback);
+                      setLayoutMode(k);
+                      const next = getLayoutDefaults(k, pillStyle);
+                      pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+                    }} style={{
+                      padding:"7px 12px",
+                      borderRadius:999,
+                      fontSize:11,
+                      fontWeight: layoutMode === k ? 700 : 500,
+                      border: layoutMode === k ? "none" : `1px solid ${cardBorder}`,
+                      background: layoutMode === k ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
+                      color: layoutMode === k ? "#fff" : textPrimary,
+                    }}>{k}</button>
+                  ))}
+                </div>
+
+                {iconManifest.length > 0 && (
+                  <div style={{display:"flex", gap:8, overflowX:"auto", paddingBottom:2}}>
+                    {iconManifest.slice(0,8).map((asset) => (
+                      <button key={asset.id} title={asset.label} className="btn-bouncy" style={{
+                        minWidth:42, height:42, borderRadius:14, border:`1px solid ${cardBorder}`, background:controlBg,
+                        display:"inline-flex", alignItems:"center", justifyContent:"center"
+                      }}><UiIcon name={asset.icon || "palette"} size={17} color={accent} /></button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </header>
 
@@ -4320,11 +4495,12 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary =
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "stretch", gap: 10 }}>
         <div
           onClick={() => setOpen(v => !v)}
           style={{
             width: 44,
+            minWidth: 44,
             height: 44,
             borderRadius: 12,
             background: safeHex,
@@ -4354,6 +4530,7 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary =
           }}
           style={{
             flex: 1,
+            minWidth: 0,
             height: 44,
             borderRadius: 12,
             border: "1px solid rgba(128,140,160,0.28)",
