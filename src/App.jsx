@@ -54,8 +54,6 @@ const LAYOUTS = {
 const STORAGE_KEY = "luminary-panels-v2";
 const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
-const INSTALL_TRACK_KEY = "luminary-panels-install-tracked-v1";
-const ICON_ASSET_MANIFEST = "/ui-icons.json";
 const RELEASE_MANIFEST_URL = "/release.json";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
 
@@ -92,7 +90,7 @@ const DEFAULT_SETTINGS = {
   lightBg: "linear-gradient(160deg,#fff8fb 0%,#f4f9ff 35%,#eff4ff 62%,#f7f0ff 100%)",
   lightText: "#253247",
   hapticFeedback: true,
-  showSliders: false,
+  showSlidersByTab: { layout: true, assets: true, avatar: true, text: true },
 };
 
 const GEOMETRY_LIMITS = {
@@ -1626,9 +1624,7 @@ export default function LuminaryPanels() {
   const [expandedSections, setExpandedSections] = useState({ animation: false, geometry: false });
   const [expandedOverlayId, setExpandedOverlayId] = useState(null);
   const [headerExpanded, setHeaderExpanded] = useState(false);
-  const [installCount, setInstallCount] = useState(null);
   const [releaseInfo, setReleaseInfo] = useState({ latestVersion: null, downloadUrl: null, hasUpdate: false, checkedAt: null });
-  const [iconManifest, setIconManifest] = useState([]);
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
@@ -1780,28 +1776,7 @@ export default function LuminaryPanels() {
     else setFontsOk(true);
   }, []);
 
-  useEffect(() => {
-    fetch(ICON_ASSET_MANIFEST, { cache: "force-cache" })
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (Array.isArray(data?.icons)) setIconManifest(data.icons);
-      })
-      .catch(() => {});
-  }, []);
 
-  useEffect(() => {
-    const hasTracked = localStorage.getItem(INSTALL_TRACK_KEY) === "1";
-    const endpoint = hasTracked
-      ? "https://api.countapi.xyz/get/luminary-panels/installs"
-      : "https://api.countapi.xyz/hit/luminary-panels/installs";
-    fetch(endpoint)
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (Number.isFinite(data?.value)) setInstallCount(data.value);
-        if (!hasTracked) localStorage.setItem(INSTALL_TRACK_KEY, "1");
-      })
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     checkForUpdates();
@@ -2591,6 +2566,17 @@ export default function LuminaryPanels() {
     setMobileTab(next);
     microHaptic(settings.hapticFeedback);
   };
+
+  const slidersByTab = settings.showSlidersByTab || { layout: true, assets: true, avatar: true, text: true };
+  const isTabSlidersVisible = (tab) => slidersByTab[tab] !== false;
+  const tabSliderClass = (tab) => (isTabSlidersVisible(tab) ? "" : "sliders-hidden");
+  const toggleTabSliders = (tab, visible) => setSettings(prev => ({
+    ...prev,
+    showSlidersByTab: {
+      ...(prev.showSlidersByTab || { layout: true, assets: true, avatar: true, text: true }),
+      [tab]: visible,
+    },
+  }));
   // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
@@ -2714,16 +2700,6 @@ export default function LuminaryPanels() {
             onChange={v => pushState({ pillBorderClr: v })} textPrimary={textPrimary} />
         </FRow>
       </div>
-      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
-        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
-          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
-            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
-          )}
-        </div>
-      </div>
 
       <Sep cardBorder={cardBorder} />
       <div style={{ display:"flex", gap:8 }}>
@@ -2784,16 +2760,6 @@ export default function LuminaryPanels() {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, minHeight:44, marginBottom:8 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Advanced Image Blending</span>
         <IOSToggle checked={advancedMode} onChange={setAdvancedMode} accent={accent} hapticEnabled={settings.hapticFeedback} />
-      </div>
-      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
-        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
-          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
-            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
-          )}
-        </div>
       </div>
 
       <Sep cardBorder={cardBorder} />
@@ -3118,16 +3084,6 @@ export default function LuminaryPanels() {
             onChange={e => pushState({ textY: +e.target.value })} style={{width:"100%"}} />
         </FRow>
       </div>
-      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
-        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
-          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
-            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
-          )}
-        </div>
-      </div>
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textAlign:"center", textTransform:"uppercase", letterSpacing:0.7 }}>Nudge Grid</p>
@@ -3183,16 +3139,6 @@ export default function LuminaryPanels() {
         <button onClick={() => { microHaptic(settings.hapticFeedback); bgFileRef.current?.click(); }} style={outlineBtn}>🌄 Background (Crop)</button>
       </div>
 
-      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
-        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
-          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
-            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
-          )}
-        </div>
-      </div>
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Add Overlay</p>
@@ -3374,9 +3320,30 @@ export default function LuminaryPanels() {
         <IOSToggle checked={settings.showScaleBadge === true} onChange={v => setSettings(p => ({ ...p, showScaleBadge: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Show Slider Bars</span>
-        <IOSToggle checked={settings.showSliders === true} onChange={v => setSettings(p => ({ ...p, showSliders: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, margin:"2px 0 8px" }}>Slider Visibility By Page</p>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:8, marginBottom:12 }}>
+        {[
+          { tab:"layout", label:"Layout" },
+          { tab:"assets", label:"Assets" },
+          { tab:"avatar", label:"Avatar" },
+          { tab:"text", label:"Text" },
+        ].map(item => (
+          <div key={item.tab} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, minHeight:42, border:`1px solid ${cardBorder}`, borderRadius:10, background:controlBg, padding:"0 10px" }}>
+            <span style={{ color:textPrimary, fontSize:12, fontWeight:600 }}>{item.label}</span>
+            <IOSToggle checked={isTabSlidersVisible(item.tab)} onChange={v => toggleTabSliders(item.tab, v)} accent={accent} hapticEnabled={settings.hapticFeedback} />
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
+          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
+            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
+          )}
+        </div>
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -3445,16 +3412,6 @@ export default function LuminaryPanels() {
         )}
       </div>
 
-      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
-        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
-          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
-            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
-          )}
-        </div>
-      </div>
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
@@ -3580,16 +3537,6 @@ export default function LuminaryPanels() {
           ))}
         </div>
       </FRow>
-      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
-        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
-          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
-            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
-          )}
-        </div>
-      </div>
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Presets</p>
@@ -3623,16 +3570,6 @@ export default function LuminaryPanels() {
           </button>
         ))}
       </div>
-      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
-        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
-          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
-            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
-          )}
-        </div>
-      </div>
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Customization</p>
@@ -3646,16 +3583,6 @@ export default function LuminaryPanels() {
         <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} textPrimary={textPrimary} />
       </FRow>
       <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
-      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
-        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-          <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
-          {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
-            <a href={releaseInfo.downloadUrl} target="_blank" rel="noreferrer" style={{ ...outlineBtn, flex:"1 1 150px", color:accent, textDecoration:"none", textAlign:"center" }}>Download Update</a>
-          )}
-        </div>
-      </div>
 
       <Sep cardBorder={cardBorder} />
       <button onClick={() => {
@@ -3876,7 +3803,7 @@ export default function LuminaryPanels() {
         }
       `}} />
 
-      <div className={settings.showSliders ? "" : "sliders-hidden"} style={{
+      <div style={{
         minHeight:"100dvh",
         color:textPrimary,
         fontFamily:"system-ui,-apple-system,sans-serif",
@@ -3959,7 +3886,7 @@ export default function LuminaryPanels() {
                 <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"2px 4px"}}>
                   <h1 className="lum-brand-title" style={{fontSize:14}}>Luminary Panels</h1>
                   <span style={{fontSize:11, color:textDim}}>
-                    {installCount ? `${installCount.toLocaleString()} installs` : "Install counter syncing..."}
+                    {`v${__APP_VERSION__}`}
                   </span>
                 </div>
 
@@ -3982,16 +3909,6 @@ export default function LuminaryPanels() {
                   ))}
                 </div>
 
-                {iconManifest.length > 0 && (
-                  <div style={{display:"flex", gap:8, overflowX:"auto", paddingBottom:2}}>
-                    {iconManifest.slice(0,8).map((asset) => (
-                      <button key={asset.id} title={asset.label} className="btn-bouncy" style={{
-                        minWidth:42, height:42, borderRadius:14, border:`1px solid ${cardBorder}`, background:controlBg,
-                        display:"inline-flex", alignItems:"center", justifyContent:"center"
-                      }}><UiIcon name={asset.icon || "palette"} size={17} color={accent} /></button>
-                    ))}
-                  </div>
-                )}
               </>
             )}
           </div>
@@ -4012,9 +3929,9 @@ export default function LuminaryPanels() {
 
           {!vp.isMobile && (
             <div style={{ flex:"1 1 300px", maxWidth:360, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
-              {panelBaseConfig}
-              {panelAssetsAndLayers}
-              {panelEnvironment}
+              <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
+              <div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
+              <div className={tabSliderClass("assets")}>{panelEnvironment}</div>
             </div>
           )}
 
@@ -4064,9 +3981,9 @@ export default function LuminaryPanels() {
 
           {!vp.isMobile && (
             <div style={{ flex:"1 1 300px", maxWidth:360, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
-              {panelAvatar}
-              {panelBorder}
-              {panelTypography}
+              <div className={tabSliderClass("avatar")}>{panelAvatar}</div>
+              <div className={tabSliderClass("avatar")}>{panelBorder}</div>
+              <div className={tabSliderClass("text")}>{panelTypography}</div>
             </div>
           )}
 
@@ -4114,10 +4031,10 @@ export default function LuminaryPanels() {
                 if (dx > 0 && tabIndex > 0) changeMobileTab(MOBILE_TABS[tabIndex - 1]);
               }}
             >
-              {mobileTab === "assets" && <>{panelAssetsAndLayers}{panelEnvironment}</>}
-              {mobileTab === "layout" && panelBaseConfig}
-              {mobileTab === "avatar" && <>{panelAvatar}{panelBorder}</>}
-              {mobileTab === "text"   && panelTypography}
+              {mobileTab === "assets" && <><div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div><div className={tabSliderClass("assets")}>{panelEnvironment}</div></>}
+              {mobileTab === "layout" && <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>}
+              {mobileTab === "avatar" && <><div className={tabSliderClass("avatar")}>{panelAvatar}</div><div className={tabSliderClass("avatar")}>{panelBorder}</div></>}
+              {mobileTab === "text"   && <div className={tabSliderClass("text")}>{panelTypography}</div>}
             </div>
           )}
         </div>
@@ -4587,21 +4504,46 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary =
               }}
             />
           </div>
-          <input
-            type="range"
-            className="ios-slider"
-            min={0}
-            max={360}
-            value={hsv.h}
-            onChange={(e) => {
-              const next = { ...hsv, h: Number(e.target.value) };
+          <div
+            onPointerDown={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+              const next = { ...hsv, h: pct * 360 };
+              setHsv(next);
+              commit(next);
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              if (!e.buttons) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+              const next = { ...hsv, h: pct * 360 };
               setHsv(next);
               commit(next);
             }}
             style={{
               width: "100%",
+              height: 24,
+              borderRadius: 999,
+              border: "1px solid rgba(128,140,160,0.24)",
+              background: "linear-gradient(90deg,#ff3b30,#ff9500,#ffcc00,#34c759,#5ac8fa,#007aff,#af52de,#ff2d55,#ff3b30)",
+              position: "relative",
+              cursor: "pointer",
             }}
-          />
+          >
+            <span style={{
+              position: "absolute",
+              left: `calc(${(hsv.h / 360) * 100}% - 10px)`,
+              top: 2,
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              background: "#fff",
+              border: "1px solid rgba(0,0,0,0.22)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.28)",
+              pointerEvents: "none",
+            }} />
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
             {PRESETS.map((c, idx) => (
               <button
@@ -4624,7 +4566,42 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary =
           {onAlphaChange && (
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               <span style={{ fontSize:11, color:"rgba(128,140,160,0.85)", minWidth:82 }}>Opacity {alpha}%</span>
-              <input type="range" className="ios-slider" min={0} max={100} value={alpha} onChange={(e) => onAlphaChange(Number(e.target.value))} style={{width:"100%"}} />
+              <div
+                onPointerDown={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  onAlphaChange(Math.round(pct * 100));
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  if (!e.buttons) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  onAlphaChange(Math.round(pct * 100));
+                }}
+                style={{
+                  width:"100%",
+                  height: 22,
+                  borderRadius: 999,
+                  border: "1px solid rgba(128,140,160,0.24)",
+                  background: `linear-gradient(90deg, ${safeHex}00, ${safeHex})`,
+                  position:"relative",
+                  cursor:"pointer",
+                }}
+              >
+                <span style={{
+                  position:"absolute",
+                  left:`calc(${alpha}% - 9px)`,
+                  top:2,
+                  width:18,
+                  height:18,
+                  borderRadius:"50%",
+                  background:"#fff",
+                  border:"1px solid rgba(0,0,0,0.22)",
+                  boxShadow:"0 2px 7px rgba(0,0,0,0.24)",
+                  pointerEvents:"none",
+                }} />
+              </div>
             </div>
           )}
         </div>
