@@ -1,1 +1,26 @@
-./build-apk.sh
+name: CI Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  web-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build

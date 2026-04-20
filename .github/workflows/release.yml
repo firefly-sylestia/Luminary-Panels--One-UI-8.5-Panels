@@ -1,74 +1,76 @@
-name: Build Release APK
+name: Android Release APK
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  release-apk:
     runs-on: ubuntu-latest
-    
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      
-     - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '22'  # Changed from 18
-      
-      - name: Set up Java
-        uses: actions/setup-java@v3
+          node-version: 20
+          cache: npm
+
+      - name: Set up Java 17 (force Java 17 for Gradle)
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
-      
+
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v2
-      
+        uses: android-actions/setup-android@v3
+
       - name: Install dependencies
-        run: npm install
-      
-      - name: Build release APK
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Force Java 17 / Kotlin 17 targets
         run: |
-          export JAVA_HOME=${{ steps.setup-java.outputs.path }}
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          
-          # Build web assets
-          npm run build
-          
-          # Sync with Capacitor
-          npx cap sync android
-          
-          # Patch Gradle files
-          find ./node_modules/@capacitor ./node_modules/@capacitor-community -name "*.gradle" -type f -exec sed -i \
+          find ./node_modules/@capacitor ./node_modules/@capacitor-community ./android \
+            -name "*.gradle" -type f -exec sed -i \
             -e 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' \
             -e 's/jvmTarget = "21"/jvmTarget = "17"/g' \
             -e "s/jvmTarget = '21'/jvmTarget = '17'/g" \
-            -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} \;
-          
-          find ./android -name "*.gradle" -type f -exec sed -i \
-            -e 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' \
-            -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} \;
-          
-          # Build release APK
-          cd android && ./gradlew assembleRelease \
+            -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} +
+
+      - name: Build signed release APK
+        run: |
+          cd android
+          ./gradlew --no-daemon assembleRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/luminary.keystore \
             -Pandroid.injected.signing.store.password=luminary123 \
             -Pandroid.injected.signing.key.alias=luminary_key \
             -Pandroid.injected.signing.key.password=luminary123
-      
-      - name: Rename APK
+
+      - name: Prepare release asset
         run: |
+          VERSION="${GITHUB_REF_NAME#v}"
           APK_PATH=$(find ./android -name "app-release.apk" | head -1)
-          if [ -n "$APK_PATH" ]; then
-            cp "$APK_PATH" "./Luminary-Panels-1.1.1-release.apk"
+          if [ -z "$APK_PATH" ]; then
+            echo "app-release.apk not found" >&2
+            exit 1
           fi
-      
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+          cp "$APK_PATH" "./Luminary-Panels-${VERSION}-release.apk"
+
+      - name: Publish GitHub Release with APK
+        uses: softprops/action-gh-release@v2
         with:
-          files: Luminary-Panels-*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: Luminary-Panels-*-release.apk
+          generate_release_notes: true
