@@ -53,6 +53,7 @@ const STORAGE_KEY = "luminary-panels-v2";
 const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
+
 const UI_COLOR_PRESETS = [
   { id: "aurora", label: "Aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" },
   { id: "ios-26-liquid-gold", label: "Liquid Gold", uiAccent: "#ffd37a", uiBg: "linear-gradient(150deg,#130f0a 0%,#2b1f0d 40%,#3a1642 100%)", uiText: "#fff7e8" },
@@ -62,9 +63,10 @@ const UI_COLOR_PRESETS = [
   { id: "mint-pop", label: "Mint Pop", uiAccent: "#63ffd7", uiBg: "linear-gradient(145deg,#081913 0%,#0d3a32 52%,#1d5f78 100%)", uiText: "#e9fff8" },
   { id: "sunset-fizz", label: "Sunset Fizz", uiAccent: "#ff9f6b", uiBg: "linear-gradient(145deg,#1d0e11 0%,#4d2034 44%,#7a3e2e 100%)", uiText: "#fff3ea" },
 ];
+
 const DEFAULT_SETTINGS = {
   autoSave: true,
-  performanceMode: true,
+  performanceMode: false,
   autosaveIntervalMs: 700,
   defaultLayout: "Standard Pill",
   motionIntensity: 1,
@@ -74,17 +76,19 @@ const DEFAULT_SETTINGS = {
   uiBg: "#0a0e27",
   uiText: "#f0f9ff",
   showScaleBadge: false,
-  hardBlurUI: true,
+  hardBlurUI: false,
   uiBlurStrength: 34,
-  uiDarkness: 94,
-  statusBarBoost: 18,
+  uiDarkness: 92,
+  statusBarBoost: 10,
   uiGlassSaturation: 126,
   animationSmoothness: 100,
   animationSpeed: 100,
   uiPreset: "aurora",
   lightBg: "linear-gradient(160deg,#fff8fb 0%,#f4f9ff 35%,#eff4ff 62%,#f7f0ff 100%)",
   lightText: "#253247",
+  hapticFeedback: true,
 };
+
 const GEOMETRY_LIMITS = {
   minW: 1,
   maxW: 1200,
@@ -109,6 +113,7 @@ function clampGeometry(next, isMobile = false) {
   const r = Math.max(0, Math.min(maxR, Number(next.pillR) || 0));
   return { ...next, pillW: w, pillH: h, pillR: r };
 }
+
 const TEXTURES = [
   { id: "none",    label: "None",         css: "" },
   { id: "grain",   label: "Fine Grain",   css: "grain" },
@@ -125,11 +130,6 @@ const TEXTURES = [
 
 const EMOJIS = ["✨","🌸","🦋","💎","🎀","💫","🦇","🌙","🔪","🩸"];
 
-const UI_ICONS = [
-  { name: "WiFi", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 21c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm0-4.5c-2.5 0-4.8-1-6.5-2.6L7 12.5c1.3 1.2 3 1.9 5 1.9s3.7-.7 5-1.9l1.4 1.4c-1.7 1.6-4 2.6-6.4 2.6z'/></svg>"},
-  { name: "Moon", src: "data:image/svg+xml;utf8,<svg viewBox='0 0 24 24' fill='%23ffffff' xmlns='http://www.w3.org/2000/svg'><path d='M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z'/></svg>"},
-];
-
 const ICONS = {
   undo: "⤴",
   redo: "⤵",
@@ -140,15 +140,433 @@ const ICONS = {
   text: "✎",
 };
 
+// ── Global Style Enhancement — 120fps GPU-Accelerated ────────────────────────
+const styleEnhance = document.createElement('style');
+styleEnhance.id = 'luminary-enhance-style';
+styleEnhance.textContent = `
+  *, *::before, *::after {
+    -webkit-font-smoothing: antialiased;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  :root {
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-ios: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --ease-genie: cubic-bezier(0.42, 0, 0.58, 1);
+    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  input[type="range"] {
+    touch-action: pan-y !important;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .gpu-layer {
+    will-change: transform, opacity;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+  }
+
+  /* iOS-style expanding round slider thumb */
+  input[type="range"].ios-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 30px;
+    background: transparent;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"].ios-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(120,130,155,0.24);
+  }
+  input[type="range"].ios-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(120,130,155,0.24);
+  }
+  input[type="range"].ios-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffff;
+    margin-top: -9px;
+    box-shadow:
+      0 2px 8px rgba(0,0,0,0.24),
+      0 0 0 0.5px rgba(0,0,0,0.04);
+    transition:
+      transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      width 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      height 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      margin-top 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 200ms ease;
+  }
+  input[type="range"].ios-slider:active::-webkit-slider-thumb,
+  input[type="range"].ios-slider:focus::-webkit-slider-thumb {
+    width: 30px;
+    height: 30px;
+    margin-top: -13px;
+    box-shadow:
+      0 4px 16px rgba(0,0,0,0.3),
+      0 0 0 0.5px rgba(0,0,0,0.06);
+  }
+  input[type="range"].ios-slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: none;
+    box-shadow:
+      0 2px 8px rgba(0,0,0,0.24),
+      0 0 0 0.5px rgba(0,0,0,0.04);
+    transition:
+      transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      width 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      height 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 200ms ease;
+  }
+  input[type="range"].ios-slider:active::-moz-range-thumb,
+  input[type="range"].ios-slider:focus::-moz-range-thumb {
+    width: 30px;
+    height: 30px;
+  }
+
+  button, [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .settings-panel {
+    will-change: scroll-position;
+    contain: layout style;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Genie animation — macOS-style minimize/expand */
+  @keyframes genieOpen {
+    0% {
+      transform: translate3d(0, 40%, 0) scaleY(0.04) scaleX(0.5);
+      opacity: 0;
+      filter: blur(6px);
+      border-radius: 80px 80px 8px 8px;
+    }
+    40% {
+      transform: translate3d(0, -4%, 0) scaleY(0.35) scaleX(0.85);
+      opacity: 0.85;
+      filter: blur(2px);
+      border-radius: 40px 40px 10px 10px;
+    }
+    70% {
+      transform: translate3d(0, 0, 0) scaleY(1.02) scaleX(1.01);
+      opacity: 1;
+      filter: blur(0);
+      border-radius: 22px 22px 0 0;
+    }
+    100% {
+      transform: translate3d(0, 0, 0) scaleY(1) scaleX(1);
+      opacity: 1;
+      filter: blur(0);
+      border-radius: 22px 22px 0 0;
+    }
+  }
+
+  @keyframes genieClose {
+    0% {
+      transform: translate3d(0, 0, 0) scaleY(1) scaleX(1);
+      opacity: 1;
+      filter: blur(0);
+      border-radius: 22px 22px 0 0;
+    }
+    40% {
+      transform: translate3d(0, 0, 0) scaleY(0.5) scaleX(0.9);
+      opacity: 0.9;
+      filter: blur(1px);
+      border-radius: 30px 30px 6px 6px;
+    }
+    100% {
+      transform: translate3d(0, 45%, 0) scaleY(0.02) scaleX(0.4);
+      opacity: 0;
+      filter: blur(8px);
+      border-radius: 80px 80px 8px 8px;
+    }
+  }
+
+  /* iOS icon morph — scale + rotate + opacity swap */
+  @keyframes iconMorphIn {
+    0% {
+      opacity: 0;
+      transform: translate3d(0,0,0) scale(0.3) rotate(-45deg);
+    }
+    60% {
+      opacity: 1;
+      transform: translate3d(0,0,0) scale(1.15) rotate(10deg);
+    }
+    100% {
+      opacity: 1;
+      transform: translate3d(0,0,0) scale(1) rotate(0);
+    }
+  }
+
+  @keyframes iconMorphOut {
+    0% {
+      opacity: 1;
+      transform: translate3d(0,0,0) scale(1) rotate(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(0,0,0) scale(0.3) rotate(45deg);
+    }
+  }
+
+  @keyframes panelSpringUp {
+    0% {
+      transform: translate3d(0, 18px, 0) scale(0.985);
+      opacity: 0;
+    }
+    70% {
+      transform: translate3d(0, -2px, 0) scale(1.003);
+      opacity: 1;
+    }
+    100% {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes toastPop {
+    0% {
+      transform: translate3d(-50%, 22px, 0) scale(0.82);
+      opacity: 0;
+    }
+    55% {
+      transform: translate3d(-50%, -4px, 0) scale(1.05);
+      opacity: 1;
+    }
+    100% {
+      transform: translate3d(-50%, 0, 0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes tabSlideSmooth {
+    from {
+      opacity: 0;
+      transform: translate3d(var(--slide-from, 20px), 4px, 0) scale(0.995);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translate3d(0, -8px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translate3d(0, 4px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translate3d(0, 20px, 0) scale(0.98); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  }
+
+  @keyframes softGlow {
+    0%, 100% { opacity: 0.5; }
+    50%      { opacity: 0.85; }
+  }
+
+  @keyframes colorSwatchPop {
+    0% { transform: translate3d(0,0,0) scale(0.85); opacity: 0; }
+    50% { transform: translate3d(0,0,0) scale(1.08); }
+    100% { transform: translate3d(0,0,0) scale(1); opacity: 1; }
+  }
+
+  /* ── Queue-style bouncy dropdown ──────────────────────────────────────── */
+  @keyframes bouncySlideDown {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, -16px, 0) scaleY(0.72) scaleX(0.97);
+      transform-origin: top center;
+      filter: blur(3px);
+    }
+    45% {
+      opacity: 1;
+      transform: translate3d(0, 4px, 0) scaleY(1.03) scaleX(1.005);
+      filter: blur(0);
+    }
+    68% {
+      transform: translate3d(0, -2px, 0) scaleY(0.99) scaleX(1);
+    }
+    84% {
+      transform: translate3d(0, 1px, 0) scaleY(1.005);
+    }
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scaleY(1) scaleX(1);
+      filter: blur(0);
+    }
+  }
+
+  /* ── Untitled-style morphing pill transition ───────────────────────────── */
+  @keyframes morphPillIn {
+    0%   { transform: scale(0.5) translateX(var(--morph-from, 0)); opacity: 0; border-radius: 999px; }
+    40%  { transform: scale(1.08) translateX(0); opacity: 1; }
+    65%  { transform: scale(0.97); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes liquidFlow {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @keyframes tabPillMorph {
+    0%   { transform: scaleX(0.6) scaleY(0.8); opacity: 0.4; border-radius: 4px; }
+    45%  { transform: scaleX(1.08) scaleY(1.04); border-radius: 12px; opacity: 1; }
+    70%  { transform: scaleX(0.97) scaleY(0.99); }
+    100% { transform: scaleX(1) scaleY(1); }
+  }
+
+  /* ── Card entrance ────────────────────────────────────────────────────── */
+  @keyframes cardFloat {
+    0%   { transform: translate3d(0, 14px, 0) scale(0.988); opacity: 0; filter: blur(2px); }
+    60%  { transform: translate3d(0, -2px, 0) scale(1.004); opacity: 1; filter: blur(0); }
+    100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; filter: blur(0); }
+  }
+
+  /* ── Staggered text reveal ────────────────────────────────────────────── */
+  @keyframes labelFadeUp {
+    from { opacity: 0; transform: translate3d(0, 5px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+
+  /* ── Bouncy button press echo ─────────────────────────────────────────── */
+  .btn-bouncy:active {
+    transform: scale(0.93) !important;
+    transition: transform 80ms var(--ease-spring) !important;
+  }
+  .btn-bouncy {
+    transition: transform 320ms var(--ease-spring), filter 200ms ease, background 200ms ease, border-color 200ms ease, box-shadow 240ms ease !important;
+  }
+
+  /* ── Morphing dropdown chevron ────────────────────────────────────────── */
+  .chevron-morph {
+    display: inline-block;
+    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* ── Section header pill ─────────────────────────────────────────────── */
+  .section-label-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+
+  @keyframes overlayItemSlide {
+    from {
+      opacity: 0;
+      transform: translate3d(-8px, 0, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes modalBackdropFade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes modalContentSpring {
+    0% { transform: translate3d(0, 30px, 0) scale(0.9); opacity: 0; }
+    60% { transform: translate3d(0, -4px, 0) scale(1.02); opacity: 1; }
+    100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+`;
+if (!document.getElementById('luminary-enhance-style')) {
+  document.head.appendChild(styleEnhance);
+}
+
+// ── Haptic feedback helper ───────────────────────────────────────────────────
+function microHaptic(enabled = true) {
+  if (!enabled) return;
+  if (navigator.vibrate) {
+    try { navigator.vibrate(8); } catch(_) {}
+  }
+}
+
+function mediumHaptic(enabled = true) {
+  if (!enabled) return;
+  if (navigator.vibrate) {
+    try { navigator.vibrate([12, 20, 12]); } catch(_) {}
+  }
+}
+
 // ── Viewport Hook ─────────────────────────────────────────────────────────────
 function useViewport() {
-  const [vp, setVp] = useState({ w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 });
+  const [vp, setVp] = useState({
+    w: window.innerWidth,
+    h: window.innerHeight,
+    dpr: window.devicePixelRatio || 1,
+  });
+
   useEffect(() => {
-    const update = () => setVp({ w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 });
-    window.addEventListener("resize", update);
+    const update = () => setVp(prev => ({
+      ...prev,
+      w: window.innerWidth,
+      h: window.innerHeight,
+      dpr: window.devicePixelRatio || 1,
+    }));
+    window.addEventListener("resize", update, { passive: true });
     return () => window.removeEventListener("resize", update);
   }, []);
-  return { ...vp, isMobile: vp.w < 850, safeDpr: Math.min(vp.dpr, 3) };
+
+  return {
+    ...vp,
+    isMobile: vp.w < 850,
+    safeDpr: Math.min(vp.dpr, 3),
+  };
 }
 
 // ── Math & Helpers ────────────────────────────────────────────────────────────
@@ -247,41 +665,61 @@ const getBorderControls = (id) => {
   }
 };
 
-// Custom save format functions
-function saveProjectToLum(data) {
-  const lumFile = { version: "1.0", timestamp: Date.now(), project: data };
-  const json = JSON.stringify(lumFile);
-  const blob = new Blob([json], { type: "application/x-luminary" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `luminary-${Date.now()}.lum`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+async function saveProjectWithShare(data) {
+  try {
+    const lumFile = { version: "1.0", timestamp: Date.now(), project: data };
+    const json = JSON.stringify(lumFile);
+    const fileName = `luminary-${Date.now()}.lum`;
 
-async function saveProjectToLumNative(data) {
-  const lumFile = { version: "1.0", timestamp: Date.now(), project: data };
-  const json = JSON.stringify(lumFile);
-  const fileName = `luminary-${Date.now()}.lum`;
-  const { Filesystem, Directory } = await import("@capacitor/filesystem");
-  const { Share } = await import("@capacitor/share");
-  const base64 = btoa(unescape(encodeURIComponent(json)));
-  await Filesystem.writeFile({
-    path: fileName,
-    data: base64,
-    directory: Directory.Cache,
-    recursive: true,
-  });
-  const fileResult = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
-  await Share.share({
-    title: "Luminary Project",
-    text: "Saved Luminary project file",
-    url: fileResult.uri,
-    dialogTitle: "Save or share project file",
-  });
+    if (window.Capacitor) {
+      try {
+        const { Share } = await import("@capacitor/share");
+        const { Filesystem, Directory } = await import("@capacitor/filesystem");
+        const base64 = btoa(unescape(encodeURIComponent(json)));
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+        const fileResult = await Filesystem.getUri({ path: fileName, directory: Directory.Cache });
+        await Share.share({
+          title: "Luminary Project",
+          text: "Saved Luminary project file",
+          url: fileResult.uri,
+          dialogTitle: "Save or share project file",
+        });
+        return;
+      } catch (capErr) {
+        if (capErr.name === "AbortError") return;
+      }
+    }
+
+    if (navigator.share) {
+      const blob = new Blob([json], { type: "application/json" });
+      const file = new File([blob], fileName, { type: "application/json" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: "Luminary Project",
+          text: "My Luminary design project",
+          files: [file]
+        });
+        return;
+      }
+    }
+
+    const blob = new Blob([json], { type: "application/x-luminary" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    if (err.name !== "AbortError") alert("Save project failed: " + err.message);
+  }
 }
 
 function loadProjectFromLum(file) {
@@ -303,7 +741,6 @@ function loadProjectFromLum(file) {
     reader.readAsText(file);
   });
 }
-
 // ── Border Engine ─────────────────────────────────────────────────────────────
 function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p1, p2, emojisStr) {
   if (styleId === "none" || thickness <= 0) return;
@@ -527,13 +964,13 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CropModal — manual crop with draggable rectangular crop region
+// CropModal
 // ─────────────────────────────────────────────────────────────────────────────
 function CropModal({ src, onConfirm, onCancel, theme }) {
   const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 220, h: 220 });
-  const [ratio, setRatio] = useState("1:3");
+  const [ratio, setRatio] = useState("free");
   const [customRatio, setCustomRatio] = useState("16:9");
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
@@ -657,128 +1094,206 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
   };
 
   return (
-    <div style={{
-      position:"fixed", inset:0, zIndex:9999,
-      background:"rgba(0,0,0,0.92)", display:"flex",
-      alignItems:"center", justifyContent:"center", padding:16,
-    }}>
-      <div style={{
-        background:theme?.cardBg || "#1c1c1e", borderRadius:20, padding:20,
-        width:"100%", maxWidth:480,
-        display:"flex", flexDirection:"column", gap:14,
-        boxShadow:theme?.cardShadow || "0 24px 64px rgba(0,0,0,0.6)",
-        border:`1px solid ${theme?.cardBorder || "rgba(255,255,255,0.14)"}`,
-      }}>
+    <div
+      style={{
+        position:"fixed", inset:0, zIndex:9999,
+        background:"rgba(0,0,0,0.88)",
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"center",
+        padding:16,
+        animation: "modalBackdropFade 220ms var(--ease-ios)",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div
+        style={{
+          background: theme?.cardBg || "#1c1c1e",
+          borderRadius: 22,
+          padding: 20,
+          width: "100%",
+          maxWidth: 480,
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          boxShadow: theme?.cardShadow || "0 24px 64px rgba(0,0,0,0.6)",
+          border: `1px solid ${theme?.cardBorder || "rgba(255,255,255,0.14)"}`,
+          animation: "modalContentSpring 380ms var(--ease-spring)",
+          transform: "translate3d(0,0,0)",
+        }}
+      >
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <h3 style={{ color:theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>Crop Avatar</h3>
-          <button onClick={onCancel} style={{
-            background:"rgba(255,255,255,0.1)", border:"none",
-            color:theme?.textPrimary || "#fff", borderRadius:"50%", width:32, height:32,
-            fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
-          }}>✕</button>
+          <h3 style={{ color: theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>Crop Avatar</h3>
+          <button
+            onClick={onCancel}
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              border: "none",
+              color: theme?.textPrimary || "#fff",
+              borderRadius: "50%",
+              width: 34, height: 34,
+              fontSize: 16,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "transform 200ms var(--ease-spring), background 200ms ease",
+            }}
+          >✕</button>
         </div>
-        <p style={{ color:theme?.textDim || "rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
+        <p style={{ color: theme?.textDim || "rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
           Freeform crop with custom ratio · Drag to move, handle to resize
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {["1:3", "free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
-            <button key={opt} onClick={() => setRatio(opt)} style={{
-              padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)",
-              background: ratio === opt ? (theme?.accent || "#0a84ff") : "rgba(255,255,255,0.08)", color: theme?.textPrimary || "#fff", cursor: "pointer",
-            }}>{opt}</button>
+            <button
+              key={opt}
+              onClick={() => setRatio(opt)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: ratio === opt ? (theme?.accent || "#0a84ff") : "rgba(255,255,255,0.08)",
+                color: theme?.textPrimary || "#fff",
+                cursor: "pointer",
+                transition: "all 200ms var(--ease-ios)",
+                transform: ratio === opt ? "scale(1.05)" : "scale(1)",
+                fontWeight: ratio === opt ? 600 : 400,
+              }}
+            >{opt}</button>
           ))}
           {ratio === "custom" && (
-            <input value={customRatio} onChange={e => setCustomRatio(e.target.value)} placeholder="21:9" style={{
-              borderRadius: 10, border: "1px solid rgba(255,255,255,0.14)", background: "rgba(255,255,255,0.08)", color: "#fff", padding: "8px 10px",
-            }} />
+            <input
+              value={customRatio}
+              onChange={e => setCustomRatio(e.target.value)}
+              placeholder="21:9"
+              style={{
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.08)",
+                color: "#fff",
+                padding: "8px 12px",
+              }}
+            />
           )}
         </div>
 
         <div
           style={{
-            position:"relative", display:"flex", justifyContent:"center",
-            background:"#000", borderRadius:12, overflow:"hidden",
-            userSelect:"none", touchAction:"none", minHeight:80,
+            position: "relative",
+            display: "flex",
+            justifyContent: "center",
+            background: "#000",
+            borderRadius: 14,
+            overflow: "hidden",
+            userSelect: "none",
+            touchAction: "none",
+            minHeight: 80,
           }}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerUp}
         >
-          <div style={{ position:"relative", width:imgDisplay.w || "auto", height:imgDisplay.h || "auto", maxWidth:"100%" }}>
+          <div style={{
+            position:"relative",
+            width: imgDisplay.w || "auto",
+            height: imgDisplay.h || "auto",
+            maxWidth: "100%"
+          }}>
             <img
               src={src}
               onLoad={onImgLoad}
               draggable={false}
-              style={{ display:"block", width: imgDisplay.w || "auto", height: imgDisplay.h || "auto", maxWidth:"100%", pointerEvents:"none" }}
+              style={{
+                display: "block",
+                width: imgDisplay.w || "auto",
+                height: imgDisplay.h || "auto",
+                maxWidth: "100%",
+                pointerEvents: "none"
+              }}
             />
-          {imgDisplay.w > 0 && (
-            <>
-              <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
-                <div style={{ position:"absolute", top:0, left:0, right:0, height: crop.y, background:"rgba(0,0,0,0.65)" }} />
-                <div style={{ position:"absolute", top: crop.y + crop.h, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.65)" }} />
-                <div style={{ position:"absolute", top: crop.y, left:0, width: crop.x, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
-                <div style={{ position:"absolute", top: crop.y, left: crop.x + crop.w, right:0, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
-              </div>
-              <div
-                onPointerDown={e => handlePointerDown(e, "move")}
-                style={{
-                  position:"absolute",
-                  left: crop.x, top: crop.y,
-                  width: crop.w, height: crop.h,
-                  border:`2.5px solid ${theme?.accent || "#0a84ff"}`,
-                  borderRadius:"10px",
-                  cursor:"move",
-                  touchAction:"none",
-                  boxSizing:"border-box",
-                  boxShadow:"0 0 0 1px rgba(0,0,0,0.4)",
-                }}
-              >
-                <div style={{ position:"absolute", top:"50%", left:6, right:6, height:1, background:"rgba(255,255,255,0.3)", transform:"translateY(-50%)", pointerEvents:"none" }} />
-                <div style={{ position:"absolute", left:"50%", top:6, bottom:6, width:1, background:"rgba(255,255,255,0.3)", transform:"translateX(-50%)", pointerEvents:"none" }} />
+            {imgDisplay.w > 0 && (
+              <>
+                <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+                  <div style={{ position:"absolute", top:0, left:0, right:0, height: crop.y, background:"rgba(0,0,0,0.65)" }} />
+                  <div style={{ position:"absolute", top: crop.y + crop.h, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.65)" }} />
+                  <div style={{ position:"absolute", top: crop.y, left:0, width: crop.x, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
+                  <div style={{ position:"absolute", top: crop.y, left: crop.x + crop.w, right:0, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
+                </div>
                 <div
-                  onPointerDown={e => handlePointerDown(e, "resize")}
+                  onPointerDown={e => handlePointerDown(e, "move")}
                   style={{
-                    position:"absolute", bottom:-10, right:-10,
-                    width:22, height:22,
-                    background:theme?.accent || "#0a84ff", borderRadius:"50%",
-                    cursor:"nwse-resize", touchAction:"none",
-                    border:"2px solid #fff",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    fontSize:9, color:"#fff", fontWeight:700,
-                    boxShadow:"0 2px 8px rgba(0,0,0,0.5)",
+                    position: "absolute",
+                    left: crop.x, top: crop.y,
+                    width: crop.w, height: crop.h,
+                    border: `2.5px solid ${theme?.accent || "#0a84ff"}`,
+                    borderRadius: "10px",
+                    cursor: "move",
+                    touchAction: "none",
+                    boxSizing: "border-box",
+                    boxShadow: "0 0 0 1px rgba(0,0,0,0.4), 0 0 20px rgba(79,179,217,0.4)",
                   }}
-                >⇲</div>
-              </div>
-            </>
-          )}
+                >
+                  <div style={{ position:"absolute", top:"50%", left:6, right:6, height:1, background:"rgba(255,255,255,0.3)", transform:"translateY(-50%)", pointerEvents:"none" }} />
+                  <div style={{ position:"absolute", left:"50%", top:6, bottom:6, width:1, background:"rgba(255,255,255,0.3)", transform:"translateX(-50%)", pointerEvents:"none" }} />
+                  <div
+                    onPointerDown={e => handlePointerDown(e, "resize")}
+                    style={{
+                      position: "absolute", bottom: -10, right: -10,
+                      width: 24, height: 24,
+                      background: theme?.accent || "#0a84ff",
+                      borderRadius: "50%",
+                      cursor: "nwse-resize",
+                      touchAction: "none",
+                      border: "2px solid #fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 9,
+                      color: "#fff",
+                      fontWeight: 700,
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.6)",
+                    }}
+                  >⇲</div>
+                </div>
+              </>
+            )}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 10 }}>
           <div style={{ flex: 1 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11 }}>Zoom {zoom}%</label>
-            <input type="range" step="1" min={50} max={180} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Zoom {zoom}%</label>
+            <input type="range" className="ios-slider" step="1" min={50} max={180} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11 }}>Rotate {rotation}°</label>
-            <input type="range" step="1" min={-180} max={180} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Rotate {rotation}°</label>
+            <input type="range" className="ios-slider" step="1" min={-180} max={180} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
           </div>
         </div>
         {imgDisplay.w > 0 && (
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11 }}>Live Preview</label>
-            <div style={{ width:"100%", height:140, borderRadius:12, overflow:"hidden", border:"1px solid rgba(255,255,255,0.2)", background:"#060607" }}>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Live Preview</label>
+            <div style={{
+              width: "100%",
+              height: 140,
+              borderRadius: 14,
+              overflow: "hidden",
+              border: `1px solid ${theme?.accent || "#0a84ff"}55`,
+              background: "#060607",
+            }}>
               <img
                 src={src}
                 alt="Live crop preview"
                 draggable={false}
                 style={{
-                  width:"100%",
-                  height:"100%",
-                  objectFit:"cover",
-                  objectPosition:`${livePreviewPos.x} ${livePreviewPos.y}`,
-                  transform:`scale(${zoom / 100}) rotate(${rotation}deg)`,
-                  transformOrigin:"center center",
-                  transition:"transform 100ms linear, object-position 100ms linear",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: `${livePreviewPos.x} ${livePreviewPos.y}`,
+                  transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+                  transformOrigin: "center center",
+                  transition: "transform 140ms var(--ease-ios), object-position 140ms var(--ease-ios)",
+                  willChange: "transform, object-position",
                 }}
               />
             </div>
@@ -786,24 +1301,45 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
         )}
 
         {imgDisplay.w > 0 && (
-          <p style={{ color:theme?.textDim || "rgba(255,255,255,0.35)", fontSize:11, textAlign:"center", margin:0 }}>
+          <p style={{ color: theme?.textDim || "rgba(255,255,255,0.35)", fontSize: 11, textAlign: "center", margin: 0 }}>
             Crop: {Math.round(crop.w)}×{Math.round(crop.h)}px display
             {" · "}
             Output: ~{Math.round(crop.w * (imgNatural.w / imgDisplay.w))}×{Math.round(crop.h * (imgNatural.h / imgDisplay.h))}px
           </p>
         )}
 
-        <div style={{ display:"flex", gap:10 }}>
-          <button onClick={onCancel} style={{
-            flex:1, padding:"13px", background:"rgba(255,255,255,0.08)",
-            border:"none", borderRadius:12, color:theme?.textPrimary || "#fff",
-            fontSize:15, fontWeight:600, cursor:"pointer",
-          }}>Cancel</button>
-          <button onClick={confirmCrop} style={{
-            flex:2, padding:"13px", background:theme?.accent || "#0a84ff",
-            border:"none", borderRadius:12, color:"#fff",
-            fontSize:15, fontWeight:700, cursor:"pointer",
-          }}>✓ Apply Crop</button>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1,
+              padding: "14px",
+              background: "rgba(255,255,255,0.08)",
+              border: "none",
+              borderRadius: 14,
+              color: theme?.textPrimary || "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "transform 180ms var(--ease-spring), background 200ms ease",
+            }}
+          >Cancel</button>
+          <button
+            onClick={confirmCrop}
+            style={{
+              flex: 2,
+              padding: "14px",
+              background: `linear-gradient(135deg, ${theme?.accent || "#0a84ff"}, ${theme?.accent2 || "#2dd4bf"})`,
+              border: "none",
+              borderRadius: 14,
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 6px 20px rgba(79,179,217,0.4)",
+              transition: "transform 180ms var(--ease-spring)",
+            }}
+          >✓ Apply Crop</button>
         </div>
       </div>
     </div>
@@ -811,90 +1347,205 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ExportModal — full-screen save modal for Android WebView
+// ExportModal
 // ─────────────────────────────────────────────────────────────────────────────
-function ExportModal({ dataUrl, onClose, performanceMode = false }) {
+function ExportModal({ dataUrl, onClose }) {
   return (
     <div style={{
-      position:"fixed", inset:0, zIndex:9999,
-      background:"rgba(0,0,0,0.97)",
-      display:"flex", flexDirection:"column",
-      alignItems:"center", justifyContent:"center",
-      padding:0,
+      position: "fixed",
+      inset: 0,
+      zIndex: 9999,
+      background: "rgba(0,0,0,0.97)",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 0,
+      animation: "modalBackdropFade 220ms var(--ease-ios)",
     }}>
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes glowPulse {
-          0%,100% { box-shadow: 0 0 20px 4px rgba(79,179,217,0.6), 0 0 60px 10px rgba(79,179,217,0.25); }
-          50%      { box-shadow: 0 0 40px 10px rgba(79,179,217,0.9),   0 0 100px 20px rgba(45,212,191,0.4); }
-        }
-        @keyframes fadeSlideUp {
-          from { opacity:0; transform:translateY(30px); }
-          to   { opacity:1; transform:translateY(0); }
-        }
-      `}} />
-
       <div style={{
-        width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center",
-        padding:"16px 20px",
-        background:"rgba(255,255,255,0.04)",
-        borderBottom:"1px solid rgba(255,255,255,0.08)",
+        width: "100%",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "16px 20px",
+        background: "rgba(255,255,255,0.04)",
+        borderBottom: "1px solid rgba(255,255,255,0.08)",
+        animation: "fadeSlideUp 340ms var(--ease-spring)",
       }}>
         <div>
-          <p style={{ color:"#fff", fontSize:17, fontWeight:700, margin:0 }}>Save Image</p>
-          <p style={{ color:"rgba(255,255,255,0.45)", fontSize:12, margin:"3px 0 0" }}>Hold finger on image → "Save"</p>
+          <p style={{ color: "#fff", fontSize: 17, fontWeight: 700, margin: 0 }}>Save Image</p>
+          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, margin: "3px 0 0" }}>Hold finger on image → "Save"</p>
         </div>
-        <button onClick={onClose} style={{
-          background:"rgba(255,255,255,0.1)", border:"1px solid rgba(255,255,255,0.15)",
-          color:"#fff", borderRadius:"50%", width:36, height:36,
-          fontSize:17, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center",
-        }}>✕</button>
+        <button
+          onClick={onClose}
+          style={{
+            background: "rgba(255,255,255,0.1)",
+            border: "1px solid rgba(255,255,255,0.15)",
+            color: "#fff",
+            borderRadius: "50%",
+            width: 38, height: 38,
+            fontSize: 17,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >✕</button>
       </div>
 
       <div style={{
-        flex:1, width:"100%", display:"flex", alignItems:"center", justifyContent:"center",
-        padding:20,
-        animation:"fadeSlideUp 0.3s ease",
+        flex: 1,
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        animation: "modalContentSpring 420ms var(--ease-spring)",
       }}>
         <img
           src={dataUrl}
           alt="Your creation"
           draggable={false}
           style={{
-            maxWidth:"100%", maxHeight:"100%",
-            borderRadius:16,
-            animation: performanceMode ? "none" : "glowPulse 2s ease-in-out infinite",
-            userSelect:"none",
-            WebkitUserSelect:"none",
-            WebkitTouchCallout:"default",
-            pointerEvents:"auto",
-            objectFit:"contain",
+            maxWidth: "100%",
+            maxHeight: "100%",
+            borderRadius: 16,
+            userSelect: "none",
+            WebkitUserSelect: "none",
+            WebkitTouchCallout: "default",
+            pointerEvents: "auto",
+            objectFit: "contain",
           }}
         />
       </div>
 
       <div style={{
-        width:"100%", padding:"14px 20px 28px",
-        display:"flex", flexDirection:"column", gap:10, alignItems:"center",
+        width: "100%",
+        padding: "14px 20px 28px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        alignItems: "center",
       }}>
         <div style={{
-          background:"linear-gradient(135deg, rgba(79,179,217,0.2), rgba(45,212,191,0.15))",
-          border:"1px solid rgba(79,179,217,0.5)",
-          borderRadius:16, padding:"12px 20px", width:"100%", textAlign:"center",
+          background: "linear-gradient(135deg, rgba(79,179,217,0.22), rgba(45,212,191,0.18))",
+          border: "1px solid rgba(79,179,217,0.5)",
+          borderRadius: 16,
+          padding: "12px 20px",
+          width: "100%",
+          textAlign: "center",
         }}>
-          <p style={{ color:"#fff", fontSize:14, fontWeight:600, margin:"0 0 4px" }}>
+          <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>
             👆 Hold your finger on the image for ~1s
           </p>
-          <p style={{ color:"rgba(255,255,255,0.5)", fontSize:12, margin:0 }}>
-            Then tap <strong style={{ color:"#fff" }}>"Save image"</strong> or <strong style={{ color:"#fff" }}>"Download"</strong>
+          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, margin: 0 }}>
+            Then tap <strong style={{ color: "#fff" }}>"Save image"</strong> or <strong style={{ color: "#fff" }}>"Download"</strong>
           </p>
         </div>
-        <button onClick={onClose} style={{
-          padding:"13px 40px", background:"rgba(255,255,255,0.08)",
-          border:"1px solid rgba(255,255,255,0.12)",
-          borderRadius:14, color:"rgba(255,255,255,0.7)", fontSize:15, fontWeight:600, cursor:"pointer",
-        }}>Done</button>
+        <button
+          onClick={onClose}
+          style={{
+            padding: "13px 40px",
+            background: "rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 14,
+            color: "rgba(255,255,255,0.7)",
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >Done</button>
       </div>
     </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+// iOS Toggle Component — animated icon morph like iOS Privacy Pane
+// ─────────────────────────────────────────────────────────────────────────────
+function IOSToggle({ checked, onChange, accent = "#4fb3d9", hapticEnabled = true }) {
+  const [pressed, setPressed] = useState(false);
+
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={() => { microHaptic(hapticEnabled); onChange(!checked); }}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerLeave={() => setPressed(false)}
+      style={{
+        width: 52,
+        height: 32,
+        borderRadius: 999,
+        border: "none",
+        cursor: "pointer",
+        padding: 0,
+        position: "relative",
+        background: checked
+          ? `linear-gradient(135deg, ${accent}, ${accent}cc)`
+          : "rgba(120,130,150,0.28)",
+        boxShadow: checked
+          ? `0 0 14px ${accent}55, inset 0 0 0 1px rgba(255,255,255,0.12)`
+          : "inset 0 0 0 1px rgba(255,255,255,0.06)",
+        transition: "background 320ms var(--ease-ios), box-shadow 320ms var(--ease-ios)",
+        overflow: "hidden",
+        flexShrink: 0,
+      }}
+    >
+      {/* Track glow */}
+      <span
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: 999,
+          background: checked
+            ? `radial-gradient(circle at 20% 50%, ${accent}44, transparent 60%)`
+            : "transparent",
+          opacity: checked ? 1 : 0,
+          transition: "opacity 360ms var(--ease-ios)",
+          pointerEvents: "none",
+        }}
+      />
+      {/* Thumb with expanding liquid */}
+      <span
+        style={{
+          position: "absolute",
+          top: 3,
+          left: checked ? 23 : 3,
+          width: pressed ? 32 : 26,
+          height: 26,
+          borderRadius: 999,
+          background: "#ffffff",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.28), 0 0 0 0.5px rgba(0,0,0,0.05)",
+          transition:
+            "left 380ms cubic-bezier(0.34, 1.56, 0.64, 1), " +
+            "width 260ms cubic-bezier(0.34, 1.56, 0.64, 1), " +
+            "transform 260ms var(--ease-spring)",
+          transform: pressed ? "translateX(-3px)" : "translateX(0)",
+          willChange: "left, width, transform",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* Morphing icon inside thumb */}
+        <span
+          key={checked ? "on" : "off"}
+          style={{
+            fontSize: 11,
+            color: checked ? accent : "#88909c",
+            fontWeight: 800,
+            animation: "iconMorphIn 360ms var(--ease-spring)",
+            display: "inline-block",
+            transformOrigin: "center",
+          }}
+        >
+          {checked ? "✓" : "✕"}
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -911,6 +1562,7 @@ export default function LuminaryPanels() {
   const avFileRef     = useRef(null);
   const bgFileRef     = useRef(null);
   const fileLoaderRef = useRef(null);
+  const settingsBtnRef = useRef(null);
   const texturePatternCacheRef = useRef(new Map());
 
   const [fontsOk, setFontsOk]         = useState(false);
@@ -924,13 +1576,14 @@ export default function LuminaryPanels() {
   const [newFontUrl, setNewFontUrl]   = useState("");
   const [mobileTab, setMobileTab]     = useState("assets");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsAnimState, setSettingsAnimState] = useState("closed"); // closed | opening | open | closing
+  const [settingsOrigin, setSettingsOrigin] = useState({ x: 50, y: 50 });
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isSliding, setIsSliding] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(72);
   const [previewDockHeight, setPreviewDockHeight] = useState(340);
-  const settingsSheetStartYRef = useRef(0);
-  const [settingsSheetDragY, setSettingsSheetDragY] = useState(0);
-  const [settingsSheetClosing, setSettingsSheetClosing] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({ animation: false, geometry: false });
+  const [expandedOverlayId, setExpandedOverlayId] = useState(null);
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
@@ -983,9 +1636,10 @@ export default function LuminaryPanels() {
     });
   };
 
-  const undo  = () => setHIndex(i => Math.max(0, i - 1));
-  const redo  = () => setHIndex(i => Math.min(history.length - 1, i + 1));
+  const undo  = () => { microHaptic(settings.hapticFeedback); setHIndex(i => Math.max(0, i - 1)); };
+  const redo  = () => { microHaptic(settings.hapticFeedback); setHIndex(i => Math.min(history.length - 1, i + 1)); };
   const reset = () => {
+    mediumHaptic(settings.hapticFeedback);
     const next = getLayoutDefaults(layoutMode, pillStyle);
     pushState({
       ...next,
@@ -1008,6 +1662,33 @@ export default function LuminaryPanels() {
       uiSliderRafRef.current[key] = null;
     });
   };
+
+  // Genie settings open/close
+  const openSettings = useCallback(() => {
+    const btn = settingsBtnRef.current;
+    if (btn) {
+      const r = btn.getBoundingClientRect();
+      setSettingsOrigin({
+        x: ((r.left + r.width / 2) / window.innerWidth) * 100,
+        y: ((r.top + r.height / 2) / window.innerHeight) * 100,
+      });
+    }
+    setSettingsOpen(true);
+    setSettingsAnimState("opening");
+    mediumHaptic(settings.hapticFeedback);
+    requestAnimationFrame(() => {
+      setTimeout(() => setSettingsAnimState("open"), 420);
+    });
+  }, [settings.hapticFeedback]);
+
+  const closeSettings = useCallback(() => {
+    setSettingsAnimState("closing");
+    mediumHaptic(settings.hapticFeedback);
+    setTimeout(() => {
+      setSettingsOpen(false);
+      setSettingsAnimState("closed");
+    }, 360);
+  }, [settings.hapticFeedback]);
 
   // ── Images ────────────────────────────────────────────────────────────────
   const [bgRawSrc, setBgRawSrc]         = useState(null);
@@ -1084,15 +1765,20 @@ export default function LuminaryPanels() {
         else if (e.key === "e") { e.preventDefault(); setEditMode(v => !v); }
         else if (e.key === "s") { e.preventDefault(); exportPNG(); }
       }
-      if (e.key === "Escape") { setEditMode(false); setCropSrc(null); setExportDataUrl(null); }
+      if (e.key === "Escape") {
+        setEditMode(false);
+        setCropSrc(null);
+        setExportDataUrl(null);
+        if (settingsOpen) closeSettings();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [settingsOpen, closeSettings]);
 
   useEffect(() => {
     if (!saveNotice) return;
-    const t = setTimeout(() => setSaveNotice(""), 2200);
+    const t = setTimeout(() => setSaveNotice(""), 2400);
     return () => clearTimeout(t);
   }, [saveNotice]);
 
@@ -1172,6 +1858,7 @@ export default function LuminaryPanels() {
     }
     setCropSrc(null);
     setCropTarget("avatar");
+    mediumHaptic(settings.hapticFeedback);
   };
 
   // ── Canvas Drag Helpers ───────────────────────────────────────────────────
@@ -1266,11 +1953,12 @@ export default function LuminaryPanels() {
     dragData.current = null;
   };
 
-  const addOverlay    = (type, content) => pushState({ overlays: [...s.overlays, { id: Date.now().toString(), type, content, x: s.pillW/2, y: s.pillH/2, size: 80, opacity: 100, rotation: 0, locked: false }] });
+  const addOverlay    = (type, content) => { microHaptic(settings.hapticFeedback); pushState({ overlays: [...s.overlays, { id: Date.now().toString(), type, content, x: s.pillW/2, y: s.pillH/2, size: 80, opacity: 100, rotation: 0, locked: false }] }); };
   const updateOverlay = (id, upd) => pushState({ overlays: s.overlays.map(o => o.id === id ? { ...o, ...upd } : o) });
-  const removeOverlay = (id)      => pushState({ overlays: s.overlays.filter(o => o.id !== id) });
+  const removeOverlay = (id)      => { microHaptic(settings.hapticFeedback); pushState({ overlays: s.overlays.filter(o => o.id !== id) }); };
 
   const saveCurrentToLibrary = () => {
+    mediumHaptic(settings.hapticFeedback);
     const snapshot = {
       id: Date.now().toString(),
       savedAt: Date.now(),
@@ -1281,10 +1969,12 @@ export default function LuminaryPanels() {
       pillStyle,
     };
     setProjectLibrary(prev => [snapshot, ...prev].slice(0, 12));
+    setSaveNotice("Saved to library");
   };
 
   const loadLibraryItem = (item) => {
     if (!item?.history?.length) return;
+    mediumHaptic(settings.hapticFeedback);
     setHistory(item.history);
     setHIndex(Math.max(0, Math.min(item.hIndex ?? item.history.length - 1, item.history.length - 1)));
     if (item.layoutMode) setLayoutMode(item.layoutMode);
@@ -1334,7 +2024,7 @@ export default function LuminaryPanels() {
     ctx.textAlign = (geo.isVertical) ? "center" : "left";
     ctx.clearRect(0, 0, W, H);
 
-    // ── Background ──
+    // Background
     ctx.save();
     roundedRectPath(ctx, 0, 0, W, H, geo.pillR);
     ctx.clip();
@@ -1498,7 +2188,7 @@ export default function LuminaryPanels() {
     }
     ctx.restore();
 
-    // ── Avatar ──
+    // Avatar
     if (s.showAvatar) {
       ctx.save();
       avatarClipPath(ctx, avCX, avCY, geo.avR, s.avShape || "circle");
@@ -1520,7 +2210,7 @@ export default function LuminaryPanels() {
       drawDynamicBorder(ctx, avCX, avCY, geo.avR, s.borderStyleId, s.avBorderClr, s.avBorderWidth, s.avBorderGap, s.avBorderParam1, s.avBorderParam2, s.avBorderEmojis);
     }
 
-    // ── Text ──
+    // Text
     ctx.save();
     roundedRectPath(ctx, 0, 0, W, H, geo.pillR); ctx.clip();
     ctx.font = `${s.fontWeight} ${s.fontSize}px ${s.font}`;
@@ -1538,7 +2228,7 @@ export default function LuminaryPanels() {
     }
     ctx.restore();
 
-    // ── Pill outline ──
+    // Pill outline
     if (s.pillBorderWidth > 0 && s.edgeBlur === 0) {
       ctx.save();
       roundedRectPath(ctx, 1, 1, W-2, H-2, geo.pillR > 1 ? geo.pillR - 1 : 0);
@@ -1548,13 +2238,15 @@ export default function LuminaryPanels() {
       ctx.restore();
     }
 
-    // ── Overlays ──
+    // Overlays
     ctx.save();
     roundedRectPath(ctx, 0, 0, W, H, geo.pillR); ctx.clip();
     s.overlays.forEach(ov => {
       let drawX = ov.x, drawY = ov.y;
       const opacity = Math.max(0, Math.min(100, ov.opacity ?? 100));
       const rotation = ov.rotation ?? 0;
+      const zoom = ov.zoom ?? 100;
+      const scaledSize = (ov.size * zoom) / 100;
       if (!isExport && dragData.current?.id === ov.id) {
         drawX = dragData.current.currOffX;
         drawY = dragData.current.currOffY;
@@ -1564,16 +2256,16 @@ export default function LuminaryPanels() {
       ctx.translate(drawX, drawY);
       ctx.rotate((rotation * Math.PI) / 180);
       if (ov.type === "emoji") {
-        ctx.font = `${ov.size}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.font = `${scaledSize}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText(ov.content, 0, 0);
       } else if (ov.type === "image" && loadedImages[ov.id]) {
-        ctx.drawImage(loadedImages[ov.id], -ov.size/2, -ov.size/2, ov.size, ov.size);
+        ctx.drawImage(loadedImages[ov.id], -scaledSize/2, -scaledSize/2, scaledSize, scaledSize);
       }
       ctx.restore();
       if (!isExport && editMode && !ov.locked) {
         ctx.strokeStyle = "rgba(10,132,254,0.7)";
         ctx.setLineDash([5, 5]); ctx.lineWidth = 2 / scaleMultiplier;
-        ctx.strokeRect(drawX - ov.size/2, drawY - ov.size/2, ov.size, ov.size);
+        ctx.strokeRect(drawX - scaledSize/2, drawY - scaledSize/2, scaledSize, scaledSize);
         ctx.setLineDash([]);
       }
     });
@@ -1628,6 +2320,7 @@ export default function LuminaryPanels() {
 
   const exportPNG = () => {
     try {
+      mediumHaptic(settings.hapticFeedback);
       const ec      = buildCanvas();
       const dataUrl = ec.toDataURL("image/png", 1.0);
 
@@ -1677,6 +2370,7 @@ export default function LuminaryPanels() {
         a.href = url; a.download = `Luminary_${Date.now()}.png`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setSaveNotice("Downloaded");
         return;
       } catch (_) {}
 
@@ -1686,6 +2380,7 @@ export default function LuminaryPanels() {
 
   const sharePNG = async () => {
     try {
+      mediumHaptic(settings.hapticFeedback);
       const ec      = buildCanvas();
       const dataUrl = ec.toDataURL("image/png", 1.0);
 
@@ -1726,33 +2421,31 @@ export default function LuminaryPanels() {
   // ── UI theme values ───────────────────────────────────────────────────────
   const ALL_FONTS  = [...FONTS, ...customFonts];
   const bCtrl      = getBorderControls(s.borderStyleId);
-  
-  // ── Resolve effective theme ───────────────────────────────────────────────
+
   const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemPrefersDark);
-  
+
   const accent = settings.uiAccent || "#4fb3d9";
   const accent2 = settings.uiAccent || "#2dd4bf";
-  
+
   const lightText = settings.lightText || "#2a3446";
   const textPrimary = isDark ? (settings.uiText || "#f0f9ff") : lightText;
-  const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}66` : `${lightText}99`;
+  const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}88` : `${lightText}99`;
   const uiBlurPxRaw = Math.max(10, Math.min(70, settings.uiBlurStrength ?? 34));
-  const uiDarkness  = Math.max(70, Math.min(98, settings.uiDarkness ?? 94));
-  const statusBoost = Math.max(0, Math.min(40, settings.statusBarBoost ?? 18));
+  const uiDarkness  = Math.max(70, Math.min(98, settings.uiDarkness ?? 92));
+  const statusBoost = Math.max(0, Math.min(40, settings.statusBarBoost ?? 10));
   const uiSaturation = Math.max(105, Math.min(180, settings.uiGlassSaturation ?? 126));
   const animationSmoothness = Math.max(50, Math.min(170, settings.animationSmoothness ?? 100));
   const animationSpeed = Math.max(40, Math.min(220, settings.animationSpeed ?? 100));
-  const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 24) : uiBlurPxRaw;
-  const shouldAnimate = !settings.performanceMode && settings.motionIntensity > 0;
+  // Keep blur moderate to avoid lag
+  const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 16) : Math.min(uiBlurPxRaw, 28);
   const speedFactor = 100 / animationSpeed;
-  const pulseDuration = `${Math.max(0.7, (2.4 / Math.max(0.35, settings.motionIntensity || 1)) * (animationSmoothness / 100) * speedFactor)}s`;
   const uiTransition = `${Math.max(0.11, (0.24 * (animationSmoothness / 100) * speedFactor).toFixed(2))}s cubic-bezier(0.22, 1, 0.36, 1)`;
   const creamControl = "rgba(255,255,255,0.9)";
   const creamCard = "rgba(255,255,255,0.84)";
   const creamBorder = "rgba(87,125,171,0.3)";
   const controlBg   = isDark ? `${accent}0f` : creamControl;
-  const cardBg      = isDark ? `${accent}08` : creamCard;
-  const cardBorder  = isDark ? `${accent}28` : creamBorder;
+  const cardBg      = isDark ? `${accent}12` : creamCard;
+  const cardBorder  = isDark ? `${accent}30` : creamBorder;
   const cardShadow  = isDark
     ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${accent}18`
     : `0 4px 16px rgba(79,179,217,0.15), 0 0 0 1px ${accent}28`;
@@ -1761,28 +2454,36 @@ export default function LuminaryPanels() {
     : (settings.lightBg || "linear-gradient(160deg,#fffdfa 0%,#f6fbff 35%,#eef7ff 62%,#f8f4ff 100%)");
 
   const inputSt = {
-    display:"block", width:"100%",
-    background:controlBg, border:`1px solid ${cardBorder}`,
-    borderRadius:10, color:textPrimary,
-    padding:"11px 14px", fontSize:15, outline:"none", fontFamily:"inherit",
-  };
-  const colIn = {
-    display:"block", width:"100%", height:44,
-    border:`1px solid ${cardBorder}`, borderRadius:10,
-    cursor:"pointer", background:controlBg, padding:2,
+    display: "block",
+    width: "100%",
+    background: controlBg,
+    border: `1px solid ${cardBorder}`,
+    borderRadius: 10,
+    color: textPrimary,
+    padding: "11px 14px",
+    fontSize: 15,
+    outline: "none",
+    fontFamily: "inherit",
+    transition: "border-color 200ms ease, background 200ms ease",
   };
   const outlineBtn = {
-    flex:1, background:controlBg,
-    border:`1px solid ${cardBorder}`,
-    borderRadius:12, color:textPrimary,
-    padding:"11px", cursor:"pointer",
-    fontSize:14, fontWeight:500, transition:`all ${uiTransition}`,
+    flex: 1,
+    background: controlBg,
+    border: `1px solid ${cardBorder}`,
+    borderRadius: 12,
+    color: textPrimary,
+    padding: "11px",
+    cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 500,
+    transition: `transform 180ms var(--ease-spring), background 200ms ease, border-color 200ms ease, color 200ms ease`,
+    transform: "translate3d(0,0,0)",
   };
-  const cp = { cardBg, cardBorder, textDim, accent, cardShadow, hardBlurUI: settings.hardBlurUI, uiBlurPx, uiDarkness };
+  const cp = { cardBg, cardBorder, textDim, accent, cardShadow, hardBlurUI: settings.hardBlurUI, uiBlurPx, uiDarkness, textPrimary };
 
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
-  const mobilePreviewOffset = Math.max(300, headerHeight + previewDockHeight + 26);
+  const mobilePreviewOffset = Math.max(340, headerHeight + previewDockHeight + 28);
   const [swipeDir, setSwipeDir] = useState(1);
   const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
 
@@ -1790,62 +2491,108 @@ export default function LuminaryPanels() {
     const nextIndex = MOBILE_TABS.indexOf(next);
     setSwipeDir(nextIndex >= tabIndex ? 1 : -1);
     setMobileTab(next);
+    microHaptic(settings.hapticFeedback);
   };
-
-  const closeSettingsSheet = useCallback(() => {
-    setSettingsSheetClosing(true);
-    setSettingsSheetDragY(0);
-    window.setTimeout(() => {
-      setSettingsOpen(false);
-      setSettingsSheetClosing(false);
-    }, 220);
-  }, []);
-
-  useEffect(() => {
-    if (settingsOpen) {
-      setSettingsSheetClosing(false);
-      setSettingsSheetDragY(0);
-    }
-  }, [settingsOpen]);
-
   // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
-      <div style={{ display:"flex", gap:8 }}>
-        <FRow label={`Width — ${s.pillW}px`} textDim={textDim} onReset={() => pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW })}>
-          <input type="number" max={GEOMETRY_LIMITS.maxW} value={s.pillW}
-            onChange={e => pushState({ pillW: Math.min(GEOMETRY_LIMITS.maxW, Math.max(1, +e.target.value || 1)) })}
-            style={inputSt} />
-          <input
-            type="range"
-            step="1"
-            min={GEOMETRY_LIMITS.minW}
-            max={GEOMETRY_LIMITS.maxW}
-            value={s.pillW}
-            onChange={e => pushState({ pillW: +e.target.value })}
-            style={{ marginTop:8 }}
-          />
-        </FRow>
-        <FRow label={`Height — ${s.pillH}px`} textDim={textDim} onReset={() => pushState({ pillH: getLayoutDefaults(layoutMode, pillStyle).pillH })}>
-          <input type="number" min={GEOMETRY_LIMITS.minH} max={GEOMETRY_LIMITS.maxH} value={s.pillH}
-            onChange={e => pushState({ pillH: Math.max(GEOMETRY_LIMITS.minH, Math.min(GEOMETRY_LIMITS.maxH, +e.target.value)) })}
-            style={inputSt} />
-          <input
-            type="range"
-            step="1"
-            min={GEOMETRY_LIMITS.minH}
-            max={GEOMETRY_LIMITS.maxH}
-            value={s.pillH}
-            onChange={e => pushState({ pillH: +e.target.value })}
-            style={{ marginTop:8 }}
-          />
-        </FRow>
-      </div>
-      <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim} onReset={() => pushState({ pillR: getLayoutDefaults(layoutMode, pillStyle).pillR })}>
-        <input type="range" step="1" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
-          value={Math.min(s.pillR, Math.floor(Math.min(s.pillW, s.pillH)/2))}
-          onChange={e => pushState({ pillR: +e.target.value })} />
-      </FRow>
+      <button
+        className="btn-bouncy"
+        onClick={() => { microHaptic(settings.hapticFeedback); setExpandedSections(prev => ({ ...prev, geometry: !prev.geometry })); }}
+        style={{
+          width: "100%",
+          padding: "13px 16px",
+          borderRadius: 14,
+          border: `1.5px solid ${expandedSections.geometry ? accent : cardBorder}`,
+          background: expandedSections.geometry
+            ? `linear-gradient(135deg, ${accent}18, ${accent}08)`
+            : controlBg,
+          color: textPrimary,
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 12,
+          userSelect: "none",
+          boxShadow: expandedSections.geometry ? `0 4px 20px ${accent}22` : "none",
+          transition: `background 300ms var(--ease-ios), border-color 280ms var(--ease-ios), box-shadow 300ms ease`,
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{
+            width: 28, height: 28, borderRadius: 8,
+            background: expandedSections.geometry ? `${accent}28` : "rgba(128,140,160,0.14)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13, transition: "background 220ms ease",
+          }}>📐</span>
+          <span style={{ fontSize: 12.5 }}>
+            {s.pillW}×{s.pillH}px · R:{s.pillR}px
+          </span>
+        </span>
+        <span className="chevron-morph" style={{
+          transform: `rotate(${expandedSections.geometry ? 180 : 0}deg)`,
+          fontSize: 11,
+          opacity: 0.6,
+        }}>▼</span>
+      </button>
+
+      {expandedSections.geometry && (
+        <div style={{ animation: "bouncySlideDown 480ms var(--ease-spring)", transformOrigin: "top center" }}>
+          <div style={{ display:"flex", gap:8, marginBottom: 14 }}>
+            <FRow label={`Width — ${s.pillW}px`} textDim={textDim} onReset={() => pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW })}>
+              <DimensionInput
+                value={s.pillW}
+                min={GEOMETRY_LIMITS.minW}
+                max={GEOMETRY_LIMITS.maxW}
+                onConfirm={v => pushState({ pillW: Math.min(GEOMETRY_LIMITS.maxW, Math.max(GEOMETRY_LIMITS.minW, v)) })}
+                accent={accent}
+                textPrimary={textPrimary}
+                controlBg={controlBg}
+                cardBorder={cardBorder}
+              />
+              <input
+                type="range"
+                className="ios-slider"
+                step="1"
+                min={GEOMETRY_LIMITS.minW}
+                max={GEOMETRY_LIMITS.maxW}
+                value={s.pillW}
+                onChange={e => pushState({ pillW: +e.target.value })}
+                style={{ marginTop:8, width:"100%" }}
+              />
+            </FRow>
+            <FRow label={`Height — ${s.pillH}px`} textDim={textDim} onReset={() => pushState({ pillH: getLayoutDefaults(layoutMode, pillStyle).pillH })}>
+              <DimensionInput
+                value={s.pillH}
+                min={GEOMETRY_LIMITS.minH}
+                max={GEOMETRY_LIMITS.maxH}
+                onConfirm={v => pushState({ pillH: Math.max(GEOMETRY_LIMITS.minH, Math.min(GEOMETRY_LIMITS.maxH, v)) })}
+                accent={accent}
+                textPrimary={textPrimary}
+                controlBg={controlBg}
+                cardBorder={cardBorder}
+              />
+              <input
+                type="range"
+                className="ios-slider"
+                step="1"
+                min={GEOMETRY_LIMITS.minH}
+                max={GEOMETRY_LIMITS.maxH}
+                value={s.pillH}
+                onChange={e => pushState({ pillH: +e.target.value })}
+                style={{ marginTop:8, width:"100%" }}
+              />
+            </FRow>
+          </div>
+          <FRow label={`Corner Radius — ${s.pillR}px`} textDim={textDim} onReset={() => pushState({ pillR: getLayoutDefaults(layoutMode, pillStyle).pillR })}>
+            <input type="range" className="ios-slider" step="1" min={0} max={Math.floor(Math.min(s.pillW, s.pillH)/2)}
+              value={Math.min(s.pillR, Math.floor(Math.min(s.pillW, s.pillH)/2))}
+              onChange={e => pushState({ pillR: +e.target.value })} style={{width:"100%"}} />
+          </FRow>
+        </div>
+      )}
     </Card>
   );
 
@@ -1855,35 +2602,40 @@ export default function LuminaryPanels() {
         <ColorField value={s.pillBgColor || "#1c1c1e"}
           alpha={s.pillBgAlpha ?? 100}
           onAlphaChange={v => pushState({ pillBgAlpha: v })}
-          onChange={v => pushState({ pillBgColor: v })} />
+          onChange={v => pushState({ pillBgColor: v })} textPrimary={textPrimary} />
       </FRow>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Pill Border — ${s.pillBorderWidth}px`} textDim={textDim} onReset={() => pushState({ pillBorderWidth: 0 })}>
-          <input type="range" step="1" min={0} max={10} value={s.pillBorderWidth}
-            onChange={e => pushState({ pillBorderWidth: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={0} max={10} value={s.pillBorderWidth}
+            onChange={e => pushState({ pillBorderWidth: +e.target.value })} style={{width:"100%"}} />
         </FRow>
         <FRow label="Border Color" textDim={textDim}>
           <ColorField value={s.pillBorderClr || "#ffffff"}
             alpha={s.pillBorderAlpha ?? 100}
             onAlphaChange={v => pushState({ pillBorderAlpha: v })}
-            onChange={v => pushState({ pillBorderClr: v })} />
+            onChange={v => pushState({ pillBorderClr: v })} textPrimary={textPrimary} />
         </FRow>
       </div>
       <Sep cardBorder={cardBorder} />
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Image Blur — ${s.bgBlur}px`} textDim={textDim} onReset={() => pushState({ bgBlur: 0 })}>
-          <input type="range" step="1" min={0} max={60} value={s.bgBlur}
-            onChange={e => pushState({ bgBlur: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={0} max={60} value={s.bgBlur}
+            onChange={e => pushState({ bgBlur: +e.target.value })} style={{width:"100%"}} />
         </FRow>
         <FRow label="Img Mode" textDim={textDim}>
           <div style={{ display:"flex", gap:8 }}>
             {[{l:"Contain",v:false},{l:"Stretch",v:true}].map(o => (
               <button key={o.l} onClick={() => pushState({ bgStretch: o.v })}
                 style={{
-                  flex:1, padding:"10px", borderRadius:10, border: s.bgStretch === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                  background: s.bgStretch === o.v ? `${accent}18` : controlBg,
+                  flex:1,
+                  padding:"10px",
+                  borderRadius:10,
+                  border: s.bgStretch === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.bgStretch === o.v ? `${accent}22` : controlBg,
                   color: s.bgStretch === o.v ? accent : textPrimary,
-                  fontWeight:600, fontSize:12, cursor:"pointer", transition:"all 0.15s",
+                  fontWeight:600, fontSize:12, cursor:"pointer",
+                  transition:`all 200ms var(--ease-ios)`,
+                  transform: s.bgStretch === o.v ? "scale(1.03)" : "scale(1)",
                 }}>
                 {o.l}
               </button>
@@ -1893,41 +2645,41 @@ export default function LuminaryPanels() {
       </div>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Brightness — ${s.bgBrightness ?? 100}%`} textDim={textDim} onReset={() => pushState({ bgBrightness: 100 })}>
-          <input type="range" step="1" min={40} max={220} value={s.bgBrightness ?? 100} onChange={e => pushState({ bgBrightness: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={40} max={220} value={s.bgBrightness ?? 100} onChange={e => pushState({ bgBrightness: +e.target.value })} style={{width:"100%"}} />
         </FRow>
         <FRow label={`Saturation — ${s.bgSaturation ?? 100}%`} textDim={textDim} onReset={() => pushState({ bgSaturation: 100 })}>
-          <input type="range" step="1" min={0} max={220} value={s.bgSaturation ?? 100} onChange={e => pushState({ bgSaturation: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={0} max={220} value={s.bgSaturation ?? 100} onChange={e => pushState({ bgSaturation: +e.target.value })} style={{width:"100%"}} />
         </FRow>
       </div>
       <FRow label={`Contrast — ${s.bgContrast ?? 100}%`} textDim={textDim} onReset={() => pushState({ bgContrast: 100 })}>
-        <input type="range" step="1" min={40} max={220} value={s.bgContrast ?? 100} onChange={e => pushState({ bgContrast: +e.target.value })} />
+        <input type="range" className="ios-slider" step="1" min={40} max={220} value={s.bgContrast ?? 100} onChange={e => pushState({ bgContrast: +e.target.value })} style={{width:"100%"}} />
       </FRow>
       {!s.bgStretch && (
         <div style={{ display:"flex", gap:8 }}>
           <FRow label={`Img X (${s.bgImgX}px)`} textDim={textDim}>
-            <input type="range" step="1" min={-500} max={500} value={s.bgImgX} onChange={e => pushState({ bgImgX: +e.target.value })} />
+            <input type="range" className="ios-slider" step="1" min={-500} max={500} value={s.bgImgX} onChange={e => pushState({ bgImgX: +e.target.value })} style={{width:"100%"}} />
           </FRow>
           <FRow label={`Img Y (${s.bgImgY}px)`} textDim={textDim}>
-            <input type="range" step="1" min={-500} max={500} value={s.bgImgY} onChange={e => pushState({ bgImgY: +e.target.value })} />
+            <input type="range" className="ios-slider" step="1" min={-500} max={500} value={s.bgImgY} onChange={e => pushState({ bgImgY: +e.target.value })} style={{width:"100%"}} />
           </FRow>
         </div>
       )}
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Vignette — ${s.edgeBlur}%`} textDim={textDim} onReset={() => pushState({ edgeBlur: 0 })}>
-          <input type="range" step="1" min={0} max={100} value={s.edgeBlur} onChange={e => pushState({ edgeBlur: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={0} max={100} value={s.edgeBlur} onChange={e => pushState({ edgeBlur: +e.target.value })} style={{width:"100%"}} />
         </FRow>
         <FRow label="Vignette Tint" textDim={textDim}>
-          <ColorField value={s.edgeColor || "#000000"} alpha={s.edgeAlpha ?? 100} onAlphaChange={v => pushState({ edgeAlpha: v })} onChange={v => pushState({ edgeColor: v })} />
+          <ColorField value={s.edgeColor || "#000000"} alpha={s.edgeAlpha ?? 100} onAlphaChange={v => pushState({ edgeAlpha: v })} onChange={v => pushState({ edgeColor: v })} textPrimary={textPrimary} />
         </FRow>
       </div>
-      <label style={{ display:"flex", alignItems:"center", gap:10, fontSize:14, color:textPrimary, cursor:"pointer", minHeight:44 }}>
-        <input type="checkbox" checked={advancedMode} onChange={e => setAdvancedMode(e.target.checked)} />
-        Advanced Image Blending
-      </label>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, minHeight:44, marginBottom:8 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Advanced Image Blending</span>
+        <IOSToggle checked={advancedMode} onChange={setAdvancedMode} accent={accent} hapticEnabled={settings.hapticFeedback} />
+      </div>
       <Sep cardBorder={cardBorder} />
       <FRow label="Texture Preset" textDim={textDim}>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-          {TEXTURES.map(t => {
+          {TEXTURES.map((t, idx) => {
             const isActive = (s.textureId || "none") === t.id;
             const previewStyle = {
               width:"100%", height:52, borderRadius:10, marginBottom:5,
@@ -1944,14 +2696,21 @@ export default function LuminaryPanels() {
                         : "radial-gradient(circle at 40% 42%,rgba(255,255,255,0.18),rgba(255,255,255,0.02))",
             };
             return (
-              <button key={t.id} onClick={() => pushState({ textureId: t.id })}
+              <button key={t.id} onClick={() => { microHaptic(settings.hapticFeedback); pushState({ textureId: t.id }); }}
                 style={{
-                  padding:"8px 6px 7px", borderRadius:12, cursor:"pointer",
+                  padding:"8px 6px 7px",
+                  borderRadius:12,
+                  cursor:"pointer",
                   border: isActive ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                  background: isActive ? `rgba(79,179,217,0.12)` : controlBg,
-                  color: isActive ? "#fff" : textPrimary,
-                  display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-                  transition:"all 0.15s",
+                  background: isActive ? `${accent}22` : controlBg,
+                  color: isActive ? accent : textPrimary,
+                  display:"flex",
+                  flexDirection:"column",
+                  alignItems:"center",
+                  gap:3,
+                  transition:"transform 200ms var(--ease-spring), background 200ms ease, border-color 200ms ease",
+                  transform: isActive ? "scale(1.05)" : "scale(1)",
+                  animation: `fadeIn 300ms var(--ease-ios) ${idx * 20}ms backwards`,
                 }}>
                 <div style={previewStyle} />
                 <span style={{ fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:0.5, opacity: isActive ? 1 : 0.7 }}>{t.label}</span>
@@ -1963,26 +2722,30 @@ export default function LuminaryPanels() {
       {s.textureId !== "none" && (
         <>
           <FRow label={`Texture Opacity — ${s.textureOpacity}%`} textDim={textDim} onReset={() => pushState({ textureOpacity: 65 })}>
-            <input type="range" step="1" min={0} max={100} value={s.textureOpacity} onChange={e => pushState({ textureOpacity: +e.target.value })} />
+            <input type="range" className="ios-slider" step="1" min={0} max={100} value={s.textureOpacity} onChange={e => pushState({ textureOpacity: +e.target.value })} style={{width:"100%"}} />
           </FRow>
           <FRow label="Texture Tint Color" textDim={textDim} onReset={() => pushState({ textureTint: "#ffd8ef" })}>
-            <ColorField value={s.textureTint || "#ffd8ef"} onChange={v => pushState({ textureTint: v })} />
+            <ColorField value={s.textureTint || "#ffd8ef"} onChange={v => pushState({ textureTint: v })} textPrimary={textPrimary} />
           </FRow>
         </>
       )}
       <FRow label={`Bottom Blur Glow — ${s.pillBottomBlur ?? 0}px`} textDim={textDim} onReset={() => pushState({ pillBottomBlur: 0 })}>
-        <input type="range" step="1" min={0} max={40} value={s.pillBottomBlur ?? 0} onChange={e => pushState({ pillBottomBlur: +e.target.value })} />
+        <input type="range" className="ios-slider" step="1" min={0} max={40} value={s.pillBottomBlur ?? 0} onChange={e => pushState({ pillBottomBlur: +e.target.value })} style={{width:"100%"}} />
       </FRow>
       {advancedMode && (
         <FRow label="Blend Mode (Requires BG Color)" textDim={textDim}>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, maxHeight:150, overflowY:"auto" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6, maxHeight:150, overflowY:"auto", animation: "slideDown 280ms var(--ease-ios)" }}>
             {BLEND_MODES.map(m => (
               <button key={m} onClick={() => pushState({ bgBlend: m })}
                 style={{
-                  padding:"8px", borderRadius:8, border: s.bgBlend === m ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                  background: s.bgBlend === m ? `${accent}18` : controlBg,
+                  padding:"8px",
+                  borderRadius:8,
+                  border: s.bgBlend === m ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.bgBlend === m ? `${accent}22` : controlBg,
                   color: s.bgBlend === m ? accent : textPrimary,
-                  fontWeight:600, fontSize:9, cursor:"pointer", transition:"all 0.15s", minHeight:36,
+                  fontWeight:600, fontSize:9, cursor:"pointer",
+                  transition:"all 180ms var(--ease-ios)",
+                  minHeight:36,
                 }}>
                 {m}
               </button>
@@ -1997,30 +2760,16 @@ export default function LuminaryPanels() {
     <Card label="Avatar & Element Geometry" {...cp}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
         <span style={{ fontSize:14, color:textPrimary, fontWeight:600 }}>Show Avatar Circle</span>
-        <button
-          onClick={() => pushState({ showAvatar: !s.showAvatar })}
-          style={{
-            width:52, height:28, borderRadius:14, border:"none", cursor:"pointer",
-            background: s.showAvatar ? accent : "rgba(255,255,255,0.15)",
-            position:"relative", transition:"background 0.2s",
-          }}
-        >
-          <span style={{
-            position:"absolute", top:3, left: s.showAvatar ? 26 : 2,
-            width:22, height:22, borderRadius:"50%",
-            background:"#fff", transition:"left 0.2s",
-            boxShadow:"0 1px 4px rgba(0,0,0,0.4)",
-          }} />
-        </button>
+        <IOSToggle checked={s.showAvatar} onChange={(v) => pushState({ showAvatar: v })} accent={accent} hapticEnabled={settings.hapticFeedback} />
       </div>
 
       {s.showAvatar && (
-        <>
+        <div style={{ animation: "slideDown 320ms var(--ease-ios)" }}>
           <FRow label="Circle Fill Color" textDim={textDim}>
             <ColorField value={s.avBgColor || "#2c2c2e"}
               alpha={s.avBgAlpha ?? 100}
               onAlphaChange={v => pushState({ avBgAlpha: v })}
-              onChange={v => pushState({ avBgColor: v })} />
+              onChange={v => pushState({ avBgColor: v })} textPrimary={textPrimary} />
           </FRow>
           <FRow label="Avatar Cutout Shape" textDim={textDim}>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:6 }}>
@@ -2032,7 +2781,7 @@ export default function LuminaryPanels() {
                 { id:"lightning", label:"Lightning" },
                 { id:"flower", label:"Flower" },
               ].map(shape => (
-                <button key={shape.id} onClick={() => pushState({ avShape: shape.id })}
+                <button key={shape.id} onClick={() => { microHaptic(settings.hapticFeedback); pushState({ avShape: shape.id }); }}
                   style={{
                     ...outlineBtn,
                     padding:"8px 4px",
@@ -2040,6 +2789,8 @@ export default function LuminaryPanels() {
                     fontSize:11,
                     background: (s.avShape || "circle") === shape.id ? `${accent}24` : controlBg,
                     border: (s.avShape || "circle") === shape.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                    color: (s.avShape || "circle") === shape.id ? accent : textPrimary,
+                    transform: (s.avShape || "circle") === shape.id ? "scale(1.05)" : "scale(1)",
                   }}>
                   {shape.label}
                 </button>
@@ -2048,46 +2799,46 @@ export default function LuminaryPanels() {
           </FRow>
           <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Circle Size — ${avDiamPx}px (${s.circScale}%)`} textDim={textDim} onReset={() => pushState({ circScale: 100 })}>
-              <input type="range" step="1" min={20} max={150} value={s.circScale}
-                onChange={e => pushState({ circScale: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={20} max={150} value={s.circScale}
+                onChange={e => pushState({ circScale: +e.target.value })} style={{width:"100%"}} />
             </FRow>
             <FRow label={`Image Zoom — ${s.avScale}%`} textDim={textDim} onReset={() => pushState({ avScale: 100 })}>
-              <input type="range" step="1" min={20} max={300} value={s.avScale}
-                onChange={e => pushState({ avScale: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={20} max={300} value={s.avScale}
+                onChange={e => pushState({ avScale: +e.target.value })} style={{ width:"100%" }} />
             </FRow>
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Pos X — ${Math.round(s.circX)}px`} textDim={textDim} onReset={() => pushState({ circX: 0 })}>
-              <input type="range" step="1" min={-400} max={400} value={s.circX}
-                onChange={e => pushState({ circX: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={-400} max={400} value={s.circX}
+                onChange={e => pushState({ circX: +e.target.value })} style={{width:"100%"}} />
             </FRow>
             <FRow label={`Pos Y — ${Math.round(s.circY)}px`} textDim={textDim} onReset={() => pushState({ circY: 0 })}>
-              <input type="range" step="1" min={-400} max={400} value={s.circY}
-                onChange={e => pushState({ circY: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={-400} max={400} value={s.circY}
+                onChange={e => pushState({ circY: +e.target.value })} style={{width:"100%"}} />
             </FRow>
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Img Offset X — ${s.avImgX}`} textDim={textDim} onReset={() => pushState({ avImgX: 0 })}>
-              <input type="range" step="1" min={-200} max={200} value={s.avImgX}
-                onChange={e => pushState({ avImgX: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={-200} max={200} value={s.avImgX}
+                onChange={e => pushState({ avImgX: +e.target.value })} style={{width:"100%"}} />
             </FRow>
             <FRow label={`Img Offset Y — ${s.avImgY}`} textDim={textDim} onReset={() => pushState({ avImgY: 0 })}>
-              <input type="range" step="1" min={-200} max={200} value={s.avImgY}
-                onChange={e => pushState({ avImgY: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={-200} max={200} value={s.avImgY}
+                onChange={e => pushState({ avImgY: +e.target.value })} style={{width:"100%"}} />
             </FRow>
           </div>
           <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Brightness — ${s.avBrightness ?? 100}%`} textDim={textDim} onReset={() => pushState({ avBrightness: 100 })}>
-              <input type="range" step="1" min={40} max={220} value={s.avBrightness ?? 100} onChange={e => pushState({ avBrightness: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={40} max={220} value={s.avBrightness ?? 100} onChange={e => pushState({ avBrightness: +e.target.value })} style={{width:"100%"}} />
             </FRow>
             <FRow label={`Saturation — ${s.avSaturation ?? 100}%`} textDim={textDim} onReset={() => pushState({ avSaturation: 100 })}>
-              <input type="range" step="1" min={0} max={220} value={s.avSaturation ?? 100} onChange={e => pushState({ avSaturation: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={0} max={220} value={s.avSaturation ?? 100} onChange={e => pushState({ avSaturation: +e.target.value })} style={{width:"100%"}} />
             </FRow>
           </div>
           <FRow label={`Contrast — ${s.avContrast ?? 100}%`} textDim={textDim} onReset={() => pushState({ avContrast: 100 })}>
-            <input type="range" step="1" min={40} max={220} value={s.avContrast ?? 100} onChange={e => pushState({ avContrast: +e.target.value })} />
+            <input type="range" className="ios-slider" step="1" min={40} max={220} value={s.avContrast ?? 100} onChange={e => pushState({ avContrast: +e.target.value })} style={{width:"100%"}} />
           </FRow>
-        </>
+        </div>
       )}
     </Card>
   );
@@ -2095,15 +2846,23 @@ export default function LuminaryPanels() {
   const panelBorder = s.showAvatar ? (
     <Card label="Avatar Border" {...cp}>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:14 }}>
-        {BORDERS.map(b => (
-          <button key={b.id} onClick={() => pushState({ borderStyleId: b.id })}
+        {BORDERS.map((b, idx) => (
+          <button key={b.id} onClick={() => { microHaptic(settings.hapticFeedback); pushState({ borderStyleId: b.id }); }}
             style={{
-              padding:"9px 2px", borderRadius:10, cursor:"pointer",
+              padding:"9px 2px",
+              borderRadius:10,
+              cursor:"pointer",
               border: s.borderStyleId === b.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
-              color: s.borderStyleId === b.id ? "#fff" : textPrimary,
-              background: s.borderStyleId === b.id ? `rgba(10,132,255,0.18)` : controlBg,
-              transition:"all 0.15s", minHeight:54,
+              display:"flex",
+              flexDirection:"column",
+              alignItems:"center",
+              gap:3,
+              color: s.borderStyleId === b.id ? accent : textPrimary,
+              background: s.borderStyleId === b.id ? `${accent}22` : controlBg,
+              transition:"transform 200ms var(--ease-spring), background 200ms ease, border-color 200ms ease, color 200ms ease",
+              transform: s.borderStyleId === b.id ? "scale(1.06)" : "scale(1)",
+              minHeight:54,
+              animation: `fadeIn 280ms var(--ease-ios) ${idx * 15}ms backwards`,
             }}>
             <span style={{ fontSize:15 }}>{b.icon}</span>
             <span style={{ fontSize:9.5 }}>{b.label}</span>
@@ -2111,25 +2870,25 @@ export default function LuminaryPanels() {
         ))}
       </div>
       {s.borderStyleId !== "none" && (
-        <React.Fragment>
+        <div style={{ animation: "slideDown 280ms var(--ease-ios)" }}>
           <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Thickness: ${s.avBorderWidth}px`} textDim={textDim} onReset={() => pushState({ avBorderWidth: 3 })}>
-              <input type="range" step="1" min={1} max={20} value={s.avBorderWidth}
-                onChange={e => pushState({ avBorderWidth: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={1} max={20} value={s.avBorderWidth}
+                onChange={e => pushState({ avBorderWidth: +e.target.value })} style={{width:"100%"}} />
             </FRow>
             <FRow label={`Gap: ${s.avBorderGap}px`} textDim={textDim} onReset={() => pushState({ avBorderGap: 0 })}>
-              <input type="range" step="1" min={-10} max={30} value={s.avBorderGap}
-                onChange={e => pushState({ avBorderGap: +e.target.value })} />
+              <input type="range" className="ios-slider" step="1" min={-10} max={30} value={s.avBorderGap}
+                onChange={e => pushState({ avBorderGap: +e.target.value })} style={{width:"100%"}} />
             </FRow>
           </div>
-          {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" step="1" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e => pushState({ avBorderParam1: +e.target.value })} /></FRow>}
-          {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" step="1" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} /></FRow>}
+          {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" className="ios-slider" step="1" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e => pushState({ avBorderParam1: +e.target.value })} style={{width:"100%"}} /></FRow>}
+          {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" className="ios-slider" step="1" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} style={{width:"100%"}} /></FRow>}
           {bCtrl.hasText && <FRow label="Emojis" textDim={textDim}><TxIn value={s.avBorderEmojis} onChange={v => pushState({ avBorderEmojis: v })} inputSt={inputSt} /></FRow>}
           <FRow label="Border Color" textDim={textDim}>
-          <ColorField value={s.avBorderClr || "#ffffff"}
-              onChange={v => pushState({ avBorderClr: v })} />
+            <ColorField value={s.avBorderClr || "#ffffff"}
+                onChange={v => pushState({ avBorderClr: v })} textPrimary={textPrimary} />
           </FRow>
-        </React.Fragment>
+        </div>
       )}
     </Card>
   ) : null;
@@ -2152,12 +2911,20 @@ export default function LuminaryPanels() {
       <FRow label="Font Family" textDim={textDim}>
         <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, maxHeight:200, overflowY:"auto", paddingRight:4 }}>
           {ALL_FONTS.map((f, i) => (
-            <button key={i} onClick={() => pushState({ font: f.value })}
+            <button key={i} onClick={() => { microHaptic(settings.hapticFeedback); pushState({ font: f.value }); }}
               style={{
-                padding:"12px 10px", borderRadius:10, border: s.font === f.value ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                background: s.font === f.value ? `${accent}18` : controlBg,
+                padding:"12px 10px",
+                borderRadius:10,
+                border: s.font === f.value ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: s.font === f.value ? `${accent}22` : controlBg,
                 color: s.font === f.value ? accent : textPrimary,
-                fontFamily: f.value, fontSize:13, fontWeight:600, cursor:"pointer", transition:"all 0.15s", minHeight:44,
+                fontFamily: f.value,
+                fontSize:13,
+                fontWeight:600,
+                cursor:"pointer",
+                transition:"all 220ms var(--ease-ios)",
+                transform: s.font === f.value ? "scale(1.02)" : "scale(1)",
+                minHeight:44,
               }}>
               {f.label}
             </button>
@@ -2166,18 +2933,22 @@ export default function LuminaryPanels() {
       </FRow>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Size: ${s.fontSize}px`} textDim={textDim} onReset={() => pushState({ fontSize: getLayoutDefaults(layoutMode, pillStyle).fontSize })}>
-          <input type="range" step="1" min={10} max={150} value={s.fontSize}
-            onChange={e => pushState({ fontSize: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={10} max={150} value={s.fontSize}
+            onChange={e => pushState({ fontSize: +e.target.value })} style={{width:"100%"}} />
         </FRow>
         <FRow label={`Weight: ${s.fontWeight}`} textDim={textDim} onReset={() => pushState({ fontWeight: getLayoutDefaults(layoutMode, pillStyle).fontWeight })}>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6 }}>
             {[{l:"L",v:300},{l:"R",v:400},{l:"M",v:500},{l:"SB",v:600},{l:"B",v:700}].map(o => (
               <button key={o.v} onClick={() => pushState({ fontWeight: o.v })}
                 style={{
-                  padding:"8px", borderRadius:8, border: s.fontWeight === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                  background: s.fontWeight === o.v ? `${accent}18` : controlBg,
+                  padding:"8px",
+                  borderRadius:8,
+                  border: s.fontWeight === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                  background: s.fontWeight === o.v ? `${accent}22` : controlBg,
                   color: s.fontWeight === o.v ? accent : textPrimary,
-                  fontWeight:o.v, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+                  fontWeight:o.v, fontSize:11, cursor:"pointer",
+                  transition:"all 200ms var(--ease-ios)",
+                  transform: s.fontWeight === o.v ? "scale(1.08)" : "scale(1)",
                 }}>
                 {o.l}
               </button>
@@ -2190,14 +2961,14 @@ export default function LuminaryPanels() {
           <ColorField value={s.textClr || "#ffffff"}
             alpha={s.textAlpha ?? 100}
             onAlphaChange={v => pushState({ textAlpha: v })}
-            onChange={v => pushState({ textClr: v })} />
+            onChange={v => pushState({ textClr: v })} textPrimary={textPrimary} />
         </FRow>
         <FRow label="Glow Color" textDim={textDim}>
           <ColorField
             value={s.glowClr && s.glowClr !== "transparent" ? s.glowClr : "#ffffff"}
             alpha={s.glowAlpha ?? 100}
             onAlphaChange={v => pushState({ glowAlpha: v })}
-            onChange={v => pushState({ glowClr: v })} />
+            onChange={v => pushState({ glowClr: v })} textPrimary={textPrimary} />
         </FRow>
       </div>
       <div style={{ display:"flex", gap:8 }}>
@@ -2207,23 +2978,24 @@ export default function LuminaryPanels() {
             alpha={s.subTextAlpha ?? 100}
             onAlphaChange={v => pushState({ subTextAlpha: v })}
             onChange={v => pushState({ subTextClr: v })}
+            textPrimary={textPrimary}
           />
         </FRow>
         <FRow label={`Sub Pos X — ${Math.round(s.subTextX || 0)}px`} textDim={textDim} onReset={() => pushState({ subTextX: 0 })}>
-          <input type="range" step="1" min={-260} max={260} value={s.subTextX || 0} onChange={e => pushState({ subTextX: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={-260} max={260} value={s.subTextX || 0} onChange={e => pushState({ subTextX: +e.target.value })} style={{width:"100%"}} />
         </FRow>
       </div>
       <FRow label={`Sub Pos Y — ${Math.round(s.subTextY || 0)}px`} textDim={textDim} onReset={() => pushState({ subTextY: 0 })}>
-        <input type="range" step="1" min={-260} max={260} value={s.subTextY || 0} onChange={e => pushState({ subTextY: +e.target.value })} />
+        <input type="range" className="ios-slider" step="1" min={-260} max={260} value={s.subTextY || 0} onChange={e => pushState({ subTextY: +e.target.value })} style={{width:"100%"}} />
       </FRow>
       <div style={{ display:"flex", gap:8 }}>
         <FRow label={`Pos X — ${Math.round(s.textX)}px`} textDim={textDim} onReset={() => pushState({ textX: 0 })}>
-          <input type="range" step="1" min={-400} max={400} value={s.textX}
-            onChange={e => pushState({ textX: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={-400} max={400} value={s.textX}
+            onChange={e => pushState({ textX: +e.target.value })} style={{width:"100%"}} />
         </FRow>
         <FRow label={`Pos Y — ${Math.round(s.textY)}px`} textDim={textDim} onReset={() => pushState({ textY: 0 })}>
-          <input type="range" step="1" min={-400} max={400} value={s.textY}
-            onChange={e => pushState({ textY: +e.target.value })} />
+          <input type="range" className="ios-slider" step="1" min={-400} max={400} value={s.textY}
+            onChange={e => pushState({ textY: +e.target.value })} style={{width:"100%"}} />
         </FRow>
       </div>
       <Sep cardBorder={cardBorder} />
@@ -2235,13 +3007,19 @@ export default function LuminaryPanels() {
           {l:"↙",dx:-10,dy:10},{l:"↓",dx:0,dy:10},{l:"↘",dx:10,dy:10},
         ].map((b, i) => (
           <button key={i}
-            onClick={() => pushState({ textX: b.r ? 0 : s.textX + b.dx, textY: b.r ? 0 : s.textY + b.dy })}
+            onClick={() => { microHaptic(settings.hapticFeedback); pushState({ textX: b.r ? 0 : s.textX + b.dx, textY: b.r ? 0 : s.textY + b.dy }); }}
             style={{
-              height:42, borderRadius:8, cursor:"pointer",
+              height:42,
+              borderRadius:8,
+              cursor:"pointer",
               border:`1px solid ${b.r ? accent : cardBorder}`,
-              background: b.r ? `rgba(10,132,255,0.18)` : controlBg,
+              background: b.r ? `${accent}22` : controlBg,
               color: b.r ? accent : textPrimary,
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:16,
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"center",
+              fontSize:16,
+              transition: "transform 160ms var(--ease-spring), background 200ms ease",
             }}>
             {b.l}
           </button>
@@ -2270,21 +3048,45 @@ export default function LuminaryPanels() {
       }} />
 
       <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-        <button onClick={() => avFileRef.current?.click()} style={outlineBtn}>🖼 Avatar (Crop)</button>
-        <button onClick={() => bgFileRef.current?.click()} style={outlineBtn}>🌄 Background (Crop)</button>
+        <button onClick={() => { microHaptic(settings.hapticFeedback); avFileRef.current?.click(); }} style={outlineBtn}>🖼 Avatar (Crop)</button>
+        <button onClick={() => { microHaptic(settings.hapticFeedback); bgFileRef.current?.click(); }} style={outlineBtn}>🌄 Background (Crop)</button>
       </div>
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Add Overlay</p>
       <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:6, marginBottom:14 }}>
-        {EMOJIS.map(em => (
+        {EMOJIS.map((em, idx) => (
           <button key={em} onClick={() => addOverlay("emoji", em)}
-            style={{ fontSize:20, background:controlBg, border:`1px solid ${cardBorder}`, borderRadius:8, padding:"8px 12px", cursor:"pointer", flexShrink:0, minHeight:44 }}>
+            style={{
+              fontSize:20,
+              background:controlBg,
+              border:`1px solid ${cardBorder}`,
+              borderRadius:8,
+              padding:"8px 12px",
+              cursor:"pointer",
+              flexShrink:0,
+              minHeight:44,
+              transition: "transform 180ms var(--ease-spring), background 200ms ease",
+              animation: `fadeIn 280ms var(--ease-ios) ${idx * 25}ms backwards`,
+            }}>
             {em}
           </button>
         ))}
         <button onClick={() => fileLoaderRef.current?.click()}
-          style={{ fontSize:13, background:controlBg, border:`1px solid ${cardBorder}`, color:textPrimary, borderRadius:8, padding:"8px 12px", cursor:"pointer", whiteSpace:"nowrap", flexShrink:0, minHeight:44, fontWeight:500 }}>
+          style={{
+            fontSize:13,
+            background:controlBg,
+            border:`1px solid ${cardBorder}`,
+            color:textPrimary,
+            borderRadius:8,
+            padding:"8px 12px",
+            cursor:"pointer",
+            whiteSpace:"nowrap",
+            flexShrink:0,
+            minHeight:44,
+            fontWeight:500,
+            transition: "transform 180ms var(--ease-spring), background 200ms ease",
+          }}>
           + Image
         </button>
       </div>
@@ -2294,43 +3096,112 @@ export default function LuminaryPanels() {
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
           {s.overlays.map((ov, idx) => (
-            <div key={ov.id} style={{ display:"flex", flexDirection:"column", gap:8, background:controlBg, padding:"10px 12px", borderRadius:10, border:`1px solid ${cardBorder}` }}>
+            <div key={ov.id} style={{
+              display:"flex",
+              flexDirection:"column",
+              gap:8,
+              background:controlBg,
+              padding:"10px 12px",
+              borderRadius:10,
+              border:`1px solid ${cardBorder}`,
+              transition: "all 250ms var(--ease-ios)",
+              animation: `overlayItemSlide 320ms var(--ease-spring) ${idx * 40}ms backwards`,
+            }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <span style={{ fontSize:16, width:24, flexShrink:0 }}>{ov.type === "emoji" ? ov.content : "🖼️"}</span>
                 <div style={{ flex:1, fontSize:12, color:textPrimary, fontWeight:600 }}>Overlay {idx + 1}</div>
+                <button onClick={() => { microHaptic(settings.hapticFeedback); setExpandedOverlayId(expandedOverlayId === ov.id ? null : ov.id); }}
+                  style={{
+                    background: expandedOverlayId === ov.id ? `${accent}30` : `${accent}12`,
+                    border:`1px solid ${accent}44`,
+                    color:textPrimary,
+                    cursor:"pointer",
+                    fontSize:11,
+                    padding:"6px 12px",
+                    borderRadius:8,
+                    fontWeight:600,
+                    transition: "all 220ms var(--ease-ios)",
+                  }}>
+                  {expandedOverlayId === ov.id ? "✕ Close" : "⚙ Adjust"}
+                </button>
                 <button onClick={() => updateOverlay(ov.id, { locked: !ov.locked })}
-                  style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, opacity:ov.locked?1:0.4, padding:4, minWidth:32 }}>
+                  style={{
+                    background:"transparent",
+                    border:"none",
+                    cursor:"pointer",
+                    fontSize:16,
+                    opacity:ov.locked?1:0.4,
+                    padding:4,
+                    minWidth:32,
+                    transition: "opacity 200ms ease, transform 180ms var(--ease-spring)",
+                  }}>
                   {ov.locked ? "🔒" : "🔓"}
                 </button>
                 <button onClick={() => removeOverlay(ov.id)}
-                  style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, padding:4, minWidth:32, color:"#ff5555" }}>
+                  style={{
+                    background:"transparent",
+                    border:"none",
+                    cursor:"pointer",
+                    fontSize:16,
+                    padding:4,
+                    minWidth:32,
+                    color:"#ff5555",
+                    transition: "color 200ms ease, transform 180ms var(--ease-spring)",
+                  }}>
                   🗑️
                 </button>
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr auto", alignItems:"center", gap:6 }}>
-                <input type="range" step="1" min={20} max={300} value={ov.size}
-                  onChange={e => updateOverlay(ov.id, { size: +e.target.value })} />
-                <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Size {ov.size}</span>
-                <input type="range" step="1" min={0} max={100} value={ov.opacity ?? 100}
-                  onChange={e => updateOverlay(ov.id, { opacity: +e.target.value })} />
-                <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Op {ov.opacity ?? 100}%</span>
-                <input type="range" step="1" min={-180} max={180} value={ov.rotation ?? 0}
-                  onChange={e => updateOverlay(ov.id, { rotation: +e.target.value })} />
-                <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Rot {ov.rotation ?? 0}°</span>
-                <input type="range" step="1" min={-600} max={600} value={ov.x ?? 0}
-                  onChange={e => updateOverlay(ov.id, { x: +e.target.value })} />
-                <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>X {Math.round(ov.x ?? 0)}</span>
-                <input type="range" step="1" min={-600} max={600} value={ov.y ?? 0}
-                  onChange={e => updateOverlay(ov.id, { y: +e.target.value })} />
-                <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Y {Math.round(ov.y ?? 0)}</span>
-              </div>
-              <button onClick={() => {
-                const newOv = { ...ov, id: Date.now().toString() };
-                pushState({ overlays: [...s.overlays, newOv] });
-              }}
-                style={{ ...outlineBtn, flex:"none", padding:"8px 10px", fontSize:12, borderRadius:8, alignSelf:"flex-end" }}>
-                📋
-              </button>
+
+              {expandedOverlayId === ov.id && (
+                <div
+                  style={{
+                    display:"grid",
+                    gridTemplateColumns:"1fr auto",
+                    alignItems:"center",
+                    gap:6,
+                    animation: "slideDown 300ms var(--ease-spring)",
+                    paddingTop: 8,
+                    borderTop: `1px solid ${cardBorder}`,
+                  }}>
+                  <input type="range" className="ios-slider" step="1" min={20} max={300} value={ov.size}
+                    onChange={e => updateOverlay(ov.id, { size: +e.target.value })} style={{width:"100%"}} />
+                  <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Size {ov.size}</span>
+                  <input type="range" className="ios-slider" step="1" min={50} max={200} value={ov.zoom ?? 100}
+                    onChange={e => updateOverlay(ov.id, { zoom: +e.target.value })} style={{width:"100%"}} />
+                  <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Zoom {ov.zoom ?? 100}%</span>
+                  <input type="range" className="ios-slider" step="1" min={0} max={100} value={ov.opacity ?? 100}
+                    onChange={e => updateOverlay(ov.id, { opacity: +e.target.value })} style={{width:"100%"}} />
+                  <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Op {ov.opacity ?? 100}%</span>
+                  <input type="range" className="ios-slider" step="1" min={-180} max={180} value={ov.rotation ?? 0}
+                    onChange={e => updateOverlay(ov.id, { rotation: +e.target.value })} style={{width:"100%"}} />
+                  <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Rot {ov.rotation ?? 0}°</span>
+                  <input type="range" className="ios-slider" step="1" min={-600} max={600} value={ov.x ?? 0}
+                    onChange={e => updateOverlay(ov.id, { x: +e.target.value })} style={{width:"100%"}} />
+                  <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>X {Math.round(ov.x ?? 0)}</span>
+                  <input type="range" className="ios-slider" step="1" min={-600} max={600} value={ov.y ?? 0}
+                    onChange={e => updateOverlay(ov.id, { y: +e.target.value })} style={{width:"100%"}} />
+                  <span style={{ fontSize:11, color:textDim, minWidth:44, textAlign:"right" }}>Y {Math.round(ov.y ?? 0)}</span>
+                </div>
+              )}
+
+              {expandedOverlayId === ov.id && (
+                <button onClick={() => {
+                  microHaptic(settings.hapticFeedback);
+                  const newOv = { ...ov, id: Date.now().toString() };
+                  pushState({ overlays: [...s.overlays, newOv] });
+                }}
+                  style={{
+                    ...outlineBtn,
+                    flex:"none",
+                    padding:"8px 10px",
+                    fontSize:12,
+                    borderRadius:8,
+                    alignSelf:"flex-end",
+                    animation: "fadeIn 280ms var(--ease-ios) 80ms backwards",
+                  }}>
+                  📋 Duplicate
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -2340,55 +3211,98 @@ export default function LuminaryPanels() {
 
   const panelSettings = (
     <Card label="Settings" {...cp}>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Auto Save</span>
-        <input type="checkbox" checked={settings.autoSave} onChange={e => setSettings(prev => ({ ...prev, autoSave: e.target.checked }))} />
-      </label>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
+        <IOSToggle checked={settings.autoSave} onChange={v => setSettings(p => ({ ...p, autoSave: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
+      </div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Performance Mode</span>
-        <input type="checkbox" checked={settings.performanceMode} onChange={e => setSettings(prev => ({ ...prev, performanceMode: e.target.checked }))} />
-      </label>
-      <FRow label={`Animation Smoothness — ${animationSmoothness}%`} textDim={textDim}>
-        <input
-          type="range"
-          step="1"
-          min={50}
-          max={170}
-          value={animationSmoothness}
-          onChange={e => setUiSliderValue("animationSmoothness", e.target.value)}
-        />
-      </FRow>
-      <FRow label={`Animation Speed — ${animationSpeed}%`} textDim={textDim}>
-        <input
-          type="range"
-          step="1"
-          min={40}
-          max={220}
-          value={animationSpeed}
-          onChange={e => setUiSliderValue("animationSpeed", e.target.value)}
-        />
-      </FRow>
+        <IOSToggle checked={settings.performanceMode} onChange={v => setSettings(p => ({ ...p, performanceMode: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
+      </div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Haptic Feedback</span>
+        <IOSToggle checked={settings.hapticFeedback !== false} onChange={v => setSettings(p => ({ ...p, hapticFeedback: v }))} accent={accent} hapticEnabled={true} />
+      </div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Hard Blur UI</span>
+        <IOSToggle checked={settings.hardBlurUI !== false} onChange={v => setSettings(p => ({ ...p, hardBlurUI: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
+      </div>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
+        <span style={{ color:textPrimary, fontSize:14 }}>Show Scale Badge</span>
+        <IOSToggle checked={settings.showScaleBadge === true} onChange={v => setSettings(p => ({ ...p, showScaleBadge: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <button
+          className="btn-bouncy"
+          onClick={() => setExpandedSections(prev => ({ ...prev, animation: !prev.animation }))}
+          style={{
+            width: "100%",
+            padding: "13px 16px",
+            borderRadius: 14,
+            border: `1.5px solid ${expandedSections.animation ? accent : cardBorder}`,
+            background: expandedSections.animation
+              ? `linear-gradient(135deg, ${accent}18, ${accent}08)`
+              : controlBg,
+            color: textPrimary,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            userSelect: "none",
+            boxShadow: expandedSections.animation ? `0 4px 20px ${accent}22` : "none",
+            transition: `background 300ms var(--ease-ios), border-color 280ms var(--ease-ios), box-shadow 300ms ease`,
+          }}
+        >
+          <span style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{
+              width:28, height:28, borderRadius:8,
+              background: expandedSections.animation ? `${accent}28` : "rgba(128,140,160,0.14)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:13, transition:"background 220ms ease",
+            }}>⚡</span>
+            Animation Settings
+          </span>
+          <span className="chevron-morph" style={{
+            transform: `rotate(${expandedSections.animation ? 180 : 0}deg)`,
+            fontSize: 11,
+            opacity: 0.6,
+          }}>▼</span>
+        </button>
+        {expandedSections.animation && (
+          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12, animation: "bouncySlideDown 460ms var(--ease-spring)", transformOrigin: "top center" }}>
+            <FRow label={`Motion Intensity — ${(settings.motionIntensity ?? 1).toFixed(2)}x`} textDim={textDim}>
+              <input type="range" className="ios-slider" step="0.05" min={0} max={2.5} value={settings.motionIntensity ?? 1} onChange={e => setUiSliderValue("motionIntensity", e.target.value)} style={{width:"100%"}} />
+            </FRow>
+            <FRow label={`Animation Smoothness — ${animationSmoothness}%`} textDim={textDim}>
+              <input type="range" className="ios-slider" step="1" min={50} max={170} value={animationSmoothness} onChange={e => setUiSliderValue("animationSmoothness", e.target.value)} style={{width:"100%"}} />
+            </FRow>
+            <FRow label={`Animation Speed — ${animationSpeed}%`} textDim={textDim}>
+              <input type="range" className="ios-slider" step="1" min={40} max={220} value={animationSpeed} onChange={e => setUiSliderValue("animationSpeed", e.target.value)} style={{width:"100%"}} />
+            </FRow>
+            <FRow label={`UI Blur Strength — ${uiBlurPx}px`} textDim={textDim}>
+              <input type="range" className="ios-slider" step="1" min={10} max={70} value={settings.uiBlurStrength ?? 34} onChange={e => setUiSliderValue("uiBlurStrength", e.target.value)} style={{width:"100%"}} />
+            </FRow>
+            <FRow label={`UI Glass Darkness — ${uiDarkness}%`} textDim={textDim}>
+              <input type="range" className="ios-slider" step="1" min={70} max={98} value={uiDarkness} onChange={e => setUiSliderValue("uiDarkness", e.target.value)} style={{width:"100%"}} />
+            </FRow>
+            <FRow label={`Status Bar Boost — ${statusBoost}%`} textDim={textDim}>
+              <input type="range" className="ios-slider" step="1" min={0} max={40} value={statusBoost} onChange={e => setUiSliderValue("statusBarBoost", e.target.value)} style={{width:"100%"}} />
+            </FRow>
+            <FRow label={`Glass Saturation — ${uiSaturation}%`} textDim={textDim}>
+              <input type="range" className="ios-slider" step="1" min={105} max={180} value={uiSaturation} onChange={e => setUiSliderValue("uiGlassSaturation", e.target.value)} style={{width:"100%"}} />
+            </FRow>
+          </div>
+        )}
+      </div>
+
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
-      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        <button
-          onClick={async () => {
-            try {
-              if (window.Capacitor) {
-                await saveProjectToLumNative({ history, hIndex, state: s });
-              } else {
-                saveProjectToLum({ history, hIndex, state: s });
-              }
-            } catch (err) {
-              console.error("Save project failed:", err);
-              alert(`Save project failed: ${err.message || err}`);
-            }
-          }}
-          style={{ ...outlineBtn, flex:1, color:accent }}
-        >
-          💾 Save Project
-        </button>
-        <button onClick={saveCurrentToLibrary} style={{ ...outlineBtn, flex:1, color:accent }}>⭐ Save In App</button>
+      <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
+        <button onClick={async () => { await saveProjectWithShare({ history, hIndex, state: s }); }} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}>💾 Save Project</button>
+        <button onClick={saveCurrentToLibrary} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}>⭐ Save In App</button>
         <button onClick={() => {
           const input = document.createElement("input");
           input.type = "file";
@@ -2406,15 +3320,25 @@ export default function LuminaryPanels() {
             }).catch(() => alert("Failed to load project"));
           };
           input.click();
-        }} style={{ ...outlineBtn, flex:1, color:accent }}>📂 Load Project</button>
+        }} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}>📂 Load Project</button>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
         {(projectLibrary.length === 0) ? (
           <div style={{ border:`1px dashed ${cardBorder}`, borderRadius:14, padding:"14px 12px", color:textDim, fontSize:12 }}>
             No in-app saves yet. Tap <strong style={{ color:textPrimary }}>Save In App</strong> to keep named checkpoints.
           </div>
-        ) : projectLibrary.map(item => (
-          <div key={item.id} style={{ background:`linear-gradient(145deg, ${controlBg}, ${cardBg})`, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+        ) : projectLibrary.map((item, idx) => (
+          <div key={item.id} style={{
+            background: controlBg,
+            border:`1px solid ${cardBorder}`,
+            borderRadius:14,
+            padding:"10px 12px",
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"space-between",
+            gap:8,
+            animation: `overlayItemSlide 320ms var(--ease-spring) ${idx * 40}ms backwards`,
+          }}>
             <div>
               <div style={{ color:textPrimary, fontSize:13, fontWeight:600 }}>{item.label}</div>
               <div style={{ color:textDim, fontSize:11 }}>{new Date(item.savedAt).toLocaleString()}</div>
@@ -2427,90 +3351,18 @@ export default function LuminaryPanels() {
         ))}
       </div>
       <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Quality of Life</p>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Show Grid</span>
-        <input type="checkbox" checked={settings.showGrid !== false} onChange={e => setSettings(prev => ({ ...prev, showGrid: e.target.checked }))} />
-      </label>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Lock All Overlays</span>
-        <input type="checkbox" onChange={e => {
-          if (e.target.checked) {
-            pushState({ overlays: s.overlays.map(o => ({ ...o, locked: true })) });
-          } else {
-            pushState({ overlays: s.overlays.map(o => ({ ...o, locked: false })) });
-          }
-        }} />
-      </label>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Motion Effects</span>
-        <input type="checkbox" checked={settings.motionIntensity > 0} onChange={e => setSettings(prev => ({ ...prev, motionIntensity: e.target.checked ? 1 : 0 }))} />
-      </label>
-      <FRow label={`Motion Intensity — ${(settings.motionIntensity ?? 1).toFixed(2)}x`} textDim={textDim}>
-        <input
-          type="range"
-          step="0.05"
-          min={0}
-          max={2.5}
-          value={settings.motionIntensity ?? 1}
-          onChange={e => setUiSliderValue("motionIntensity", e.target.value)}
-        />
-      </FRow>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Show Dimensions</span>
-        <input type="checkbox" checked={settings.showDimensions !== false} onChange={e => setSettings(prev => ({ ...prev, showDimensions: e.target.checked }))} />
-      </label>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Color Picker Preview</span>
-        <input type="checkbox" checked={settings.colorPreview !== false} onChange={e => setSettings(prev => ({ ...prev, colorPreview: e.target.checked }))} />
-      </label>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Hard Blur UI</span>
-        <input type="checkbox" checked={settings.hardBlurUI !== false} onChange={e => setSettings(prev => ({ ...prev, hardBlurUI: e.target.checked }))} />
-      </label>
-      <FRow label={`UI Blur Strength — ${uiBlurPx}px`} textDim={textDim}>
-        <input
-          type="range"
-          step="1"
-          min={10}
-          max={70}
-          value={uiBlurPx}
-          onChange={e => setUiSliderValue("uiBlurStrength", e.target.value)}
-        />
-      </FRow>
-      <FRow label={`UI Glass Darkness — ${uiDarkness}%`} textDim={textDim}>
-        <input
-          type="range"
-          step="1"
-          min={70}
-          max={98}
-          value={uiDarkness}
-          onChange={e => setUiSliderValue("uiDarkness", e.target.value)}
-        />
-      </FRow>
-      <FRow label={`Status Bar Boost — ${statusBoost}%`} textDim={textDim}>
-        <input
-          type="range"
-          step="1"
-          min={0}
-          max={40}
-          value={statusBoost}
-          onChange={e => setUiSliderValue("statusBarBoost", e.target.value)}
-        />
-      </FRow>
-      <label style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Show Scale Badge</span>
-        <input type="checkbox" checked={settings.showScaleBadge === true} onChange={e => setSettings(prev => ({ ...prev, showScaleBadge: e.target.checked }))} />
-      </label>
       <FRow label="Autosave Delay" textDim={textDim}>
         <div style={{ display:"flex", gap:8 }}>
           {[{l:"Fast",v:300},{l:"Normal",v:700},{l:"Slow",v:1500}].map(o => (
             <button key={o.v} onClick={() => setSettings(prev => ({ ...prev, autosaveIntervalMs: o.v }))}
               style={{
-                flex:1, padding:"8px", borderRadius:8, border: settings.autosaveIntervalMs === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                background: settings.autosaveIntervalMs === o.v ? `${accent}18` : controlBg,
+                flex:1, padding:"8px", borderRadius:8,
+                border: settings.autosaveIntervalMs === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.autosaveIntervalMs === o.v ? `${accent}22` : controlBg,
                 color: settings.autosaveIntervalMs === o.v ? accent : textPrimary,
-                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+                fontWeight:600, fontSize:11, cursor:"pointer",
+                transition:"all 200ms var(--ease-ios)",
+                transform: settings.autosaveIntervalMs === o.v ? "scale(1.04)" : "scale(1)",
               }}>
               {o.l}
             </button>
@@ -2522,10 +3374,13 @@ export default function LuminaryPanels() {
           {Object.keys(LAYOUTS).map(k => (
             <button key={k} onClick={() => setSettings(prev => ({ ...prev, defaultLayout: k }))}
               style={{
-                padding:"8px", borderRadius:8, border: settings.defaultLayout === k ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                background: settings.defaultLayout === k ? `${accent}18` : controlBg,
+                padding:"8px", borderRadius:8,
+                border: settings.defaultLayout === k ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.defaultLayout === k ? `${accent}22` : controlBg,
                 color: settings.defaultLayout === k ? accent : textPrimary,
-                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+                fontWeight:600, fontSize:11, cursor:"pointer",
+                transition:"all 200ms var(--ease-ios)",
+                transform: settings.defaultLayout === k ? "scale(1.03)" : "scale(1)",
               }}>
               {k}
             </button>
@@ -2537,10 +3392,13 @@ export default function LuminaryPanels() {
           {[2,3,4,5].map(v => (
             <button key={v} onClick={() => setSettings(prev => ({ ...prev, exportScale: v }))}
               style={{
-                flex:1, padding:"8px", borderRadius:8, border: settings.exportScale === v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                background: settings.exportScale === v ? `${accent}18` : controlBg,
+                flex:1, padding:"8px", borderRadius:8,
+                border: settings.exportScale === v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.exportScale === v ? `${accent}22` : controlBg,
                 color: settings.exportScale === v ? accent : textPrimary,
-                fontWeight:600, cursor:"pointer", transition:"all 0.15s",
+                fontWeight:600, cursor:"pointer",
+                transition:"all 200ms var(--ease-ios)",
+                transform: settings.exportScale === v ? "scale(1.06)" : "scale(1)",
               }}>
               {v}x
             </button>
@@ -2552,10 +3410,13 @@ export default function LuminaryPanels() {
           {[{l:"System",v:"system"},{l:"Dark",v:"dark"},{l:"Light",v:"light"}].map(o => (
             <button key={o.v} onClick={() => setSettings(prev => ({ ...prev, themeMode: o.v }))}
               style={{
-                flex:1, padding:"8px", borderRadius:8, border: settings.themeMode === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                background: settings.themeMode === o.v ? `${accent}18` : controlBg,
+                flex:1, padding:"8px", borderRadius:8,
+                border: settings.themeMode === o.v ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+                background: settings.themeMode === o.v ? `${accent}22` : controlBg,
                 color: settings.themeMode === o.v ? accent : textPrimary,
-                fontWeight:600, fontSize:11, cursor:"pointer", transition:"all 0.15s",
+                fontWeight:600, fontSize:11, cursor:"pointer",
+                transition:"all 200ms var(--ease-ios)",
+                transform: settings.themeMode === o.v ? "scale(1.04)" : "scale(1)",
               }}>
               {o.l}
             </button>
@@ -2563,90 +3424,98 @@ export default function LuminaryPanels() {
         </div>
       </FRow>
       <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Premium UI Presets</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:8, marginBottom:10 }}>
-        {UI_COLOR_PRESETS.map((preset) => (
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Presets</p>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:10, marginBottom:10 }}>
+        {UI_COLOR_PRESETS.map((preset, idx) => (
           <button
             key={preset.id}
-            onClick={() => setSettings(prev => ({ ...prev, uiPreset: preset.id, uiAccent: preset.uiAccent, uiBg: preset.uiBg, uiText: preset.uiText }))}
+            onClick={() => { mediumHaptic(settings.hapticFeedback); setSettings(prev => ({ ...prev, uiPreset: preset.id, uiAccent: preset.uiAccent, uiBg: preset.uiBg, uiText: preset.uiText })); }}
             style={{
               ...outlineBtn,
-              padding:"9px 8px",
-              minHeight:42,
-              fontSize:11,
-              background: settings.uiPreset === preset.id ? `${accent}26` : controlBg,
-              border: settings.uiPreset === preset.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`
+              padding: 0, minHeight: 0, fontSize:11,
+              border: settings.uiPreset === preset.id ? `2px solid ${preset.uiAccent}` : `1px solid ${cardBorder}`,
+              borderRadius: 12, overflow: "hidden",
+              transition: "transform 260ms var(--ease-spring), border-color 200ms ease, box-shadow 240ms ease",
+              transform: settings.uiPreset === preset.id ? "scale(1.03)" : "scale(1)",
+              boxShadow: settings.uiPreset === preset.id ? `0 6px 22px ${preset.uiAccent}55` : "none",
+              animation: `fadeIn 280ms var(--ease-ios) ${idx * 30}ms backwards`,
             }}
           >
-            {preset.label}
+            <div style={{ background: preset.uiBg, padding: "14px", display: "flex", flexDirection: "column", gap: 6, minHeight: 80, justifyContent: "space-between" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ width: 16, height: 16, borderRadius: 4, background: preset.uiAccent, boxShadow: `0 0 12px ${preset.uiAccent}66` }} />
+                <span style={{ color: preset.uiText, fontWeight: 600, fontSize: 11 }}>{preset.label}</span>
+              </div>
+              <div style={{ fontSize: 10, color: preset.uiText, opacity: 0.7, display: "flex", gap: 4 }}>
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: preset.uiText, opacity: 0.3 }} />
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: preset.uiText, opacity: 0.6 }} />
+                <div style={{ width: 12, height: 12, borderRadius: 2, background: preset.uiText }} />
+              </div>
+            </div>
           </button>
         ))}
       </div>
-      <FRow label={`Glass Saturation — ${uiSaturation}%`} textDim={textDim}>
-        <input
-          type="range"
-          step="1"
-          min={105}
-          max={180}
-          value={uiSaturation}
-          onChange={e => setUiSliderValue("uiGlassSaturation", e.target.value)}
-        />
-      </FRow>
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Customization</p>
       <FRow label="Accent Color" textDim={textDim}>
-        <ColorField value={settings.uiAccent || "#4fb3d9"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} />
+        <ColorField value={settings.uiAccent || "#4fb3d9"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} textPrimary={textPrimary} />
       </FRow>
       <FRow label="Background Color" textDim={textDim}>
-        <ColorField value={settings.uiBg || "#0a0e27"} onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))} />
+        <ColorField value={typeof settings.uiBg === "string" && settings.uiBg.startsWith("#") ? settings.uiBg : "#0a0e27"} onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))} textPrimary={textPrimary} />
       </FRow>
       <FRow label="Text Color" textDim={textDim}>
-        <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} />
+        <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} textPrimary={textPrimary} />
       </FRow>
       <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
       <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>💡 Quick Tips</p>
-      <div style={{ background: `rgba(45,212,191,0.08)`, border: `1px solid rgba(45,212,191,0.2)`, borderRadius: 12, padding: 12, marginBottom: 14, fontSize: 11, color: textPrimary, lineHeight: 1.6 }}>
-        <div style={{ marginBottom: 8 }}>✨ <strong>Overlays:</strong> Use each slider block to position, rotate, and fade overlays quickly</div>
-        <div style={{ marginBottom: 8 }}>🎨 <strong>Colors:</strong> Use the inline modern picker for precise shade + hex control</div>
-        <div style={{ marginBottom: 8 }}>📁 <strong>Projects:</strong> Save your work locally with Save Project button</div>
-        <div style={{ marginBottom: 8 }}>🧷 <strong>Live Crop:</strong> Crop modal now previews zoom + rotation before apply</div>
-        <div>🎭 <strong>Themes:</strong> Switch between Glass, Cute, and Simple presets instantly</div>
-      </div>
       <button onClick={() => {
         localStorage.removeItem(STORAGE_KEY);
         setHistory([getLayoutDefaults(settings.defaultLayout, pillStyle)]);
         setHIndex(0);
+        mediumHaptic(settings.hapticFeedback);
       }} style={{ ...outlineBtn, color:"#ff5555" }}>Clear Saved Project</button>
     </Card>
   );
 
-  // ── Canvas preview block ──────────────────────────────────────────────────
+  // ── Canvas preview block — fluid ambient glow (no pulse) ─────────────────
   const canvasBlock = (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, width:"100%" }} ref={wrapRef}>
-      <div style={{ position:"relative", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+      {/* Outer clipping wrapper so glow doesn't bleed outside the card */}
+      <div style={{
+        position:"relative",
+        width:"100%",
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"center",
+        overflow:"hidden",
+        padding:"24px 0",
+        borderRadius: 16,
+      }}>
+        {/* Soft ambient glow — clipped inside wrapper */}
         <div style={{
           position:"absolute",
-          width: s.pillW * pxScale + 32,
-          height: s.pillH * pxScale + 32,
-          borderRadius: (Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale) + 16,
-          border:`1.5px solid ${accent}72`,
+          inset: 0,
+          background: `radial-gradient(ellipse 80% 80% at center, ${accent}26, transparent 70%)`,
           pointerEvents:"none",
-          animation: shouldAnimate ? `ringPulse ${pulseDuration} ease-in-out infinite` : "none",
-          maxWidth:"calc(100% + 32px)",
+          filter: "blur(12px)",
+          opacity: 0.85,
         }} />
+
         <div style={{
           borderRadius: Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale,
           overflow:"hidden",
-          animation: shouldAnimate ? `canvasPulse ${pulseDuration} ease-in-out infinite` : "none",
           width: s.pillW * pxScale,
           height: s.pillH * pxScale,
-          maxWidth:"100%",
-          maxHeight: vp.isMobile ? "58dvh" : "70vh",
+          maxWidth:"calc(100% - 24px)",
+          maxHeight: vp.isMobile ? "58dvh" : "58vh",
           flexShrink: 0,
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
-          border: `1px solid ${accent}59`,
+          border: `1.5px solid ${accent}50`,
+          boxShadow: `0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px ${accent}18, 0 8px 32px ${accent}20`,
+          position: "relative",
+          zIndex: 1,
+          transition: "border-radius 300ms var(--ease-spring), border-color 280ms ease",
         }}>
           <canvas
             ref={canvasRef}
@@ -2658,158 +3527,280 @@ export default function LuminaryPanels() {
           />
         </div>
       </div>
-      <div style={{ display:"flex", gap:8, flexWrap:"wrap", justifyContent:"center", marginTop:6 }}>
+
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginTop:2 }}>
         {[
-          { id:"glass",    label:"Glass" },
-          { id:"cute",     label:"Cute" },
-          { id:"simple",   label:"Simple" },
+          { id:"glass",  label:"Glass" },
+          { id:"cute",   label:"Cute"  },
+          { id:"simple", label:"Simple"},
         ].map(t => (
           <button key={t.id}
+            className="btn-bouncy"
             onClick={() => {
+              microHaptic(settings.hapticFeedback);
               setPillStyle(t.id);
               const next = getLayoutDefaults(layoutMode, t.id);
               pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
             }}
             style={{
-              ...outlineBtn, flex:"none",
-              background: pillStyle === t.id ? accent : controlBg,
+              flex:"none",
+              background: pillStyle === t.id
+                ? `linear-gradient(135deg, ${accent}, ${accent2})`
+                : controlBg,
               color: pillStyle === t.id ? "#fff" : textPrimary,
-              border: pillStyle === t.id ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
+              border: pillStyle === t.id ? "none" : `1px solid ${cardBorder}`,
               fontWeight: pillStyle === t.id ? 700 : 500,
-              padding: "10px 18px",
+              fontSize: 13,
+              padding: "9px 20px",
+              borderRadius: 999,
+              cursor: "pointer",
+              boxShadow: pillStyle === t.id ? `0 6px 22px ${accent}50` : "none",
+              letterSpacing: pillStyle === t.id ? 0.3 : 0,
+              animation: pillStyle === t.id ? "morphPillIn 380ms var(--ease-spring)" : "none",
             }}>
             {t.label}
           </button>
         ))}
       </div>
 
-      <div style={{ display:"flex", alignItems:"center", background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(255,255,255,0.05)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(16px)", borderRadius:30, padding:"4px 8px", marginTop:4, flexWrap:"wrap", justifyContent:"center", border:`1px solid ${cardBorder}`, gap:2, position:"relative", zIndex:vp.isMobile ? 60 : "auto", animation: shouldAnimate ? `softBob ${pulseDuration} ease-in-out infinite` : "none" }}>
+      <div style={{
+        display:"flex",
+        alignItems:"center",
+        background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+        borderRadius: 999,
+        padding:"4px",
+        marginTop:2,
+        border:`1px solid ${cardBorder}`,
+        gap:3,
+      }}>
         {settings.showScaleBadge && (
           <>
             <span style={{ fontSize:11, color:textDim, padding:"8px 12px", minWidth:102, textAlign:"center", fontWeight:500 }}>
               Preview {Math.round(pxScale * 100)}%
             </span>
-            <div style={{ width:1, height:24, background:"rgba(255,255,255,0.1)", margin:"0 2px" }} />
+            <div style={{ width:1, height:24, background:cardBorder, margin:"0 2px" }} />
           </>
         )}
         <button
+          className="btn-bouncy"
           onClick={exportPNG}
-          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px", minHeight:44 }}>
-          Save
+          style={{
+            background:`linear-gradient(135deg,${accent},${accent2})`,
+            border:"none",
+            padding:"11px 22px",
+            color:"#fff",
+            cursor:"pointer",
+            fontSize:14,
+            fontWeight:700,
+            borderRadius:999,
+            minHeight:44,
+            boxShadow: `0 4px 18px ${accent}55`,
+            letterSpacing: 0.2,
+          }}
+        >
+          ↓ Save
         </button>
         <button
+          className="btn-bouncy"
           onClick={sharePNG}
-          style={{ background:`linear-gradient(135deg,${accent},${accent2})`, opacity:0.9, border:"none", padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:14, fontWeight:700, borderRadius:24, margin:"2px", minHeight:44 }}>
-          Share
+          style={{
+            background:`linear-gradient(135deg,${accent}cc,${accent2}cc)`,
+            border:"none",
+            padding:"11px 22px",
+            color:"#fff",
+            cursor:"pointer",
+            fontSize:14,
+            fontWeight:700,
+            borderRadius:999,
+            minHeight:44,
+            boxShadow: `0 4px 14px ${accent}33`,
+            letterSpacing: 0.2,
+          }}
+        >
+          ↑ Share
         </button>
       </div>
     </div>
   );
 
-  // ── Layout ────────────────────────────────────────────────────────────────
+  // ── Main Return ───────────────────────────────────────────────────────────
   return (
     <div style={{ width:"100%", overflowX:"hidden" }}>
       <style dangerouslySetInnerHTML={{ __html: `
         *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
         * { -webkit-tap-highlight-color: transparent; }
-        ::selection { background: rgba(79,179,217,0.25); color: #fff; }
-        html, body, #root { height: 100%; margin: 0; background: ${isDark ? "linear-gradient(135deg,#0a0e27 0%,#0d1f2d 50%,#0a1525 100%)" : (settings.lightBg || "linear-gradient(160deg,#fffdfa 0%,#f6fbff 35%,#eef7ff 62%,#f8f4ff 100%)")}; overflow-x: hidden; overscroll-behavior: none; }
+        ::selection { background: ${accent}44; color: ${textPrimary}; }
+        html, body, #root {
+          height: 100%;
+          margin: 0;
+          background: ${isDark ? "#0a0e27" : "#f6fbff"};
+          overflow-x: hidden;
+          overscroll-behavior: none;
+        }
         ::-webkit-scrollbar { width:5px; }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#4fb3d9,#2dd4bf); border-radius:5px; }
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg,${accent},${accent2});
+          border-radius:5px;
+        }
         input,select,button { border-radius: 16px; }
-        button { transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), filter 180ms ease; }
-        button:active { transform: translateY(1px) scale(0.985); filter: brightness(1.08); }
-        input[type=range] { -webkit-appearance:none; height:7px; border-radius:999px; background:rgba(79,179,217,0.15); width:100%; outline:none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:linear-gradient(135deg,#4fb3d9,#2dd4bf); box-shadow:0 2px 8px rgba(79,179,217,0.5); cursor:pointer; }
-        input[type=checkbox] { width:16px; height:16px; accent-color: #4fb3d9; cursor:pointer; }
+
+        button {
+          transition: transform 180ms var(--ease-spring),
+                      filter 200ms var(--ease-ios),
+                      background 200ms var(--ease-ios),
+                      border-color 200ms var(--ease-ios);
+        }
+        button:active {
+          transform: scale(0.96);
+          filter: brightness(1.08);
+        }
+
+        input[type=checkbox] {
+          width:16px;
+          height:16px;
+          accent-color: ${accent};
+          cursor:pointer;
+        }
         select option { background:#1c1c1e; color:#f0f9ff; }
-        @keyframes headerGlow {
-          0%,100% { box-shadow: 0 1px 0 rgba(79,179,217,0.25), 0 4px 30px rgba(79,179,217,0.08); }
-          50%      { box-shadow: 0 1px 0 rgba(45,212,191,0.4), 0 4px 40px rgba(79,179,217,0.18); }
+
+        /* Header title - solid gradient text with fallback */
+        .lum-brand-title {
+          font-size:17px;
+          font-weight:800;
+          letter-spacing:-0.6px;
+          margin:0;
+          color: ${accent};
+          background: linear-gradient(90deg, ${accent} 0%, ${accent2} 50%, #10b981 100%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          display: inline-block;
+          filter: drop-shadow(0 0 18px ${accent}55);
         }
-        @keyframes canvasPulse {
-          0%,100% { box-shadow: 0 0 38px 8px rgba(79,179,217,0.34), 0 0 70px 16px rgba(79,179,217,0.16), 0 20px 60px rgba(0,0,0,0.7); }
-          50%      { box-shadow: 0 0 66px 20px rgba(79,179,217,0.72), 0 0 120px 40px rgba(45,212,191,0.35), 0 20px 60px rgba(0,0,0,0.7); }
-        }
-        @keyframes ringPulse {
-          0%,100% { opacity: 0.55; transform: scale(1); }
-          50%      { opacity: 1;    transform: scale(1.055); }
-        }
-        @keyframes tabSlide {
-          from { opacity: 0.2; transform: translate3d(${swipeDir * 20}px, 8px, 0) scale(0.985); }
-          to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-        }
-        @keyframes panelLift {
-          from { opacity: 0.15; transform: translateY(16px) scale(0.99); filter: blur(1px); }
-          to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-        }
-        @keyframes softBob {
-          0%,100% { transform: translateY(0); }
-          50% { transform: translateY(-2px); }
-        }
-        @keyframes sheetEnter {
-          from { opacity: 0; transform: translateY(38px) scale(0.985); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes sheetExit {
-          from { opacity: 1; transform: translateY(0) scale(1); }
-          to { opacity: 0; transform: translateY(52px) scale(0.985); }
+        /* Fallback — if gradient fails, text still shows via color */
+        @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+          .lum-brand-title {
+            -webkit-text-fill-color: ${accent};
+            background: none;
+          }
         }
       `}} />
 
-      <div style={{ minHeight:"100dvh", color:textPrimary, fontFamily:"system-ui,-apple-system,sans-serif", background:pageBg, paddingBottom: vp.isMobile ? 110 : 0, paddingTop:0 }}>
-        {vp.isMobile && settings.hardBlurUI && (
-          <div style={{
-            position:"fixed",
-            top:0,
-            left:0,
-            right:0,
-            height:`calc(env(safe-area-inset-top) + 10px)`,
-            background:`rgba(0,0,0,${(Math.min(86, 22 + (statusBoost * 1.5)) / 100).toFixed(2)})`,
-            backdropFilter:`blur(${Math.max(8, uiBlurPx - 10)}px)`,
-            WebkitBackdropFilter:`blur(${Math.max(8, uiBlurPx - 10)}px)`,
-            pointerEvents:"none",
-            zIndex:1300,
-          }} />
-        )}
-
+      <div style={{
+        minHeight:"100dvh",
+        color:textPrimary,
+        fontFamily:"system-ui,-apple-system,sans-serif",
+        background:pageBg,
+        paddingBottom: vp.isMobile ? 110 : 0,
+        paddingTop:0
+      }}>
         {/* Header */}
-        <header ref={headerRef} style={{ position:"sticky", top:0, zIndex:100, background: settings.hardBlurUI ? (isDark ? `rgba(7,9,14,${Math.min(0.99, (uiDarkness + (statusBoost * 0.45)) / 100).toFixed(2)})` : "linear-gradient(130deg, rgba(255,255,255,0.9), rgba(240,248,255,0.86))") : (isDark ? `rgba(9,9,11,${Math.min(0.97, 0.82 + (statusBoost / 250)).toFixed(2)})` : `${pageBg}ee`), backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(20px)", borderBottom:`1px solid ${cardBorder}`, padding:`calc(max(env(safe-area-inset-top), 12px) + 4px) 12px 8px`, display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:6, animation: shouldAnimate ? "headerGlow 4s ease-in-out infinite" : "none", transition:`background ${uiTransition}, border-color ${uiTransition}, backdrop-filter ${uiTransition}` }}>
-          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <h1 style={{ fontSize:17, fontWeight:800, background:"linear-gradient(90deg,#4fb3d9,#2dd4bf,#10b981)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", margin:0, letterSpacing:"-0.5px" }}>✦ Luminary Panels</h1>
+        <header
+          ref={headerRef}
+          style={{
+            position:"sticky",
+            top:0,
+            zIndex:100,
+            background: isDark
+              ? `rgba(10,14,28,${Math.min(0.98, 0.8 + statusBoost / 200).toFixed(2)})`
+              : `rgba(246,251,255,${Math.min(0.98, 0.84 + statusBoost / 200).toFixed(2)})`,
+            backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.3)` : "blur(16px)",
+            WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.3)` : "blur(16px)",
+            borderBottom:`1px solid ${cardBorder}`,
+            padding:`calc(max(env(safe-area-inset-top), 10px) + 4px) 12px 8px`,
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"space-between",
+            flexWrap:"wrap",
+            gap:6,
+            transition: `background ${uiTransition}, border-color ${uiTransition}`,
+          }}
+        >
+          <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
+            <h1 className="lum-brand-title">✦ Luminary Panels</h1>
             <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
               {Object.keys(LAYOUTS).map(k => (
-                <button key={k} onClick={() => {
-                  setLayoutMode(k);
-                  const next = getLayoutDefaults(k, pillStyle);
-                  pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
-                }}
+                <button key={k}
+                  className="btn-bouncy"
+                  onClick={() => {
+                    microHaptic(settings.hapticFeedback);
+                    setLayoutMode(k);
+                    const next = getLayoutDefaults(k, pillStyle);
+                    pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+                  }}
                   style={{
-                    padding:"4px 10px", borderRadius:999, fontSize:11, fontWeight:600,
-                    border: layoutMode === k ? `2px solid ${accent}` : `1px solid ${cardBorder}`,
-                    background: layoutMode === k ? `${accent}18` : controlBg,
-                    color: layoutMode === k ? accent : textPrimary,
-                    cursor:"pointer", transition:"all 0.15s",
+                    padding:"5px 12px",
+                    borderRadius:999,
+                    fontSize:11,
+                    fontWeight: layoutMode === k ? 700 : 500,
+                    border: layoutMode === k ? "none" : `1px solid ${cardBorder}`,
+                    background: layoutMode === k
+                      ? `linear-gradient(135deg, ${accent}, ${accent2})`
+                      : controlBg,
+                    color: layoutMode === k ? "#fff" : textPrimary,
+                    cursor:"pointer",
+                    boxShadow: layoutMode === k ? `0 4px 14px ${accent}44` : "none",
+                    letterSpacing: layoutMode === k ? 0.2 : 0,
+                    animation: layoutMode === k ? "morphPillIn 360ms var(--ease-spring)" : "none",
                   }}>
                   {k}
                 </button>
               ))}
             </div>
           </div>
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-            <button onClick={() => (settingsOpen ? closeSettingsSheet() : setSettingsOpen(true))}
-              style={{ ...outlineBtn, flex:"none", padding:"6px 12px", fontSize:12 }}>Settings</button>
-            <button onClick={undo} disabled={hIndex === 0}
-              style={{ ...outlineBtn, flex:"none", padding:"6px 12px", opacity: hIndex === 0 ? 0.3 : 1, fontSize:12 }}>{ICONS.undo} Undo</button>
-            <button onClick={redo} disabled={hIndex === history.length - 1}
-              style={{ ...outlineBtn, flex:"none", padding:"6px 12px", opacity: hIndex === history.length - 1 ? 0.3 : 1, fontSize:12 }}>{ICONS.redo} Redo</button>
-            <button onClick={reset}
-              style={{ ...outlineBtn, flex:"none", padding:"6px 12px", color:"#ff5555", borderColor:"rgba(255,85,85,0.3)", fontSize:12 }}>{ICONS.reset} Reset</button>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+            <button
+              ref={settingsBtnRef}
+              className="btn-bouncy"
+              onClick={() => { settingsOpen ? closeSettings() : openSettings(); }}
+              style={{
+                flex:"none",
+                padding:"7px 14px",
+                fontSize:12,
+                fontWeight:600,
+                borderRadius:999,
+                border: settingsOpen ? "none" : `1px solid ${cardBorder}`,
+                background: settingsOpen
+                  ? `linear-gradient(135deg, ${accent}, ${accent2})`
+                  : controlBg,
+                color: settingsOpen ? "#fff" : textPrimary,
+                cursor: "pointer",
+                boxShadow: settingsOpen ? `0 4px 16px ${accent}44` : "none",
+              }}
+            >⚙ Settings</button>
+            <button className="btn-bouncy" onClick={undo} disabled={hIndex === 0}
+              style={{
+                flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
+                borderRadius:999, border:`1px solid ${cardBorder}`, background:controlBg,
+                color:textPrimary, cursor:"pointer", opacity: hIndex === 0 ? 0.3 : 1,
+              }}>{ICONS.undo} Undo</button>
+            <button className="btn-bouncy" onClick={redo} disabled={hIndex === history.length - 1}
+              style={{
+                flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
+                borderRadius:999, border:`1px solid ${cardBorder}`, background:controlBg,
+                color:textPrimary, cursor:"pointer", opacity: hIndex === history.length - 1 ? 0.3 : 1,
+              }}>{ICONS.redo} Redo</button>
+            <button className="btn-bouncy" onClick={reset}
+              style={{
+                flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
+                borderRadius:999, border:"1px solid rgba(255,85,85,0.28)", background:"rgba(255,85,85,0.10)",
+                color:"#ff6b6b", cursor:"pointer",
+              }}>{ICONS.reset} Reset</button>
           </div>
         </header>
 
         {/* Main layout */}
-        <div style={{ display:"flex", flexWrap:"wrap", justifyContent:"flex-start", gap:20, padding:"20px 14px", paddingRight: vp.isMobile ? "14px" : 580, maxWidth: "100%", margin:"0 auto", transition:`padding ${uiTransition}, gap ${uiTransition}` }}>
+        <div style={{
+          display:"flex",
+          flexWrap:"wrap",
+          justifyContent:"flex-start",
+          gap:20,
+          padding:"20px 14px",
+          paddingRight: vp.isMobile ? "14px" : "calc(14px + 560px)",
+          maxWidth: "100%",
+          margin:"0 auto",
+          transition:`padding ${uiTransition}, gap ${uiTransition}`
+        }}>
 
           {!vp.isMobile && (
             <div style={{ flex:"1 1 280px", maxWidth:340, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
@@ -2819,15 +3810,46 @@ export default function LuminaryPanels() {
             </div>
           )}
 
-          <main ref={previewDockRef} style={{ flex:"2 1 400px", display:"flex", flexDirection:"column", gap:14, minWidth:0, position:"fixed", left: vp.isMobile ? 14 : "auto", right: vp.isMobile ? 14 : 20, top: headerHeight + 8, width: vp.isMobile ? "calc(100% - 28px)" : 540, maxWidth: vp.isMobile ? "calc(100% - 28px)" : 540, maxHeight: vp.isMobile ? "calc(100dvh - 170px)" : "calc(100vh - 140px)", zIndex: vp.isMobile ? 95 : 40, overflowY: vp.isMobile ? "visible" : "auto", alignSelf:"flex-start" }}>
+          <main
+            ref={previewDockRef}
+            style={{
+              flex:"2 1 400px",
+              display:"flex",
+              flexDirection:"column",
+              gap:14,
+              minWidth:0,
+              position:"fixed",
+              left: vp.isMobile ? 14 : "auto",
+              right: vp.isMobile ? 14 : 20,
+              top: headerHeight + 8,
+              width: vp.isMobile ? "calc(100% - 28px)" : 540,
+              maxWidth: vp.isMobile ? "calc(100% - 28px)" : 540,
+              maxHeight: vp.isMobile ? "calc(100dvh - 170px)" : "calc(100vh - 140px)",
+              zIndex: vp.isMobile ? 95 : 40,
+              overflowY: vp.isMobile ? "visible" : "auto",
+              alignSelf:"flex-start",
+            }}
+          >
             <div style={{
-              background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : cardBg, borderRadius:20,
-              backdropFilter: settings.hardBlurUI ? `blur(${Math.max(10, uiBlurPx - 6)}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
-              WebkitBackdropFilter: settings.hardBlurUI ? `blur(${Math.max(10, uiBlurPx - 6)}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
-              padding: "18px",
-              display:"flex", flexDirection:"column", alignItems:"center", gap:16,
-              border:`1px solid ${cardBorder}`, boxShadow: cardShadow, transition:`all ${uiTransition}`,
+              background: cardBg,
+              borderRadius:24,
+              padding: "16px 16px 20px",
+              display:"flex",
+              flexDirection:"column",
+              alignItems:"center",
+              gap:12,
+              border:`1px solid ${cardBorder}`,
+              boxShadow: `${cardShadow}, 0 0 0 1px ${accent}0a`,
+              transition:`all ${uiTransition}`,
+              position:"relative",
+              overflow:"hidden",
             }}>
+              {/* gradient shimmer line at top */}
+              <div style={{
+                position:"absolute", top:0, left:"10%", right:"10%", height:1,
+                background:`linear-gradient(90deg, transparent, ${accent}55, ${accent2}55, transparent)`,
+                pointerEvents:"none",
+              }} />
               {canvasBlock}
             </div>
           </main>
@@ -2837,14 +3859,23 @@ export default function LuminaryPanels() {
               {panelAvatar}
               {panelBorder}
               {panelTypography}
-              {settingsOpen && panelSettings}
             </div>
           )}
 
-          {/* FIX 4: Removed duplicate isMobileView div — only vp.isMobile is used */}
           {vp.isMobile && (
             <div
-              style={{ flex:"1 1 100%", width:"100%", display:"flex", flexDirection:"column", gap:14, marginTop: mobilePreviewOffset, animation:`tabSlide 360ms cubic-bezier(0.22, 1, 0.36, 1)` }}
+              key={mobileTab}
+              style={{
+                flex:"1 1 100%",
+                width:"100%",
+                display:"flex",
+                flexDirection:"column",
+                gap:14,
+                marginTop: mobilePreviewOffset,
+                animation: `bouncySlideDown 440ms var(--ease-spring)`,
+                transformOrigin: "top center",
+                "--slide-from": `${swipeDir * 20}px`,
+              }}
               onTouchStart={(e) => {
                 if (editMode) return;
                 const target = e.target;
@@ -2860,7 +3891,6 @@ export default function LuminaryPanels() {
                 if (!dragData.current?.swipeStartX) return;
                 const dx = Math.abs(e.touches[0].clientX - dragData.current.swipeStartX);
                 const dy = Math.abs(e.touches[0].clientY - dragData.current.swipeStartY);
-                // Cancel swipe if mostly vertical scroll
                 if (dy > dx && dy > 10) { dragData.current = { ...dragData.current, swipeStartX: null }; }
               }}
               onTouchEnd={(e) => {
@@ -2880,71 +3910,114 @@ export default function LuminaryPanels() {
               {mobileTab === "layout" && panelBaseConfig}
               {mobileTab === "avatar" && <>{panelAvatar}{panelBorder}</>}
               {mobileTab === "text"   && panelTypography}
-              {settingsOpen && panelSettings}
             </div>
           )}
         </div>
 
         {/* Mobile bottom nav */}
         {vp.isMobile && (
-          <nav style={{ position:"fixed", bottom:10, left:12, right:12, background: settings.hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : "rgba(20,20,28,0.84)", backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(24px)", WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "blur(24px)", border:`1px solid rgba(255,255,255,0.16)`, display:"flex", padding:"7px 8px", paddingBottom:"calc(7px + env(safe-area-inset-bottom))", gap:6, zIndex:1000, borderRadius:26, boxShadow:"0 14px 40px rgba(0,0,0,0.45)" }}>
+          <nav style={{
+            position:"fixed",
+            bottom:10,
+            left:12,
+            right:12,
+            background: isDark ? "rgba(14,16,28,0.88)" : "rgba(248,252,255,0.92)",
+            backdropFilter: `blur(${Math.min(uiBlurPx, 24)}px) saturate(1.4)`,
+            WebkitBackdropFilter: `blur(${Math.min(uiBlurPx, 24)}px) saturate(1.4)`,
+            border:`1px solid ${cardBorder}`,
+            display:"flex",
+            padding:"5px 6px",
+            paddingBottom:"calc(5px + env(safe-area-inset-bottom))",
+            gap:4,
+            zIndex:1000,
+            borderRadius:28,
+            boxShadow:"0 16px 48px rgba(0,0,0,0.32), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
+            position: "relative",
+          }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
               { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"avatar", icon:ICONS.avatar, label:"Avatar" },
               { id:"text",   icon:ICONS.text,   label:"Text"   },
-            ].map(t => (
-              <button key={t.id} onClick={() => changeMobileTab(t.id)}
-                style={{
-                  flex:1, background: mobileTab === t.id ? "rgba(79,179,217,0.15)" : "transparent",
-                  color: mobileTab === t.id ? accent : textDim,
-                  border: mobileTab === t.id ? `1px solid rgba(79,179,217,0.25)` : "1px solid transparent",
-                  borderRadius:12, padding:"8px 4px",
-                  display:"flex", flexDirection:"column", alignItems:"center", gap:3, cursor:"pointer",
-                  transition:`all ${uiTransition}`,
-                }}>
-                <span style={{ fontSize:19 }}>{t.icon}</span>
-                <span style={{ fontSize:10, fontWeight:600 }}>{t.label}</span>
-              </button>
-            ))}
+            ].map(t => {
+              const isActive = mobileTab === t.id;
+              return (
+                <button key={t.id} onClick={() => changeMobileTab(t.id)}
+                  className="btn-bouncy"
+                  style={{
+                    flex:1,
+                    background: isActive
+                      ? `linear-gradient(135deg, ${accent}30, ${accent}18)`
+                      : "transparent",
+                    color: isActive ? accent : textDim,
+                    border: isActive ? `1px solid ${accent}40` : "1px solid transparent",
+                    borderRadius: 18,
+                    padding:"9px 4px 8px",
+                    display:"flex",
+                    flexDirection:"column",
+                    alignItems:"center",
+                    gap:3,
+                    cursor:"pointer",
+                    boxShadow: isActive ? `0 4px 16px ${accent}28` : "none",
+                    animation: isActive ? "tabPillMorph 380ms var(--ease-spring)" : "none",
+                  }}>
+                  <span style={{
+                    fontSize:18,
+                    display:"inline-block",
+                    transform: isActive ? "scale(1.15) translateY(-1px)" : "scale(1)",
+                    transition: "transform 320ms var(--ease-spring)",
+                    filter: isActive ? `drop-shadow(0 0 6px ${accent}88)` : "none",
+                  }}>{t.icon}</span>
+                  <span style={{ fontSize:9.5, fontWeight: isActive ? 700 : 500, letterSpacing: isActive ? 0.3 : 0 }}>{t.label}</span>
+                </button>
+              );
+            })}
           </nav>
         )}
       </div>
 
-      {/* Settings bottom sheet */}
+      {/* Genie Settings overlay */}
       {settingsOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1500, display: "flex", alignItems: "flex-end" }} onClick={closeSettingsSheet}>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: `rgba(0,0,0,${settingsAnimState === "closing" ? 0 : 0.55})`,
+            zIndex: 1500,
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "center",
+            transition: "background 340ms var(--ease-ios)",
+            backdropFilter: settingsAnimState === "closing" ? "blur(0px)" : "blur(3px)",
+            WebkitBackdropFilter: settingsAnimState === "closing" ? "blur(0px)" : "blur(3px)",
+          }}
+          onClick={closeSettings}
+        >
           <div
             style={{
-              width: "100%",
-              maxHeight: "82vh",
+              width: vp.isMobile ? "100%" : "min(540px, 96vw)",
+              maxHeight: "90vh",
               overflowY: "auto",
               borderRadius: "22px 22px 0 0",
-              background: settings.hardBlurUI ? `rgba(10,14,22,${uiDarkness / 100})` : "rgba(14,14,20,0.97)",
-              backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
-              WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(${(uiSaturation/100).toFixed(2)})` : "none",
+              background: isDark ? "rgba(14,14,20,0.97)" : "rgba(255,255,255,0.97)",
               padding: "14px 12px 20px",
-              transform: `translateY(${Math.max(0, settingsSheetDragY)}px)`,
-              animation: settingsSheetClosing ? "sheetExit 220ms ease forwards" : "sheetEnter 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-              transition: settingsSheetDragY > 0 ? "none" : `transform ${uiTransition}`,
+              paddingBottom: "max(20px, env(safe-area-inset-bottom))",
+              transformOrigin: `${settingsOrigin.x}% ${settingsOrigin.y}%`,
+              animation: settingsAnimState === "closing"
+                ? "genieClose 360ms var(--ease-genie) forwards"
+                : "genieOpen 440ms var(--ease-genie)",
+              boxShadow: "0 -20px 80px rgba(0,0,0,0.5)",
+              willChange: "transform, opacity, filter",
             }}
             onClick={(e) => e.stopPropagation()}
-            onTouchStart={(e) => {
-              settingsSheetStartYRef.current = e.touches[0].clientY - settingsSheetDragY;
-            }}
-            onTouchMove={(e) => {
-              const dragY = e.touches[0].clientY - settingsSheetStartYRef.current;
-              setSettingsSheetDragY(Math.max(0, dragY));
-            }}
-            onTouchEnd={() => {
-              if (settingsSheetDragY > 120) {
-                closeSettingsSheet();
-              } else {
-                setSettingsSheetDragY(0);
-              }
-            }}
           >
-            <div style={{ width:54, height:5, borderRadius:999, background:"rgba(255,255,255,0.3)", margin:"0 auto 10px" }} />
+            <div style={{
+              width:54,
+              height:5,
+              borderRadius:999,
+              background: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.2)",
+              margin:"0 auto 10px",
+            }} />
             {panelSettings}
           </div>
         </div>
@@ -2956,19 +4029,19 @@ export default function LuminaryPanels() {
           src={cropSrc}
           onConfirm={onCropConfirm}
           onCancel={() => setCropSrc(null)}
-          theme={{ accent, textPrimary, textDim, cardBg, cardBorder, cardShadow }}
+          theme={{ accent, accent2, textPrimary, textDim, cardBg, cardBorder, cardShadow }}
         />
       )}
 
-      {/* Export fallback modal (Android) */}
+      {/* Export fallback modal */}
       {exportDataUrl && (
         <ExportModal
           dataUrl={exportDataUrl}
           onClose={() => setExportDataUrl(null)}
-          performanceMode={settings.performanceMode}
         />
       )}
 
+      {/* Save notice toast */}
       {saveNotice && (
         <div style={{
           position:"fixed",
@@ -2976,16 +4049,18 @@ export default function LuminaryPanels() {
           bottom: vp.isMobile ? "calc(86px + env(safe-area-inset-bottom))" : 22,
           transform:"translateX(-50%)",
           zIndex: 2000,
-          background:"linear-gradient(135deg, rgba(45,212,191,0.28), rgba(79,179,217,0.3))",
-          border:"1px solid rgba(126,231,255,0.45)",
-          color:"#eaffff",
+          background: `linear-gradient(135deg, ${accent}dd, ${accent2}dd)`,
+          border:`1px solid ${accent}88`,
+          color:"#fff",
           fontWeight:700,
           fontSize:13,
-          padding:"11px 16px",
-          borderRadius:14,
-          boxShadow:"0 16px 50px rgba(0,0,0,0.42)",
-          backdropFilter:"blur(14px)",
-          WebkitBackdropFilter:"blur(14px)",
+          padding:"12px 18px",
+          borderRadius:16,
+          boxShadow:`0 20px 60px rgba(0,0,0,0.4), 0 0 20px ${accent}44`,
+          backdropFilter:"blur(12px) saturate(1.3)",
+          WebkitBackdropFilter:"blur(12px) saturate(1.3)",
+        animation: "toastPop 480ms var(--ease-spring)",
+        transform: "translateX(-50%) translateZ(0)",
         }}>
           ✅ {saveNotice}
         </div>
@@ -2995,20 +4070,87 @@ export default function LuminaryPanels() {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, hardBlurUI, uiBlurPx, uiDarkness }) {
+function DimensionInput({ value, min, max, onConfirm, accent, textPrimary, controlBg, cardBorder }) {
+  const [draft, setDraft] = useState(value.toString());
+
+  useEffect(() => {
+    setDraft(value.toString());
+  }, [value]);
+
+  const confirm = () => {
+    const num = parseInt(draft, 10);
+    if (!isNaN(num) && num >= min && num <= max) {
+      onConfirm(num);
+    } else {
+      setDraft(value.toString());
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+      <input
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && confirm()}
+        placeholder={value.toString()}
+        style={{
+          flex: 1,
+          padding: "8px 10px",
+          borderRadius: 8,
+          border: `1px solid ${cardBorder}`,
+          background: controlBg,
+          color: textPrimary,
+          fontSize: 13,
+          fontFamily: "monospace",
+          transition: "border-color 200ms ease, background 200ms ease",
+        }}
+      />
+      <button
+        onClick={confirm}
+        style={{
+          padding: "8px 12px",
+          borderRadius: 8,
+          border: `1px solid ${accent}66`,
+          background: `${accent}22`,
+          color: accent,
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: "pointer",
+          minWidth: 40,
+          transition: "transform 180ms var(--ease-spring), background 200ms ease",
+        }}
+      >
+        ✓
+      </button>
+    </div>
+  );
+}
+
+function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, accent }) {
   return (
     <div style={{
-      background: hardBlurUI ? `rgba(8,12,20,${uiDarkness / 100})` : cardBg,
-      backdropFilter: hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 6)}px) saturate(1.22)` : "none",
-      WebkitBackdropFilter: hardBlurUI ? `blur(${Math.max(12, uiBlurPx - 6)}px) saturate(1.22)` : "none",
-      borderRadius: 20,
-      padding: 18,
+      background: cardBg,
+      borderRadius: 22,
+      padding: "16px 18px 18px",
       border: `1px solid ${cardBorder}`,
       boxShadow: cardShadow || "none",
-      animation:"panelLift 380ms cubic-bezier(0.22, 1, 0.36, 1)",
-      transition:"border-color 220ms ease, box-shadow 280ms ease, background 220ms ease",
+      animation: "cardFloat 480ms var(--ease-spring)",
+      transition: "border-color 220ms var(--ease-ios), box-shadow 280ms var(--ease-ios), background 220ms var(--ease-ios)",
+      position: "relative",
+      overflow: "hidden",
     }}>
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:14 }}>{label}</p>
+      <div style={{
+        position: "absolute",
+        top: 0, left: "22%", right: "22%",
+        height: 1,
+        background: `linear-gradient(90deg, transparent, ${accent || textDim}40, transparent)`,
+        pointerEvents: "none",
+      }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
+        <div style={{ width: 5, height: 5, borderRadius: "50%", background: accent || textDim, opacity: 0.65, flexShrink: 0 }} />
+        <p style={{ fontSize: 10.5, fontWeight: 700, color: textDim, textTransform: "uppercase", letterSpacing: 1.1, margin: 0 }}>{label}</p>
+      </div>
       {children}
     </div>
   );
@@ -3016,10 +4158,35 @@ function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, hardBl
 
 function FRow({ label, children, textDim, onReset }) {
   return (
-    <div style={{ flex:1, marginBottom:11 }}>
-      <label style={{ display:"flex", fontSize:12, color:textDim, marginBottom:5, fontWeight:500, alignItems:"center", justifyContent:"space-between", gap:6 }}>
+    <div style={{ flex:1, marginBottom:12 }}>
+      <label style={{
+        display:"flex",
+        fontSize:11.5,
+        color:textDim,
+        marginBottom:6,
+        fontWeight:500,
+        alignItems:"center",
+        justifyContent:"space-between",
+        gap:6,
+        letterSpacing: 0.1,
+      }}>
         <span>{label}</span>
-        {onReset && <button onClick={onReset} style={{ border:"1px solid rgba(255,255,255,0.18)", background:"rgba(255,255,255,0.06)", color:"#fff", fontSize:11, padding:"3px 8px", borderRadius:999 }}>Reset</button>}
+        {onReset && (
+          <button
+            onClick={onReset}
+            style={{
+              border:"1px solid rgba(128,140,160,0.20)",
+              background:"rgba(128,140,160,0.07)",
+              color:"inherit",
+              fontSize:10,
+              padding:"2px 7px",
+              borderRadius:999,
+              cursor: "pointer",
+              transition: "transform 160ms var(--ease-spring), background 200ms ease",
+              flexShrink: 0,
+            }}
+          >↺</button>
+        )}
       </label>
       {children}
     </div>
@@ -3027,17 +4194,24 @@ function FRow({ label, children, textDim, onReset }) {
 }
 
 function TxIn({ value, onChange, placeholder, inputSt }) {
-  return <input type="text" value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} style={inputSt} />;
+  return (
+    <input
+      type="text"
+      value={value}
+      placeholder={placeholder}
+      onChange={e => onChange(e.target.value)}
+      style={inputSt}
+    />
+  );
 }
 
 function Sep({ cardBorder }) {
   return <div style={{ borderTop:`1px solid ${cardBorder}`, margin:"10px 0 14px" }} />;
 }
 
-function ColorField({ value, onChange, alpha = 100, onAlphaChange }) {
+function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary = "#fff" }) {
   const PRESETS = ["#4fb3d9","#2dd4bf","#10b981","#22c55e","#84cc16","#f59e0b","#ef4444","#a855f7","#111827","#ffffff"];
   const areaRef = useRef(null);
-  const [draftHex, setDraftHex] = useState("");
 
   const normalizeHex = useCallback((raw) => {
     if (!raw || typeof raw !== "string") return "#ffffff";
@@ -3083,6 +4257,7 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange }) {
   const safeHex = useMemo(() => normalizeHex(value), [normalizeHex, value]);
   const parsed = useMemo(() => hexToHsv(safeHex), [hexToHsv, safeHex]);
   const [hsv, setHsv] = useState(parsed);
+  const [draftHex, setDraftHex] = useState(safeHex);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -3125,6 +4300,8 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange }) {
             boxShadow: `0 6px 20px ${safeHex}88`,
             flexShrink: 0,
             cursor: "pointer",
+            transition: "transform 200ms var(--ease-spring), box-shadow 260ms ease",
+            transform: open ? "scale(1.06)" : "scale(1)",
           }}
         />
         <input
@@ -3147,92 +4324,101 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange }) {
             flex: 1,
             height: 44,
             borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.18)",
-            background: "rgba(255,255,255,0.06)",
-            color: "#fff",
+            border: "1px solid rgba(128,140,160,0.28)",
+            background: "rgba(128,140,160,0.08)",
+            color: textPrimary,
             fontFamily: "monospace",
             fontSize: 14,
             textTransform: "uppercase",
             padding: "0 12px",
+            transition: "border-color 200ms ease, background 200ms ease",
           }}
         />
       </div>
       {open && (
-      <>
-      <div
-        ref={areaRef}
-        onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setSVFromPoint(e.clientX, e.clientY); }}
-        onPointerMove={(e) => { if (e.buttons) setSVFromPoint(e.clientX, e.clientY); }}
-        style={{
-          width: "100%",
-          height: 132,
-          borderRadius: 14,
-          border: "1px solid rgba(255,255,255,0.14)",
-          position: "relative",
-          background: `hsl(${Math.round(hsv.h)}, 100%, 50%)`,
-          overflow: "hidden",
-          touchAction: "none",
-          cursor: "crosshair",
-        }}
-      >
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, #fff, rgba(255,255,255,0))" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #000, rgba(0,0,0,0))" }} />
-        <div
-          style={{
-            position: "absolute",
-            left: `calc(${hsv.s * 100}% - 8px)`,
-            top: `calc(${(1 - hsv.v) * 100}% - 8px)`,
-            width: 16,
-            height: 16,
-            borderRadius: "50%",
-            border: "2px solid #fff",
-            boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
-            pointerEvents: "none",
-          }}
-        />
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={360}
-        value={hsv.h}
-        onChange={(e) => {
-          const next = { ...hsv, h: Number(e.target.value) };
-          setHsv(next);
-          commit(next);
-        }}
-        style={{
-          width: "100%",
-          height: 12,
-          WebkitAppearance: "none",
-          appearance: "none",
-          borderRadius: 999,
-          background: "linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)",
-          outline: "none",
-        }}
-      />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-        {PRESETS.map((c) => (
-          <button
-            key={c}
-            onClick={() => onChange(c)}
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          animation: "slideDown 320ms var(--ease-spring)"
+        }}>
+          <div
+            ref={areaRef}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setSVFromPoint(e.clientX, e.clientY);
+            }}
+            onPointerMove={(e) => { if (e.buttons) setSVFromPoint(e.clientX, e.clientY); }}
             style={{
-              height: 34,
-              borderRadius: 10,
-              border: safeHex === c ? "2px solid #fff" : "1px solid rgba(255,255,255,0.14)",
-              background: c,
-              cursor: "pointer",
+              width: "100%",
+              height: 132,
+              borderRadius: 14,
+              border: "1px solid rgba(128,140,160,0.22)",
+              position: "relative",
+              background: `hsl(${Math.round(hsv.h)}, 100%, 50%)`,
+              overflow: "hidden",
+              touchAction: "none",
+              cursor: "crosshair",
+            }}
+          >
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, #fff, rgba(255,255,255,0))" }} />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #000, rgba(0,0,0,0))" }} />
+            <div
+              style={{
+                position: "absolute",
+                left: `calc(${hsv.s * 100}% - 10px)`,
+                top: `calc(${(1 - hsv.v) * 100}% - 10px)`,
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                border: "2.5px solid #fff",
+                boxShadow: "0 0 0 1px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.4)",
+                pointerEvents: "none",
+                transition: "transform 140ms var(--ease-spring)",
+              }}
+            />
+          </div>
+          <input
+            type="range"
+            className="ios-slider"
+            min={0}
+            max={360}
+            value={hsv.h}
+            onChange={(e) => {
+              const next = { ...hsv, h: Number(e.target.value) };
+              setHsv(next);
+              commit(next);
+            }}
+            style={{
+              width: "100%",
             }}
           />
-        ))}
-      </div>
-      {onAlphaChange && (
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:11, color:"rgba(255,255,255,0.75)", minWidth:82 }}>Opacity {alpha}%</span>
-          <input type="range" min={0} max={100} value={alpha} onChange={(e) => onAlphaChange(Number(e.target.value))} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+            {PRESETS.map((c, idx) => (
+              <button
+                key={c}
+                onClick={() => onChange(c)}
+                style={{
+                  height: 34,
+                  borderRadius: 10,
+                  border: safeHex === c ? "2px solid #fff" : "1px solid rgba(128,140,160,0.22)",
+                  background: c,
+                  cursor: "pointer",
+                  transition: "transform 200ms var(--ease-spring), border-color 180ms ease",
+                  transform: safeHex === c ? "scale(1.1)" : "scale(1)",
+                  animation: `colorSwatchPop 320ms var(--ease-spring) ${idx * 25}ms backwards`,
+                  boxShadow: safeHex === c ? `0 4px 12px ${c}88` : "none",
+                }}
+              />
+            ))}
+          </div>
+          {onAlphaChange && (
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:11, color:"rgba(128,140,160,0.85)", minWidth:82 }}>Opacity {alpha}%</span>
+              <input type="range" className="ios-slider" min={0} max={100} value={alpha} onChange={(e) => onAlphaChange(Number(e.target.value))} style={{width:"100%"}} />
+            </div>
+          )}
         </div>
-      )}
-      </>
       )}
     </div>
   );
