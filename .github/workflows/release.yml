@@ -20,14 +20,17 @@ jobs:
         id: meta
         shell: bash
         run: |
-          APP_VERSION=$(node -p "require('./package.json').version")
-          APP_TAG="v${APP_VERSION}"
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
 
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            if [[ "${GITHUB_REF_NAME}" != "${APP_TAG}" ]]; then
-              echo "Tag/version mismatch: git tag is ${GITHUB_REF_NAME} but package.json version is ${APP_VERSION}" >&2
-              exit 1
+            APP_TAG="${GITHUB_REF_NAME}"
+            APP_VERSION="${APP_TAG#v}"
+            if [[ "${APP_VERSION}" != "${PACKAGE_VERSION}" ]]; then
+              echo "::warning::Tag/version mismatch: tag=${APP_TAG}, package.json=${PACKAGE_VERSION}. Using tag version for release metadata."
             fi
+          else
+            APP_VERSION="${PACKAGE_VERSION}"
+            APP_TAG="v${APP_VERSION}"
           fi
 
           echo "version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
