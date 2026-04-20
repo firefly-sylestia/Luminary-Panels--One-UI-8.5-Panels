@@ -1,35 +1,66 @@
 name: Android Release APK
+
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
+
 permissions:
   contents: write
+
 jobs:
   release-apk:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve release version metadata
+        id: meta
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            APP_TAG="${GITHUB_REF_NAME}"
+            APP_VERSION="${APP_TAG#v}"
+            if [[ "${APP_VERSION}" != "${PACKAGE_VERSION}" ]]; then
+              echo "::warning::Tag/version mismatch: tag=${APP_TAG}, package.json=${PACKAGE_VERSION}. Using tag version for release metadata."
+            fi
+          else
+            APP_VERSION="${PACKAGE_VERSION}"
+            APP_TAG="v${APP_VERSION}"
+          fi
+
+          echo "version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${APP_TAG}" >> "$GITHUB_OUTPUT"
+          echo "asset=Luminary-Panels-${APP_VERSION}-release.apk" >> "$GITHUB_OUTPUT"
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
       - name: Install dependencies
         run: npm ci
+
       - name: Build web assets
         run: npm run build
+
       - name: Sync Capacitor
         run: npx cap sync android
+
       - name: Force Java 17 / Kotlin 17 targets
         run: |
           find ./node_modules/@capacitor ./node_modules/@capacitor-community ./android \
@@ -38,6 +69,7 @@ jobs:
             -e 's/jvmTarget = "21"/jvmTarget = "17"/g' \
             -e "s/jvmTarget = '21'/jvmTarget = '17'/g" \
             -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} +
+
       - name: Build signed release APK
         run: |
           cd android
@@ -47,17 +79,21 @@ jobs:
             -Pandroid.injected.signing.store.password=luminary123 \
             -Pandroid.injected.signing.key.alias=luminary_key \
             -Pandroid.injected.signing.key.password=luminary123
+
       - name: Prepare release asset
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           APK_PATH=$(find ./android -name "app-release.apk" | head -1)
           if [ -z "$APK_PATH" ]; then
             echo "app-release.apk not found" >&2
             exit 1
           fi
-          cp "$APK_PATH" "./Luminary-Panels-${VERSION}-release.apk"
+          cp "$APK_PATH" "./${{ steps.meta.outputs.asset }}"
+
       - name: Publish GitHub Release with APK
         uses: softprops/action-gh-release@v2
         with:
-          files: Luminary-Panels-*-release.apk
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: Luminary Panels v${{ steps.meta.outputs.version }}
+          files: ${{ steps.meta.outputs.asset }}
           generate_release_notes: true
+          overwrite_files: true

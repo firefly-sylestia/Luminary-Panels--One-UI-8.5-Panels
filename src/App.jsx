@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const __APP_VERSION__ = "1.1.6";
+const __APP_VERSION__ = "2.0.1";
 
 const COMBINED_FONT_URL =
   "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
@@ -55,6 +55,7 @@ const STORAGE_KEY = "luminary-panels-v2";
 const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const RELEASE_MANIFEST_URL = "/release.json";
+const GITHUB_REPO_URL = "https://github.com/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
 
 const UI_COLOR_PRESETS = [
@@ -976,7 +977,7 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
 // ─────────────────────────────────────────────────────────────────────────────
 // CropModal
 // ─────────────────────────────────────────────────────────────────────────────
-function CropModal({ src, onConfirm, onCancel, theme }) {
+function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
   const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 220, h: 220 });
@@ -984,6 +985,7 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
   const [customRatio, setCustomRatio] = useState("16:9");
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
+  const [faceMessage, setFaceMessage] = useState("");
   const dragRef = useRef(null);
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -1103,6 +1105,39 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
     img.src = src;
   };
 
+
+
+  const detectFaceAndCenter = async () => {
+    if (!imgDisplay.w || !imgDisplay.h) return;
+    try {
+      if (typeof window === "undefined" || !window.FaceDetector) {
+        setFaceMessage("Face detection is not supported on this browser.");
+        return;
+      }
+      const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      const faces = await detector.detect(img);
+      if (!faces || !faces.length) {
+        setFaceMessage("No face detected. You can still crop manually.");
+        return;
+      }
+      const face = faces[0].boundingBox;
+      const sx = imgDisplay.w / Math.max(1, imgNatural.w);
+      const sy = imgDisplay.h / Math.max(1, imgNatural.h);
+      const centerX = (face.x + face.width / 2) * sx;
+      const centerY = (face.y + face.height / 2) * sy;
+      setCrop(prev => ({
+        ...prev,
+        x: clamp(Math.round(centerX - prev.w / 2), 0, Math.max(0, imgDisplay.w - prev.w)),
+        y: clamp(Math.round(centerY - prev.h / 2), 0, Math.max(0, imgDisplay.h - prev.h)),
+      }));
+      setFaceMessage("Face centered ✨");
+    } catch (_) {
+      setFaceMessage("Unable to run face detection on this image.");
+    }
+  };
   return (
     <div
       style={{
@@ -1133,7 +1168,7 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
         }}
       >
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <h3 style={{ color: theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>Crop Avatar</h3>
+          <h3 style={{ color: theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>{cropTarget === "background" ? "Crop Background Image" : "Crop Avatar Image"}</h3>
           <button
             onClick={onCancel}
             style={{
@@ -1152,7 +1187,7 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
           >✕</button>
         </div>
         <p style={{ color: theme?.textDim || "rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
-          Freeform crop with custom ratio · Drag to move, handle to resize
+          Advanced crop studio · Accent-aware controls with gesture-friendly handles
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {["1:3", "free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
@@ -1188,12 +1223,30 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
           )}
         </div>
 
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, border:`1px solid ${(theme?.accent || "#0a84ff")}33`, background:"rgba(255,255,255,0.04)", borderRadius:12, padding:"8px 10px" }}>
+          <button
+            onClick={detectFaceAndCenter}
+            style={{
+              border:"none",
+              borderRadius:999,
+              background:`linear-gradient(135deg, ${(theme?.accent || "#0a84ff")}dd, ${(theme?.accent2 || "#2dd4bf")}dd)`,
+              color:"#fff",
+              padding:"8px 12px",
+              fontSize:12,
+              fontWeight:600,
+              cursor:"pointer",
+              boxShadow:`0 6px 16px ${(theme?.accent || "#0a84ff")}55`,
+            }}
+          >👤 Auto Focus Face</button>
+          <span style={{ color: theme?.textDim || "rgba(255,255,255,0.5)", fontSize:11 }}>{faceMessage || "Tip: use Auto Focus Face for portraits"}</span>
+        </div>
+
         <div
           style={{
             position: "relative",
             display: "flex",
             justifyContent: "center",
-            background: "#000",
+            background: "linear-gradient(160deg, rgba(5,8,18,0.95), rgba(12,16,28,0.9))",
             borderRadius: 14,
             overflow: "hidden",
             userSelect: "none",
@@ -1282,7 +1335,7 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
         </div>
         {imgDisplay.w > 0 && (
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Live Preview</label>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Live Crop Preview</label>
             <div style={{
               width: "100%",
               height: 140,
@@ -1624,7 +1677,7 @@ export default function LuminaryPanels() {
   const [expandedSections, setExpandedSections] = useState({ animation: false, geometry: false });
   const [expandedOverlayId, setExpandedOverlayId] = useState(null);
   const [headerExpanded, setHeaderExpanded] = useState(false);
-  const [releaseInfo, setReleaseInfo] = useState({ latestVersion: null, downloadUrl: null, hasUpdate: false, checkedAt: null });
+  const [releaseInfo, setReleaseInfo] = useState({ latestVersion: null, downloadUrl: null, hasUpdate: false, checkedAt: null, downloadCount: null });
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
@@ -1716,7 +1769,19 @@ export default function LuminaryPanels() {
       const latestVersion = data?.version || null;
       const downloadUrl = data?.downloadUrl || null;
       const hasUpdate = latestVersion ? versionCompare(latestVersion, __APP_VERSION__) > 0 : false;
-      setReleaseInfo({ latestVersion, downloadUrl, hasUpdate, checkedAt: Date.now() });
+      let downloadCount = Number.isFinite(data?.downloadCount) ? data.downloadCount : null;
+      if (downloadCount == null) {
+        try {
+          const gh = await fetch("https://api.github.com/repos/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels/releases/latest", { cache: "no-store" });
+          if (gh.ok) {
+            const rel = await gh.json();
+            downloadCount = Array.isArray(rel?.assets)
+              ? rel.assets.reduce((sum, item) => sum + (Number(item?.download_count) || 0), 0)
+              : null;
+          }
+        } catch (_) {}
+      }
+      setReleaseInfo({ latestVersion, downloadUrl, hasUpdate, checkedAt: Date.now(), downloadCount });
     } catch (_) {
       setReleaseInfo(prev => ({ ...prev, checkedAt: Date.now() }));
     }
@@ -1870,13 +1935,19 @@ export default function LuminaryPanels() {
   useEffect(() => {
     const measure = () => {
       if (!wrapRef.current) return;
-      const avail = wrapRef.current.clientWidth;
-      setPxScale(avail < s.pillW ? avail / s.pillW : 1);
+      const viewportWidth = wrapRef.current.clientWidth;
+      const horizontalPadding = vp.isMobile ? 48 : 96;
+      const verticalBudget = vp.isMobile ? Math.max(220, window.innerHeight * 0.36) : Math.max(250, window.innerHeight * 0.5);
+      const maxPreviewWidth = Math.max(180, viewportWidth - horizontalPadding);
+      const widthScale = maxPreviewWidth / Math.max(1, s.pillW);
+      const heightScale = verticalBudget / Math.max(1, s.pillH);
+      const nextScale = Math.min(1, widthScale, heightScale);
+      setPxScale(Math.max(0.22, Number.isFinite(nextScale) ? nextScale : 1));
     };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [s.pillW, vp.w]);
+  }, [s.pillW, s.pillH, vp.w, vp.isMobile]);
 
   useEffect(() => {
     const measureShell = () => {
@@ -2557,6 +2628,7 @@ export default function LuminaryPanels() {
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
   const mobilePreviewOffset = Math.max(340, headerHeight + previewDockHeight + 28);
+  const previewMini = pxScale < (vp.isMobile ? 0.78 : 0.7);
   const [swipeDir, setSwipeDir] = useState(1);
   const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
 
@@ -2577,9 +2649,28 @@ export default function LuminaryPanels() {
       [tab]: visible,
     },
   }));
+
+  const SliderSectionToggle = ({ tab }) => (
+    <div style={{
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"space-between",
+      gap:8,
+      marginBottom:12,
+      minHeight:42,
+      border:`1px solid ${cardBorder}`,
+      borderRadius:12,
+      background:controlBg,
+      padding:"0 10px",
+    }}>
+      <span style={{ color:textPrimary, fontSize:12, fontWeight:600 }}>Show {tab} sliders</span>
+      <IOSToggle checked={isTabSlidersVisible(tab)} onChange={v => toggleTabSliders(tab, v)} accent={accent} hapticEnabled={settings.hapticFeedback} />
+    </div>
+  );
   // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
+      <SliderSectionToggle tab="layout" />
       <button
         className="btn-bouncy"
         onClick={() => { microHaptic(settings.hapticFeedback); setExpandedSections(prev => ({ ...prev, geometry: !prev.geometry })); }}
@@ -2682,6 +2773,7 @@ export default function LuminaryPanels() {
 
   const panelEnvironment = (
     <Card label="Background" {...cp}>
+      <SliderSectionToggle tab="assets" />
       <FRow label="Pill Surface Color" textDim={textDim}>
         <ColorField value={s.pillBgColor || "#1c1c1e"}
           alpha={s.pillBgAlpha ?? 100}
@@ -2844,6 +2936,7 @@ export default function LuminaryPanels() {
 
   const panelAvatar = (
     <Card label="Avatar" {...cp}>
+      <SliderSectionToggle tab="avatar" />
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
         <span style={{ fontSize:14, color:textPrimary, fontWeight:600 }}>Show Avatar Circle</span>
         <IOSToggle checked={s.showAvatar} onChange={(v) => pushState({ showAvatar: v })} accent={accent} hapticEnabled={settings.hapticFeedback} />
@@ -2981,6 +3074,7 @@ export default function LuminaryPanels() {
 
   const panelTypography = (
     <Card label="Typography & Text" {...cp}>
+      <SliderSectionToggle tab="text" />
       <FRow label="Primary Text" textDim={textDim}>
         <TxIn value={s.mainText} onChange={v => pushState({ mainText: v })} inputSt={inputSt} />
       </FRow>
@@ -3117,6 +3211,7 @@ export default function LuminaryPanels() {
 
   const panelAssetsAndLayers = (
     <Card label="Assets & Overlays" {...cp}>
+      <SliderSectionToggle tab="assets" />
       <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -3135,8 +3230,8 @@ export default function LuminaryPanels() {
       }} />
 
       <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-        <button onClick={() => { microHaptic(settings.hapticFeedback); avFileRef.current?.click(); }} style={outlineBtn}>🖼 Avatar (Crop)</button>
-        <button onClick={() => { microHaptic(settings.hapticFeedback); bgFileRef.current?.click(); }} style={outlineBtn}>🌄 Background (Crop)</button>
+        <button onClick={() => { microHaptic(settings.hapticFeedback); avFileRef.current?.click(); }} style={outlineBtn}>🖼 Avatar</button>
+        <button onClick={() => { microHaptic(settings.hapticFeedback); bgFileRef.current?.click(); }} style={outlineBtn}>🌄 Background</button>
       </div>
 
 
@@ -3320,24 +3415,11 @@ export default function LuminaryPanels() {
         <IOSToggle checked={settings.showScaleBadge === true} onChange={v => setSettings(p => ({ ...p, showScaleBadge: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
       </div>
 
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, margin:"2px 0 8px" }}>Slider Visibility By Page</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:8, marginBottom:12 }}>
-        {[
-          { tab:"layout", label:"Layout" },
-          { tab:"assets", label:"Assets" },
-          { tab:"avatar", label:"Avatar" },
-          { tab:"text", label:"Text" },
-        ].map(item => (
-          <div key={item.tab} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, minHeight:42, border:`1px solid ${cardBorder}`, borderRadius:10, background:controlBg, padding:"0 10px" }}>
-            <span style={{ color:textPrimary, fontSize:12, fontWeight:600 }}>{item.label}</span>
-            <IOSToggle checked={isTabSlidersVisible(item.tab)} onChange={v => toggleTabSliders(item.tab, v)} accent={accent} hapticEnabled={settings.hapticFeedback} />
-          </div>
-        ))}
-      </div>
 
       <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
         <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
-        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <p style={{ margin:"0 0 6px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Downloads: {releaseInfo.downloadCount != null ? releaseInfo.downloadCount.toLocaleString() : "--"}</p>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           <button onClick={checkForUpdates} style={{ ...outlineBtn, flex:"1 1 130px", color:accent }}>Check Release</button>
           {releaseInfo.hasUpdate && releaseInfo.downloadUrl && (
@@ -3345,6 +3427,23 @@ export default function LuminaryPanels() {
           )}
         </div>
       </div>
+
+      <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" style={{
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"center",
+        gap:8,
+        marginBottom:12,
+        padding:"11px 14px",
+        borderRadius:999,
+        textDecoration:"none",
+        border:`1px solid ${cardBorder}`,
+        background:`linear-gradient(135deg, ${accent}22, ${accent2}1a)`,
+        color:textPrimary,
+        fontSize:13,
+        fontWeight:600,
+        boxShadow:`0 8px 20px ${accent}22`,
+      }}> GitHub · firefly-sylestia</a>
 
       <div style={{ marginBottom: 16 }}>
         <button
@@ -3629,10 +3728,11 @@ export default function LuminaryPanels() {
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
           border: `1.5px solid ${accent}50`,
-          boxShadow: `0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px ${accent}18, 0 8px 32px ${accent}20`,
+          boxShadow: `0 28px 72px rgba(0,0,0,0.82), 0 0 0 1px ${accent}26, inset 0 -28px 45px rgba(4,8,18,0.55), 0 10px 34px ${accent}20`,
+          background: "linear-gradient(160deg, rgba(5,8,16,0.86), rgba(2,3,9,0.92))",
           position: "relative",
           zIndex: 1,
-          transition: "border-radius 300ms var(--ease-spring), border-color 280ms ease",
+          transition: `border-radius ${uiTransition}, border-color ${uiTransition}, width ${uiTransition}, height ${uiTransition}, box-shadow ${uiTransition}`,
         }}>
           <canvas
             ref={canvasRef}
@@ -3946,13 +4046,16 @@ export default function LuminaryPanels() {
               position:"fixed",
               left: vp.isMobile ? 14 : "auto",
               right: vp.isMobile ? 14 : 20,
-              top: headerHeight + 8,
-              width: vp.isMobile ? "calc(100% - 28px)" : 620,
-              maxWidth: vp.isMobile ? "calc(100% - 28px)" : 620,
-              maxHeight: vp.isMobile ? "calc(100dvh - 170px)" : "calc(100vh - 140px)",
+              top: headerHeight + (previewMini ? 2 : 8),
+              width: vp.isMobile ? (previewMini ? "min(320px, calc(100% - 28px))" : "calc(100% - 28px)") : (previewMini ? 420 : 620),
+              maxWidth: vp.isMobile ? "calc(100% - 28px)" : (previewMini ? 420 : 620),
+              maxHeight: previewMini ? (vp.isMobile ? "220px" : "260px") : (vp.isMobile ? "calc(100dvh - 170px)" : "calc(100vh - 140px)"),
               zIndex: vp.isMobile ? 95 : 40,
               overflowY: vp.isMobile ? "visible" : "auto",
               alignSelf:"flex-start",
+              transition:`top ${uiTransition}, width ${uiTransition}, max-height ${uiTransition}, transform ${uiTransition}`,
+              transform: previewMini ? "translate3d(0,0,0) scale(0.96)" : "translate3d(0,0,0) scale(1)",
+              transformOrigin:"top right",
             }}
           >
             <div style={{
@@ -3964,8 +4067,8 @@ export default function LuminaryPanels() {
               alignItems:"center",
               gap:12,
               border:`1px solid ${cardBorder}`,
-              boxShadow: `${cardShadow}, 0 0 0 1px ${accent}0a`,
-              transition:`all ${uiTransition}`,
+              boxShadow: `${cardShadow}, 0 22px 56px rgba(0,0,0,0.52), 0 0 0 1px ${accent}12`,
+              transition:`background ${uiTransition}, border-color ${uiTransition}, box-shadow ${uiTransition}`,
               position:"relative",
               overflow:"hidden",
             }}>
@@ -4151,6 +4254,7 @@ export default function LuminaryPanels() {
       {cropSrc && (
         <CropModal
           src={cropSrc}
+          cropTarget={cropTarget}
           onConfirm={onCropConfirm}
           onCancel={() => setCropSrc(null)}
           theme={{ accent, accent2, textPrimary, textDim, cardBg, cardBorder, cardShadow }}
