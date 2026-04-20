@@ -19,22 +19,22 @@ const FONTS = [
 ];
 
 const BORDERS = [
-  { id: "none",    label: "None",    icon: "🚫" },
-  { id: "solid",   label: "Solid",   icon: "⭕" },
-  { id: "dashed",  label: "Dashed",  icon: "⬚"  },
-  { id: "dotted",  label: "Dotted",  icon: "🕳️" },
+  { id: "none",    label: "None",    icon: "∅" },
+  { id: "solid",   label: "Solid",   icon: "◉" },
+  { id: "dashed",  label: "Dashed",  icon: "╌"  },
+  { id: "dotted",  label: "Dotted",  icon: "⋯" },
   { id: "double",  label: "Double",  icon: "◎"  },
-  { id: "glow",    label: "Glow",    icon: "💫" },
-  { id: "floral",  label: "Floral",  icon: "🌸" },
-  { id: "pearls",  label: "Pearls",  icon: "🪨" },
-  { id: "lace",    label: "Lace",    icon: "🎀" },
-  { id: "sparkle", label: "Sparkle", icon: "✨" },
-  { id: "ribbon",  label: "Ribbon",  icon: "🎗️" },
-  { id: "crystal", label: "Crystal", icon: "💎" },
-  { id: "emoji",   label: "Emoji",   icon: "🤩" },
-  { id: "petal-crown", label: "Petal Crown", icon: "🌺" },
-  { id: "ornate-lace", label: "Ornate Lace", icon: "🪷" },
-  { id: "heart-gem", label: "Heart Gem", icon: "💗" },
+  { id: "glow",    label: "Glow",    icon: "◌" },
+  { id: "floral",  label: "Floral",  icon: "✿" },
+  { id: "pearls",  label: "Pearls",  icon: "◍" },
+  { id: "lace",    label: "Lace",    icon: "⌘" },
+  { id: "sparkle", label: "Sparkle", icon: "✶" },
+  { id: "ribbon",  label: "Ribbon",  icon: "⌇" },
+  { id: "crystal", label: "Crystal", icon: "◇" },
+  { id: "emoji",   label: "Emoji",   icon: "Aa" },
+  { id: "petal-crown", label: "Petal Crown", icon: "❋" },
+  { id: "ornate-lace", label: "Ornate Lace", icon: "✢" },
+  { id: "heart-gem", label: "Heart Gem", icon: "♡" },
 ];
 
 const BLEND_MODES = [
@@ -91,10 +91,10 @@ const DEFAULT_SETTINGS = {
 
 const GEOMETRY_LIMITS = {
   minW: 1,
-  maxW: 1200,
+  maxW: 1600,
   minH: 1,
-  maxH: 250,
-  maxArea: 420000,
+  maxH: 600,
+  maxArea: 700000,
 };
 
 function clampGeometry(next, isMobile = false) {
@@ -131,13 +131,15 @@ const TEXTURES = [
 const EMOJIS = ["✨","🌸","🦋","💎","🎀","💫","🦇","🌙","🔪","🩸"];
 
 const ICONS = {
-  undo: "⤴",
-  redo: "⤵",
-  reset: "↺",
-  layout: "⊞",
-  assets: "◈",
-  avatar: "⚬",
-  text: "✎",
+  undo: "undo",
+  redo: "redo",
+  reset: "reset",
+  layout: "layout",
+  assets: "assets",
+  avatar: "avatar",
+  text: "text",
+  settings: "settings",
+  geometry: "geometry",
 };
 
 // ── Global Style Enhancement — 120fps GPU-Accelerated ────────────────────────
@@ -1460,6 +1462,32 @@ function ExportModal({ dataUrl, onClose }) {
     </div>
   );
 }
+
+function UiIcon({ name, size = 16, color = "currentColor", stroke = 2 }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: color,
+    strokeWidth: stroke,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+  };
+  const icons = {
+    settings: <><circle cx="12" cy="12" r="3.3" /><path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.8 1.8 0 0 0-2 .4 1.8 1.8 0 0 0-1 1.7V22a2 2 0 1 1-4 0v-.1a1.8 1.8 0 0 0-1-1.7 1.8 1.8 0 0 0-2-.4l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.7-1H2a2 2 0 1 1 0-4h.1a1.8 1.8 0 0 0 1.7-1 1.8 1.8 0 0 0-.4-2l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.8 1.8 0 0 0 2 .4h.1A1.8 1.8 0 0 0 10 2.1V2a2 2 0 1 1 4 0v.1a1.8 1.8 0 0 0 1 1.7h.1a1.8 1.8 0 0 0 2-.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.8 1.8 0 0 0-.4 2v.1a1.8 1.8 0 0 0 1.7 1H22a2 2 0 1 1 0 4h-.1a1.8 1.8 0 0 0-1.7 1z"/></>,
+    undo: <path d="M9 14 4 9l5-5M4 9h10a6 6 0 1 1 0 12h-1" />,
+    redo: <path d="m15 14 5-5-5-5m5 5H10a6 6 0 1 0 0 12h1" />,
+    reset: <path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v6h-6" />,
+    layout: <><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M3 10h18M11 10v10" /></>,
+    assets: <><path d="M12 3 4 8v8l8 5 8-5V8l-8-5Z"/><path d="m4 8 8 5 8-5M12 13v8"/></>,
+    avatar: <><circle cx="12" cy="8" r="3.2"/><path d="M4.5 19.5a7.5 7.5 0 0 1 15 0"/></>,
+    text: <><path d="M4 6h16M12 6v12M8 18h8"/></>,
+    geometry: <><path d="M4 20 20 4M6 6h6v6M18 18h-6v-6"/></>,
+  };
+  return <svg {...common}>{icons[name] || icons.layout}</svg>;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 // iOS Toggle Component — animated icon morph like iOS Privacy Pane
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1676,9 +1704,7 @@ export default function LuminaryPanels() {
     setSettingsOpen(true);
     setSettingsAnimState("opening");
     mediumHaptic(settings.hapticFeedback);
-    requestAnimationFrame(() => {
-      setTimeout(() => setSettingsAnimState("open"), 420);
-    });
+    requestAnimationFrame(() => setSettingsAnimState("open"));
   }, [settings.hapticFeedback]);
 
   const closeSettings = useCallback(() => {
@@ -1687,7 +1713,7 @@ export default function LuminaryPanels() {
     setTimeout(() => {
       setSettingsOpen(false);
       setSettingsAnimState("closed");
-    }, 360);
+    }, 200);
   }, [settings.hapticFeedback]);
 
   // ── Images ────────────────────────────────────────────────────────────────
@@ -2526,7 +2552,7 @@ export default function LuminaryPanels() {
             background: expandedSections.geometry ? `${accent}28` : "rgba(128,140,160,0.14)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 13, transition: "background 220ms ease",
-          }}>📐</span>
+          }}><UiIcon name={ICONS.geometry} size={15} color={expandedSections.geometry ? accent : textPrimary} /></span>
           <span style={{ fontSize: 12.5 }}>
             {s.pillW}×{s.pillH}px · R:{s.pillR}px
           </span>
@@ -2540,7 +2566,7 @@ export default function LuminaryPanels() {
 
       {expandedSections.geometry && (
         <div style={{ animation: "bouncySlideDown 480ms var(--ease-spring)", transformOrigin: "top center" }}>
-          <div style={{ display:"flex", gap:8, marginBottom: 14 }}>
+          <div style={{ display:"flex", gap:8, marginBottom: 14, flexWrap: "wrap" }}>
             <FRow label={`Width — ${s.pillW}px`} textDim={textDim} onReset={() => pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW })}>
               <DimensionInput
                 value={s.pillW}
@@ -2597,7 +2623,7 @@ export default function LuminaryPanels() {
   );
 
   const panelEnvironment = (
-    <Card label="Environment & Background" {...cp}>
+    <Card label="Background" {...cp}>
       <FRow label="Pill Surface Color" textDim={textDim}>
         <ColorField value={s.pillBgColor || "#1c1c1e"}
           alpha={s.pillBgAlpha ?? 100}
@@ -2757,7 +2783,7 @@ export default function LuminaryPanels() {
   );
 
   const panelAvatar = (
-    <Card label="Avatar & Element Geometry" {...cp}>
+    <Card label="Avatar" {...cp}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
         <span style={{ fontSize:14, color:textPrimary, fontWeight:600 }}>Show Avatar Circle</span>
         <IOSToggle checked={s.showAvatar} onChange={(v) => pushState({ showAvatar: v })} accent={accent} hapticEnabled={settings.hapticFeedback} />
@@ -3717,7 +3743,7 @@ export default function LuminaryPanels() {
           }}
         >
           <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
-            <h1 className="lum-brand-title">✦ Luminary Panels</h1>
+            <h1 className="lum-brand-title">Luminary Panels</h1>
             <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
               {Object.keys(LAYOUTS).map(k => (
                 <button key={k}
@@ -3748,7 +3774,7 @@ export default function LuminaryPanels() {
               ))}
             </div>
           </div>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems: "center" }}>
             <button
               ref={settingsBtnRef}
               className="btn-bouncy"
@@ -3766,26 +3792,33 @@ export default function LuminaryPanels() {
                 color: settingsOpen ? "#fff" : textPrimary,
                 cursor: "pointer",
                 boxShadow: settingsOpen ? `0 4px 16px ${accent}44` : "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                transition: `all ${uiTransition}`,
               }}
-            >⚙ Settings</button>
+            ><UiIcon name={ICONS.settings} size={13} color={settingsOpen ? "#fff" : textPrimary} />Settings</button>
             <button className="btn-bouncy" onClick={undo} disabled={hIndex === 0}
               style={{
                 flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
                 borderRadius:999, border:`1px solid ${cardBorder}`, background:controlBg,
                 color:textPrimary, cursor:"pointer", opacity: hIndex === 0 ? 0.3 : 1,
-              }}>{ICONS.undo} Undo</button>
+                display: "inline-flex", alignItems: "center", gap: 6, transition: `all ${uiTransition}`,
+              }}><UiIcon name={ICONS.undo} size={13} color={textPrimary} />Undo</button>
             <button className="btn-bouncy" onClick={redo} disabled={hIndex === history.length - 1}
               style={{
                 flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
                 borderRadius:999, border:`1px solid ${cardBorder}`, background:controlBg,
                 color:textPrimary, cursor:"pointer", opacity: hIndex === history.length - 1 ? 0.3 : 1,
-              }}>{ICONS.redo} Redo</button>
+                display: "inline-flex", alignItems: "center", gap: 6, transition: `all ${uiTransition}`,
+              }}><UiIcon name={ICONS.redo} size={13} color={textPrimary} />Redo</button>
             <button className="btn-bouncy" onClick={reset}
               style={{
                 flex:"none", padding:"7px 12px", fontSize:12, fontWeight:600,
                 borderRadius:999, border:"1px solid rgba(255,85,85,0.28)", background:"rgba(255,85,85,0.10)",
                 color:"#ff6b6b", cursor:"pointer",
-              }}>{ICONS.reset} Reset</button>
+                display: "inline-flex", alignItems: "center", gap: 6, transition: `all ${uiTransition}`,
+              }}><UiIcon name={ICONS.reset} size={13} color="#ff6b6b" />Reset</button>
           </div>
         </header>
 
@@ -3796,14 +3829,14 @@ export default function LuminaryPanels() {
           justifyContent:"flex-start",
           gap:20,
           padding:"20px 14px",
-          paddingRight: vp.isMobile ? "14px" : "calc(14px + 560px)",
+          paddingRight: vp.isMobile ? "14px" : "calc(14px + 640px)",
           maxWidth: "100%",
           margin:"0 auto",
           transition:`padding ${uiTransition}, gap ${uiTransition}`
         }}>
 
           {!vp.isMobile && (
-            <div style={{ flex:"1 1 280px", maxWidth:340, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
+            <div style={{ flex:"1 1 300px", maxWidth:360, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
               {panelBaseConfig}
               {panelAssetsAndLayers}
               {panelEnvironment}
@@ -3822,8 +3855,8 @@ export default function LuminaryPanels() {
               left: vp.isMobile ? 14 : "auto",
               right: vp.isMobile ? 14 : 20,
               top: headerHeight + 8,
-              width: vp.isMobile ? "calc(100% - 28px)" : 540,
-              maxWidth: vp.isMobile ? "calc(100% - 28px)" : 540,
+              width: vp.isMobile ? "calc(100% - 28px)" : 620,
+              maxWidth: vp.isMobile ? "calc(100% - 28px)" : 620,
               maxHeight: vp.isMobile ? "calc(100dvh - 170px)" : "calc(100vh - 140px)",
               zIndex: vp.isMobile ? 95 : 40,
               overflowY: vp.isMobile ? "visible" : "auto",
@@ -3855,7 +3888,7 @@ export default function LuminaryPanels() {
           </main>
 
           {!vp.isMobile && (
-            <div style={{ flex:"1 1 280px", maxWidth:340, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
+            <div style={{ flex:"1 1 300px", maxWidth:360, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
               {panelAvatar}
               {panelBorder}
               {panelTypography}
@@ -3932,7 +3965,6 @@ export default function LuminaryPanels() {
             zIndex:1000,
             borderRadius:28,
             boxShadow:"0 16px 48px rgba(0,0,0,0.32), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
-            position: "relative",
           }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
@@ -3967,7 +3999,7 @@ export default function LuminaryPanels() {
                     transform: isActive ? "scale(1.15) translateY(-1px)" : "scale(1)",
                     transition: "transform 320ms var(--ease-spring)",
                     filter: isActive ? `drop-shadow(0 0 6px ${accent}88)` : "none",
-                  }}>{t.icon}</span>
+                  }}><UiIcon name={t.icon} size={18} color={isActive ? accent : textDim} /></span>
                   <span style={{ fontSize:9.5, fontWeight: isActive ? 700 : 500, letterSpacing: isActive ? 0.3 : 0 }}>{t.label}</span>
                 </button>
               );
@@ -3987,9 +4019,9 @@ export default function LuminaryPanels() {
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            transition: "background 340ms var(--ease-ios)",
-            backdropFilter: settingsAnimState === "closing" ? "blur(0px)" : "blur(3px)",
-            WebkitBackdropFilter: settingsAnimState === "closing" ? "blur(0px)" : "blur(3px)",
+            transition: "background 180ms var(--ease-ios)",
+            backdropFilter: "blur(1px)",
+            WebkitBackdropFilter: "blur(1px)",
           }}
           onClick={closeSettings}
         >
@@ -4004,10 +4036,10 @@ export default function LuminaryPanels() {
               paddingBottom: "max(20px, env(safe-area-inset-bottom))",
               transformOrigin: `${settingsOrigin.x}% ${settingsOrigin.y}%`,
               animation: settingsAnimState === "closing"
-                ? "genieClose 360ms var(--ease-genie) forwards"
-                : "genieOpen 440ms var(--ease-genie)",
+                ? "fadeSlideUp 180ms var(--ease-ios) reverse forwards"
+                : "fadeSlideUp 220ms var(--ease-ios)",
               boxShadow: "0 -20px 80px rgba(0,0,0,0.5)",
-              willChange: "transform, opacity, filter",
+              willChange: "transform, opacity",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -4047,7 +4079,7 @@ export default function LuminaryPanels() {
           position:"fixed",
           left:"50%",
           bottom: vp.isMobile ? "calc(86px + env(safe-area-inset-bottom))" : 22,
-          transform:"translateX(-50%)",
+          transform:"translateX(-50%) translateZ(0)",
           zIndex: 2000,
           background: `linear-gradient(135deg, ${accent}dd, ${accent2}dd)`,
           border:`1px solid ${accent}88`,
@@ -4060,7 +4092,6 @@ export default function LuminaryPanels() {
           backdropFilter:"blur(12px) saturate(1.3)",
           WebkitBackdropFilter:"blur(12px) saturate(1.3)",
         animation: "toastPop 480ms var(--ease-spring)",
-        transform: "translateX(-50%) translateZ(0)",
         }}>
           ✅ {saveNotice}
         </div>
@@ -4087,15 +4118,16 @@ function DimensionInput({ value, min, max, onConfirm, accent, textPrimary, contr
   };
 
   return (
-    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 6, alignItems: "center", width: "100%", minWidth: 0 }}>
       <input
-        type="text"
+        type="number"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && confirm()}
         placeholder={value.toString()}
         style={{
           flex: 1,
+          minWidth: 0,
           padding: "8px 10px",
           borderRadius: 8,
           border: `1px solid ${cardBorder}`,
@@ -4158,7 +4190,7 @@ function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, accent
 
 function FRow({ label, children, textDim, onReset }) {
   return (
-    <div style={{ flex:1, marginBottom:12 }}>
+    <div style={{ flex:"1 1 180px", minWidth:0, marginBottom:12 }}>
       <label style={{
         display:"flex",
         fontSize:11.5,
