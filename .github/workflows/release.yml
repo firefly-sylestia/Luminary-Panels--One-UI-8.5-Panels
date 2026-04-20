@@ -39,10 +39,9 @@ jobs:
             -e "s/jvmTarget = '21'/jvmTarget = '17'/g" \
             -e 's/jvmToolchain(21)/jvmToolchain(17)/g' {} +
       - name: Build signed release APK
-        env:
-          JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
         run: |
           cd android
+          sed -i '/org.gradle.java.home/d' gradle.properties
           ./gradlew --no-daemon assembleRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/luminary.keystore \
             -Pandroid.injected.signing.store.password=luminary123 \
