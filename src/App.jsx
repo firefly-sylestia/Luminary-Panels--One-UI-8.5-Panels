@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const __APP_VERSION__ = "1.1.6";
+const __APP_VERSION__ = "2.0.0";
 
 const COMBINED_FONT_URL =
   "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
@@ -1133,7 +1133,7 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
         }}
       >
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <h3 style={{ color: theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>Crop Avatar</h3>
+          <h3 style={{ color: theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>{cropTarget === "background" ? "Crop Background Image" : "Crop Avatar Image"}</h3>
           <button
             onClick={onCancel}
             style={{
@@ -1152,7 +1152,7 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
           >✕</button>
         </div>
         <p style={{ color: theme?.textDim || "rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
-          Freeform crop with custom ratio · Drag to move, handle to resize
+          Crop editor · Drag to position and use the corner handle to resize
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {["1:3", "free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
@@ -1282,7 +1282,7 @@ function CropModal({ src, onConfirm, onCancel, theme }) {
         </div>
         {imgDisplay.w > 0 && (
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Live Preview</label>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Live Crop Preview</label>
             <div style={{
               width: "100%",
               height: 140,
@@ -1870,13 +1870,19 @@ export default function LuminaryPanels() {
   useEffect(() => {
     const measure = () => {
       if (!wrapRef.current) return;
-      const avail = wrapRef.current.clientWidth;
-      setPxScale(avail < s.pillW ? avail / s.pillW : 1);
+      const viewportWidth = wrapRef.current.clientWidth;
+      const horizontalPadding = vp.isMobile ? 48 : 96;
+      const verticalBudget = vp.isMobile ? Math.max(220, window.innerHeight * 0.36) : Math.max(250, window.innerHeight * 0.5);
+      const maxPreviewWidth = Math.max(180, viewportWidth - horizontalPadding);
+      const widthScale = maxPreviewWidth / Math.max(1, s.pillW);
+      const heightScale = verticalBudget / Math.max(1, s.pillH);
+      const nextScale = Math.min(1, widthScale, heightScale);
+      setPxScale(Math.max(0.22, Number.isFinite(nextScale) ? nextScale : 1));
     };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [s.pillW, vp.w]);
+  }, [s.pillW, s.pillH, vp.w, vp.isMobile]);
 
   useEffect(() => {
     const measureShell = () => {
@@ -2577,9 +2583,28 @@ export default function LuminaryPanels() {
       [tab]: visible,
     },
   }));
+
+  const SliderSectionToggle = ({ tab }) => (
+    <div style={{
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"space-between",
+      gap:8,
+      marginBottom:12,
+      minHeight:42,
+      border:`1px solid ${cardBorder}`,
+      borderRadius:12,
+      background:controlBg,
+      padding:"0 10px",
+    }}>
+      <span style={{ color:textPrimary, fontSize:12, fontWeight:600 }}>Show {tab} sliders</span>
+      <IOSToggle checked={isTabSlidersVisible(tab)} onChange={v => toggleTabSliders(tab, v)} accent={accent} hapticEnabled={settings.hapticFeedback} />
+    </div>
+  );
   // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
+      <SliderSectionToggle tab="layout" />
       <button
         className="btn-bouncy"
         onClick={() => { microHaptic(settings.hapticFeedback); setExpandedSections(prev => ({ ...prev, geometry: !prev.geometry })); }}
@@ -2682,6 +2707,7 @@ export default function LuminaryPanels() {
 
   const panelEnvironment = (
     <Card label="Background" {...cp}>
+      <SliderSectionToggle tab="assets" />
       <FRow label="Pill Surface Color" textDim={textDim}>
         <ColorField value={s.pillBgColor || "#1c1c1e"}
           alpha={s.pillBgAlpha ?? 100}
@@ -2844,6 +2870,7 @@ export default function LuminaryPanels() {
 
   const panelAvatar = (
     <Card label="Avatar" {...cp}>
+      <SliderSectionToggle tab="avatar" />
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
         <span style={{ fontSize:14, color:textPrimary, fontWeight:600 }}>Show Avatar Circle</span>
         <IOSToggle checked={s.showAvatar} onChange={(v) => pushState({ showAvatar: v })} accent={accent} hapticEnabled={settings.hapticFeedback} />
@@ -2981,6 +3008,7 @@ export default function LuminaryPanels() {
 
   const panelTypography = (
     <Card label="Typography & Text" {...cp}>
+      <SliderSectionToggle tab="text" />
       <FRow label="Primary Text" textDim={textDim}>
         <TxIn value={s.mainText} onChange={v => pushState({ mainText: v })} inputSt={inputSt} />
       </FRow>
@@ -3117,6 +3145,7 @@ export default function LuminaryPanels() {
 
   const panelAssetsAndLayers = (
     <Card label="Assets & Overlays" {...cp}>
+      <SliderSectionToggle tab="assets" />
       <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -3320,20 +3349,6 @@ export default function LuminaryPanels() {
         <IOSToggle checked={settings.showScaleBadge === true} onChange={v => setSettings(p => ({ ...p, showScaleBadge: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
       </div>
 
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, margin:"2px 0 8px" }}>Slider Visibility By Page</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:8, marginBottom:12 }}>
-        {[
-          { tab:"layout", label:"Layout" },
-          { tab:"assets", label:"Assets" },
-          { tab:"avatar", label:"Avatar" },
-          { tab:"text", label:"Text" },
-        ].map(item => (
-          <div key={item.tab} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, minHeight:42, border:`1px solid ${cardBorder}`, borderRadius:10, background:controlBg, padding:"0 10px" }}>
-            <span style={{ color:textPrimary, fontSize:12, fontWeight:600 }}>{item.label}</span>
-            <IOSToggle checked={isTabSlidersVisible(item.tab)} onChange={v => toggleTabSliders(item.tab, v)} accent={accent} hapticEnabled={settings.hapticFeedback} />
-          </div>
-        ))}
-      </div>
 
       <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
         <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
@@ -3629,10 +3644,11 @@ export default function LuminaryPanels() {
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
           border: `1.5px solid ${accent}50`,
-          boxShadow: `0 24px 64px rgba(0,0,0,0.55), 0 0 0 1px ${accent}18, 0 8px 32px ${accent}20`,
+          boxShadow: `0 28px 72px rgba(0,0,0,0.82), 0 0 0 1px ${accent}26, inset 0 -28px 45px rgba(4,8,18,0.55), 0 10px 34px ${accent}20`,
+          background: "linear-gradient(160deg, rgba(5,8,16,0.86), rgba(2,3,9,0.92))",
           position: "relative",
           zIndex: 1,
-          transition: "border-radius 300ms var(--ease-spring), border-color 280ms ease",
+          transition: `border-radius ${uiTransition}, border-color ${uiTransition}, width ${uiTransition}, height ${uiTransition}, box-shadow ${uiTransition}`,
         }}>
           <canvas
             ref={canvasRef}
@@ -3964,8 +3980,8 @@ export default function LuminaryPanels() {
               alignItems:"center",
               gap:12,
               border:`1px solid ${cardBorder}`,
-              boxShadow: `${cardShadow}, 0 0 0 1px ${accent}0a`,
-              transition:`all ${uiTransition}`,
+              boxShadow: `${cardShadow}, 0 22px 56px rgba(0,0,0,0.52), 0 0 0 1px ${accent}12`,
+              transition:`background ${uiTransition}, border-color ${uiTransition}, box-shadow ${uiTransition}`,
               position:"relative",
               overflow:"hidden",
             }}>
