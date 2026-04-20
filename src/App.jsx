@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import CropModal from "./components/CropModal";
+import { MOBILE_TABS } from "./constants/ui";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const __APP_VERSION__ = "2.0.1";
@@ -56,7 +58,6 @@ const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const RELEASE_MANIFEST_URL = "/release.json";
 const GITHUB_REPO_URL = "https://github.com/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels";
-const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
 
 const UI_COLOR_PRESETS = [
   { id: "aurora", label: "Aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" },
@@ -975,441 +976,6 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CropModal
-// ─────────────────────────────────────────────────────────────────────────────
-function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
-  const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
-  const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
-  const [crop, setCrop] = useState({ x: 0, y: 0, w: 220, h: 220 });
-  const [ratio, setRatio] = useState("free");
-  const [customRatio, setCustomRatio] = useState("16:9");
-  const [zoom, setZoom] = useState(100);
-  const [rotation, setRotation] = useState(0);
-  const [faceMessage, setFaceMessage] = useState("");
-  const dragRef = useRef(null);
-
-  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const livePreviewPos = useMemo(() => {
-    if (!imgDisplay.w || !imgDisplay.h) return { x: "50%", y: "50%" };
-    const centerX = clamp(crop.x + crop.w / 2, 0, imgDisplay.w);
-    const centerY = clamp(crop.y + crop.h / 2, 0, imgDisplay.h);
-    return {
-      x: `${(centerX / imgDisplay.w) * 100}%`,
-      y: `${(centerY / imgDisplay.h) * 100}%`,
-    };
-  }, [crop, imgDisplay.w, imgDisplay.h]);
-
-  const onImgLoad = (e) => {
-    const img = e.currentTarget;
-    const MAX_W = Math.min(window.innerWidth - 48, 440);
-    const MAX_H = Math.min(Math.floor(window.innerHeight * 0.52), 360);
-    const scale = Math.min(MAX_W / img.naturalWidth, MAX_H / img.naturalHeight, 1);
-    const dw = Math.round(img.naturalWidth  * scale);
-    const dh = Math.round(img.naturalHeight * scale);
-    const initRatio = 1 / 3;
-    const initH = Math.max(80, Math.round(dh * 0.84));
-    const initW = Math.max(56, Math.min(Math.round(initH * initRatio), Math.round(dw * 0.9)));
-    setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
-    setImgDisplay({ w: dw, h: dh });
-    setCrop({ x: Math.round((dw - initW) / 2), y: Math.round((dh - initH) / 2), w: initW, h: initH });
-  };
-
-  const parseRatio = useCallback(() => {
-    if (ratio === "free") return null;
-    if (ratio === "1:1") return 1;
-    if (ratio === "4:5") return 4 / 5;
-    if (ratio === "16:9") return 16 / 9;
-    if (ratio === "9:16") return 9 / 16;
-    if (ratio === "1:3") return 1 / 3;
-    const parts = customRatio.split(":").map(Number);
-    if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) return parts[0] / parts[1];
-    return null;
-  }, [ratio, customRatio]);
-
-  const handlePointerDown = (e, mode) => {
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { mode, px: e.clientX, py: e.clientY, snap: { ...crop } };
-  };
-
-  const handlePointerMove = (e) => {
-    if (!dragRef.current) return;
-    const { mode, px, py, snap } = dragRef.current;
-    const dx = e.clientX - px, dy = e.clientY - py;
-    if (mode === "move") {
-      setCrop(() => ({
-        x: clamp(snap.x + dx, 0, imgDisplay.w - snap.w),
-        y: clamp(snap.y + dy, 0, imgDisplay.h - snap.h),
-        w: snap.w,
-        h: snap.h,
-      }));
-    } else if (mode === "resize") {
-      const ratioValue = parseRatio();
-      let nextW = clamp(snap.w + dx, 40, imgDisplay.w - snap.x);
-      let nextH = clamp(snap.h + dy, 40, imgDisplay.h - snap.y);
-      if (ratioValue) {
-        nextH = Math.round(nextW / ratioValue);
-        if (nextH > imgDisplay.h - snap.y) {
-          nextH = imgDisplay.h - snap.y;
-          nextW = Math.round(nextH * ratioValue);
-        }
-      }
-      setCrop(c => ({ ...c, w: nextW, h: nextH }));
-    }
-  };
-
-  const handlePointerUp = () => { dragRef.current = null; };
-
-  useEffect(() => {
-    if (!imgDisplay.w || !imgDisplay.h) return;
-    const ratioValue = parseRatio();
-    if (!ratioValue) return;
-    setCrop(prev => {
-      let nextW = Math.min(prev.w, imgDisplay.w);
-      let nextH = Math.round(nextW / ratioValue);
-      if (nextH > imgDisplay.h) {
-        nextH = imgDisplay.h;
-        nextW = Math.round(nextH * ratioValue);
-      }
-      const x = clamp(prev.x, 0, imgDisplay.w - nextW);
-      const y = clamp(prev.y, 0, imgDisplay.h - nextH);
-      return { x, y, w: Math.max(40, nextW), h: Math.max(40, nextH) };
-    });
-  }, [ratio, customRatio, imgDisplay.w, imgDisplay.h, parseRatio]);
-
-  const confirmCrop = () => {
-    if (!imgDisplay.w) return;
-    const scX = imgNatural.w / imgDisplay.w;
-    const scY = imgNatural.h / imgDisplay.h;
-    const sx = Math.round(crop.x * scX);
-    const sy = Math.round(crop.y * scY);
-    const sw = Math.round(crop.w * scX);
-    const sh = Math.round(crop.h * scY);
-    const cvs = document.createElement("canvas");
-    cvs.width = sw; cvs.height = sh;
-    const ctx = cvs.getContext("2d");
-    const img = new Image();
-    img.onload = () => {
-      const zoomScale = zoom / 100;
-      const srcW = Math.max(1, Math.round(sw / zoomScale));
-      const srcH = Math.max(1, Math.round(sh / zoomScale));
-      const srcX = clamp(Math.round(sx + (sw - srcW) / 2), 0, img.naturalWidth - srcW);
-      const srcY = clamp(Math.round(sy + (sh - srcH) / 2), 0, img.naturalHeight - srcH);
-      ctx.save();
-      ctx.translate(sw / 2, sh / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.drawImage(img, srcX, srcY, srcW, srcH, -sw / 2, -sh / 2, sw, sh);
-      ctx.restore();
-      onConfirm(cvs.toDataURL("image/png"));
-    };
-    img.src = src;
-  };
-
-
-
-  const detectFaceAndCenter = async () => {
-    if (!imgDisplay.w || !imgDisplay.h) return;
-    try {
-      if (typeof window === "undefined" || !window.FaceDetector) {
-        setFaceMessage("Face detection is not supported on this browser.");
-        return;
-      }
-      const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
-      const img = new Image();
-      img.src = src;
-      await img.decode();
-      const faces = await detector.detect(img);
-      if (!faces || !faces.length) {
-        setFaceMessage("No face detected. You can still crop manually.");
-        return;
-      }
-      const face = faces[0].boundingBox;
-      const sx = imgDisplay.w / Math.max(1, imgNatural.w);
-      const sy = imgDisplay.h / Math.max(1, imgNatural.h);
-      const centerX = (face.x + face.width / 2) * sx;
-      const centerY = (face.y + face.height / 2) * sy;
-      setCrop(prev => ({
-        ...prev,
-        x: clamp(Math.round(centerX - prev.w / 2), 0, Math.max(0, imgDisplay.w - prev.w)),
-        y: clamp(Math.round(centerY - prev.h / 2), 0, Math.max(0, imgDisplay.h - prev.h)),
-      }));
-      setFaceMessage("Face centered ✨");
-    } catch (_) {
-      setFaceMessage("Unable to run face detection on this image.");
-    }
-  };
-  return (
-    <div
-      style={{
-        position:"fixed", inset:0, zIndex:9999,
-        background:"rgba(0,0,0,0.88)",
-        display:"flex",
-        alignItems:"center",
-        justifyContent:"center",
-        padding:16,
-        animation: "modalBackdropFade 220ms var(--ease-ios)",
-      }}
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-    >
-      <div
-        style={{
-          background: theme?.cardBg || "#1c1c1e",
-          borderRadius: 22,
-          padding: 20,
-          width: "100%",
-          maxWidth: 480,
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-          boxShadow: theme?.cardShadow || "0 24px 64px rgba(0,0,0,0.6)",
-          border: `1px solid ${theme?.cardBorder || "rgba(255,255,255,0.14)"}`,
-          animation: "modalContentSpring 380ms var(--ease-spring)",
-          transform: "translate3d(0,0,0)",
-        }}
-      >
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <h3 style={{ color: theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>{cropTarget === "background" ? "Crop Background Image" : "Crop Avatar Image"}</h3>
-          <button
-            onClick={onCancel}
-            style={{
-              background: "rgba(255,255,255,0.1)",
-              border: "none",
-              color: theme?.textPrimary || "#fff",
-              borderRadius: "50%",
-              width: 34, height: 34,
-              fontSize: 16,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "transform 200ms var(--ease-spring), background 200ms ease",
-            }}
-          >✕</button>
-        </div>
-        <p style={{ color: theme?.textDim || "rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
-          Advanced crop studio · Accent-aware controls with gesture-friendly handles
-        </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {["1:3", "free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
-            <button
-              key={opt}
-              onClick={() => setRatio(opt)}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 10,
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: ratio === opt ? (theme?.accent || "#0a84ff") : "rgba(255,255,255,0.08)",
-                color: theme?.textPrimary || "#fff",
-                cursor: "pointer",
-                transition: "all 200ms var(--ease-ios)",
-                transform: ratio === opt ? "scale(1.05)" : "scale(1)",
-                fontWeight: ratio === opt ? 600 : 400,
-              }}
-            >{opt}</button>
-          ))}
-          {ratio === "custom" && (
-            <input
-              value={customRatio}
-              onChange={e => setCustomRatio(e.target.value)}
-              placeholder="21:9"
-              style={{
-                borderRadius: 10,
-                border: "1px solid rgba(255,255,255,0.14)",
-                background: "rgba(255,255,255,0.08)",
-                color: "#fff",
-                padding: "8px 12px",
-              }}
-            />
-          )}
-        </div>
-
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, border:`1px solid ${(theme?.accent || "#0a84ff")}33`, background:"rgba(255,255,255,0.04)", borderRadius:12, padding:"8px 10px" }}>
-          <button
-            onClick={detectFaceAndCenter}
-            style={{
-              border:"none",
-              borderRadius:999,
-              background:`linear-gradient(135deg, ${(theme?.accent || "#0a84ff")}dd, ${(theme?.accent2 || "#2dd4bf")}dd)`,
-              color:"#fff",
-              padding:"8px 12px",
-              fontSize:12,
-              fontWeight:600,
-              cursor:"pointer",
-              boxShadow:`0 6px 16px ${(theme?.accent || "#0a84ff")}55`,
-            }}
-          >👤 Auto Focus Face</button>
-          <span style={{ color: theme?.textDim || "rgba(255,255,255,0.5)", fontSize:11 }}>{faceMessage || "Tip: use Auto Focus Face for portraits"}</span>
-        </div>
-
-        <div
-          style={{
-            position: "relative",
-            display: "flex",
-            justifyContent: "center",
-            background: "linear-gradient(160deg, rgba(5,8,18,0.95), rgba(12,16,28,0.9))",
-            borderRadius: 14,
-            overflow: "hidden",
-            userSelect: "none",
-            touchAction: "none",
-            minHeight: 80,
-          }}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-        >
-          <div style={{
-            position:"relative",
-            width: imgDisplay.w || "auto",
-            height: imgDisplay.h || "auto",
-            maxWidth: "100%"
-          }}>
-            <img
-              src={src}
-              onLoad={onImgLoad}
-              draggable={false}
-              style={{
-                display: "block",
-                width: imgDisplay.w || "auto",
-                height: imgDisplay.h || "auto",
-                maxWidth: "100%",
-                pointerEvents: "none"
-              }}
-            />
-            {imgDisplay.w > 0 && (
-              <>
-                <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
-                  <div style={{ position:"absolute", top:0, left:0, right:0, height: crop.y, background:"rgba(0,0,0,0.65)" }} />
-                  <div style={{ position:"absolute", top: crop.y + crop.h, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.65)" }} />
-                  <div style={{ position:"absolute", top: crop.y, left:0, width: crop.x, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
-                  <div style={{ position:"absolute", top: crop.y, left: crop.x + crop.w, right:0, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
-                </div>
-                <div
-                  onPointerDown={e => handlePointerDown(e, "move")}
-                  style={{
-                    position: "absolute",
-                    left: crop.x, top: crop.y,
-                    width: crop.w, height: crop.h,
-                    border: `2.5px solid ${theme?.accent || "#0a84ff"}`,
-                    borderRadius: "10px",
-                    cursor: "move",
-                    touchAction: "none",
-                    boxSizing: "border-box",
-                    boxShadow: "0 0 0 1px rgba(0,0,0,0.4), 0 0 20px rgba(79,179,217,0.4)",
-                  }}
-                >
-                  <div style={{ position:"absolute", top:"50%", left:6, right:6, height:1, background:"rgba(255,255,255,0.3)", transform:"translateY(-50%)", pointerEvents:"none" }} />
-                  <div style={{ position:"absolute", left:"50%", top:6, bottom:6, width:1, background:"rgba(255,255,255,0.3)", transform:"translateX(-50%)", pointerEvents:"none" }} />
-                  <div
-                    onPointerDown={e => handlePointerDown(e, "resize")}
-                    style={{
-                      position: "absolute", bottom: -10, right: -10,
-                      width: 24, height: 24,
-                      background: theme?.accent || "#0a84ff",
-                      borderRadius: "50%",
-                      cursor: "nwse-resize",
-                      touchAction: "none",
-                      border: "2px solid #fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 9,
-                      color: "#fff",
-                      fontWeight: 700,
-                      boxShadow: "0 2px 10px rgba(0,0,0,0.6)",
-                    }}
-                  >⇲</div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Zoom {zoom}%</label>
-            <input type="range" className="ios-slider" step="1" min={50} max={180} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Rotate {rotation}°</label>
-            <input type="range" className="ios-slider" step="1" min={-180} max={180} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
-          </div>
-        </div>
-        {imgDisplay.w > 0 && (
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Live Crop Preview</label>
-            <div style={{
-              width: "100%",
-              height: 140,
-              borderRadius: 14,
-              overflow: "hidden",
-              border: `1px solid ${theme?.accent || "#0a84ff"}55`,
-              background: "#060607",
-            }}>
-              <img
-                src={src}
-                alt="Live crop preview"
-                draggable={false}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: `${livePreviewPos.x} ${livePreviewPos.y}`,
-                  transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                  transformOrigin: "center center",
-                  transition: "transform 140ms var(--ease-ios), object-position 140ms var(--ease-ios)",
-                  willChange: "transform, object-position",
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {imgDisplay.w > 0 && (
-          <p style={{ color: theme?.textDim || "rgba(255,255,255,0.35)", fontSize: 11, textAlign: "center", margin: 0 }}>
-            Crop: {Math.round(crop.w)}×{Math.round(crop.h)}px display
-            {" · "}
-            Output: ~{Math.round(crop.w * (imgNatural.w / imgDisplay.w))}×{Math.round(crop.h * (imgNatural.h / imgDisplay.h))}px
-          </p>
-        )}
-
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={onCancel}
-            style={{
-              flex: 1,
-              padding: "14px",
-              background: "rgba(255,255,255,0.08)",
-              border: "none",
-              borderRadius: 14,
-              color: theme?.textPrimary || "#fff",
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: "pointer",
-              transition: "transform 180ms var(--ease-spring), background 200ms ease",
-            }}
-          >Cancel</button>
-          <button
-            onClick={confirmCrop}
-            style={{
-              flex: 2,
-              padding: "14px",
-              background: `linear-gradient(135deg, ${theme?.accent || "#0a84ff"}, ${theme?.accent2 || "#2dd4bf"})`,
-              border: "none",
-              borderRadius: 14,
-              color: "#fff",
-              fontSize: 15,
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: "0 6px 20px rgba(79,179,217,0.4)",
-              transition: "transform 180ms var(--ease-spring)",
-            }}
-          >✓ Apply Crop</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // ExportModal
 // ─────────────────────────────────────────────────────────────────────────────
 function ExportModal({ dataUrl, onClose }) {
@@ -1681,6 +1247,7 @@ export default function LuminaryPanels() {
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
+  const [overlayCropPending, setOverlayCropPending] = useState(false);
   const [exportDataUrl, setExportDataUrl] = useState(null);
   const [saveNotice, setSaveNotice]   = useState("");
   const [systemPrefersDark, setSystemPrefersDark] = useState(
@@ -1996,12 +1563,15 @@ export default function LuminaryPanels() {
     if (cropTarget === "background") {
       setBgRawSrc(croppedDataUrl);
       pushState({ bgImgX: 0, bgImgY: 0, bgScale: 100 });
+    } else if (cropTarget === "overlay" || overlayCropPending) {
+      addOverlay("image", croppedDataUrl);
     } else {
       setAvRawSrc(croppedDataUrl);
       pushState({ avImgX: 0, avImgY: 0 });
     }
     setCropSrc(null);
     setCropTarget("avatar");
+    setOverlayCropPending(false);
     mediumHaptic(settings.hapticFeedback);
   };
 
@@ -2627,7 +2197,7 @@ export default function LuminaryPanels() {
 
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
-  const mobilePreviewOffset = Math.max(340, headerHeight + previewDockHeight + 28);
+  const mobilePreviewOffset = Math.max(220, headerHeight + Math.min(previewDockHeight, Math.round(window.innerHeight * 0.4)) + 18);
   const previewMini = pxScale < (vp.isMobile ? 0.78 : 0.7);
   const [swipeDir, setSwipeDir] = useState(1);
   const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
@@ -2670,7 +2240,6 @@ export default function LuminaryPanels() {
   // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
-      <SliderSectionToggle tab="layout" />
       <button
         className="btn-bouncy"
         onClick={() => { microHaptic(settings.hapticFeedback); setExpandedSections(prev => ({ ...prev, geometry: !prev.geometry })); }}
@@ -2773,7 +2342,6 @@ export default function LuminaryPanels() {
 
   const panelEnvironment = (
     <Card label="Background" {...cp}>
-      <SliderSectionToggle tab="assets" />
       <FRow label="Pill Surface Color" textDim={textDim}>
         <ColorField value={s.pillBgColor || "#1c1c1e"}
           alpha={s.pillBgAlpha ?? 100}
@@ -2936,7 +2504,6 @@ export default function LuminaryPanels() {
 
   const panelAvatar = (
     <Card label="Avatar" {...cp}>
-      <SliderSectionToggle tab="avatar" />
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
         <span style={{ fontSize:14, color:textPrimary, fontWeight:600 }}>Show Avatar Circle</span>
         <IOSToggle checked={s.showAvatar} onChange={(v) => pushState({ showAvatar: v })} accent={accent} hapticEnabled={settings.hapticFeedback} />
@@ -3074,7 +2641,6 @@ export default function LuminaryPanels() {
 
   const panelTypography = (
     <Card label="Typography & Text" {...cp}>
-      <SliderSectionToggle tab="text" />
       <FRow label="Primary Text" textDim={textDim}>
         <TxIn value={s.mainText} onChange={v => pushState({ mainText: v })} inputSt={inputSt} />
       </FRow>
@@ -3211,7 +2777,6 @@ export default function LuminaryPanels() {
 
   const panelAssetsAndLayers = (
     <Card label="Assets & Overlays" {...cp}>
-      <SliderSectionToggle tab="assets" />
       <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -3225,7 +2790,11 @@ export default function LuminaryPanels() {
       <input ref={fileLoaderRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
         const r = new FileReader();
-        r.onload = ev => addOverlay("image", ev.target.result);
+        r.onload = ev => {
+          setCropTarget("overlay");
+          setOverlayCropPending(true);
+          setCropSrc(ev.target.result);
+        };
         r.readAsDataURL(f); e.target.value = "";
       }} />
 
@@ -3394,6 +2963,13 @@ export default function LuminaryPanels() {
 
   const panelSettings = (
     <Card label="Settings" {...cp}>
+      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Panel Slider Visibility</p>
+      <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
+        <SliderSectionToggle tab="layout" />
+        <SliderSectionToggle tab="assets" />
+        <SliderSectionToggle tab="avatar" />
+        <SliderSectionToggle tab="text" />
+      </div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Auto Save</span>
         <IOSToggle checked={settings.autoSave} onChange={v => setSettings(p => ({ ...p, autoSave: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
@@ -4049,7 +3625,7 @@ export default function LuminaryPanels() {
               top: headerHeight + (previewMini ? 2 : 8),
               width: vp.isMobile ? (previewMini ? "min(320px, calc(100% - 28px))" : "calc(100% - 28px)") : (previewMini ? 420 : 620),
               maxWidth: vp.isMobile ? "calc(100% - 28px)" : (previewMini ? 420 : 620),
-              maxHeight: previewMini ? (vp.isMobile ? "220px" : "260px") : (vp.isMobile ? "calc(100dvh - 170px)" : "calc(100vh - 140px)"),
+              maxHeight: vp.isMobile ? "40dvh" : (previewMini ? "260px" : "calc(100vh - 140px)"),
               zIndex: vp.isMobile ? 95 : 40,
               overflowY: vp.isMobile ? "visible" : "auto",
               alignSelf:"flex-start",
@@ -4134,8 +3710,7 @@ export default function LuminaryPanels() {
                 if (dx > 0 && tabIndex > 0) changeMobileTab(MOBILE_TABS[tabIndex - 1]);
               }}
             >
-              {mobileTab === "assets" && <><div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div><div className={tabSliderClass("assets")}>{panelEnvironment}</div></>}
-              {mobileTab === "layout" && <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>}
+              {mobileTab === "assets" && <><div className={tabSliderClass("layout")}>{panelBaseConfig}</div><div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div><div className={tabSliderClass("assets")}>{panelEnvironment}</div></>}
               {mobileTab === "avatar" && <><div className={tabSliderClass("avatar")}>{panelAvatar}</div><div className={tabSliderClass("avatar")}>{panelBorder}</div></>}
               {mobileTab === "text"   && <div className={tabSliderClass("text")}>{panelTypography}</div>}
             </div>
@@ -4163,7 +3738,6 @@ export default function LuminaryPanels() {
           }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
-              { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"avatar", icon:ICONS.avatar, label:"Avatar" },
               { id:"text",   icon:ICONS.text,   label:"Text"   },
             ].map(t => {
@@ -4256,7 +3830,7 @@ export default function LuminaryPanels() {
           src={cropSrc}
           cropTarget={cropTarget}
           onConfirm={onCropConfirm}
-          onCancel={() => setCropSrc(null)}
+          onCancel={() => { setCropSrc(null); setCropTarget("avatar"); setOverlayCropPending(false); }}
           theme={{ accent, accent2, textPrimary, textDim, cardBg, cardBorder, cardShadow }}
         />
       )}
