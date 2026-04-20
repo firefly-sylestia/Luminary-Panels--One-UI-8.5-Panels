@@ -1,0 +1,11 @@
+{
+  "icons": [
+    { "id": "layout", "label": "Layout", "icon": "layout" },
+    { "id": "assets", "label": "Assets", "icon": "assets" },
+    { "id": "avatar", "label": "Avatar", "icon": "avatar" },
+    { "id": "text", "label": "Text", "icon": "text" },
+    { "id": "theme", "label": "Theme", "icon": "palette" },
+    { "id": "motion", "label": "Motion", "icon": "sparkles" },
+    { "id": "publish", "label": "Release", "icon": "rocket" }
+  ]
+}
