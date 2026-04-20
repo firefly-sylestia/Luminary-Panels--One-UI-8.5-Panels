@@ -40,7 +40,7 @@ echo "📦 Renaming APK..."
 # Find and rename the APK
 APK_PATH=$(find /workspaces/Luminary-Panels--One-UI-8.5-Panels/android -name "app-release.apk" 2>/dev/null | head -1)
 if [ -n "$APK_PATH" ]; then
-  NEW_NAME="Luminary-Panels-1.1.1-release.apk"
+  NEW_NAME="Luminary-Panels-1.1.6-release.apk"
   cp "$APK_PATH" "/workspaces/Luminary-Panels--One-UI-8.5-Panels/$NEW_NAME"
   echo "✨ Final APK: /workspaces/Luminary-Panels--One-UI-8.5-Panels/$NEW_NAME"
   ls -lh "/workspaces/Luminary-Panels--One-UI-8.5-Panels/$NEW_NAME"
