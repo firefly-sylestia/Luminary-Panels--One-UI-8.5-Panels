@@ -1099,6 +1099,10 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     def = { ...def, pillBgColor: "rgba(20,28,52,0.76)", avBgColor: "rgba(34,44,74,0.86)", textClr: "#eef4ff", glowClr: "rgba(122,169,255,0.75)", font: "'Inter', sans-serif", fontWeight: 700, borderStyleId: "crystal", avBorderClr: "rgba(170,204,255,0.86)", avBorderWidth: 3, avBorderGap: 2, pillBottomBlur: 14 };
   } else if (theme === "material" || theme === "simple") {
     def = { ...def, pillBgColor: "#ffffff", avBgColor: "#e8def8", textClr: "#1d192b", glowClr: "transparent", font: "'Roboto', sans-serif", fontWeight: 500, borderStyleId: "none", avBorderClr: "transparent" };
+  } else if (theme === "luxe") {
+    def = { ...def, pillBgColor: "#1d1124", avBgColor: "#31193d", textClr: "#ffe7fb", glowClr: "#ff7ccf", font: "'Poppins', sans-serif", fontWeight: 700, borderStyleId: "heart-gem", avBorderClr: "#ff8ed6", avBorderWidth: 4, avBorderGap: 2, avBorderParam1: 22, avBorderParam2: 10, pillBorderWidth: 2, pillBorderClr: "#ff8ed6", pillBottomBlur: 16 };
+  } else if (theme === "neo") {
+    def = { ...def, pillBgColor: "#0e1e2b", avBgColor: "#163041", textClr: "#e6fbff", glowClr: "#63ffd7", font: "'Inter', sans-serif", fontWeight: 650, borderStyleId: "petal-crown", avBorderClr: "#7de7ff", avBorderWidth: 3, avBorderGap: 3, avBorderParam1: 18, avBorderParam2: 12, pillBorderWidth: 1.5, pillBorderClr: "#67e9ff", pillBottomBlur: 12 };
   } else {
     def = { ...def, pillBgColor: "#1c1c1e", avBgColor: "#2c2c2e", textClr: "#ffffff", glowClr: "transparent", font: "system-ui", fontWeight: 500, borderStyleId: "solid", avBorderClr: "#444" };
   }
@@ -2552,6 +2556,8 @@ export default function LuminaryPanels() {
       cute: ["🌸", "🌷", "✨", "🦋"],
       glass: ["✨", "💎", "❄️", "✦"],
       simple: ["•", "◦", "◇", "✧"],
+      luxe: ["💎", "👑", "✨", "🪩"],
+      neo: ["⚡", "✶", "⬢", "✹"],
     };
     const decorList = presetDecor[pillStyle];
     if (decorList) {
@@ -3859,6 +3865,8 @@ export default function LuminaryPanels() {
           { id:"glass",  label:"Glass" },
           { id:"cute",   label:"Cute"  },
           { id:"simple", label:"Simple"},
+          { id:"luxe",   label:"Luxe"  },
+          { id:"neo",    label:"Neo"   },
         ].map(t => (
           <button key={t.id}
             className="btn-bouncy"
