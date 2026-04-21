@@ -3,7 +3,7 @@ import CropModal from "./components/CropModal";
 import { MOBILE_TABS } from "./constants/ui";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const __APP_VERSION__ = "2.0.1";
+const __APP_VERSION__ = "2.1.2";
 
 const COMBINED_FONT_URL =
   "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
@@ -58,6 +58,7 @@ const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const RELEASE_MANIFEST_URL = "/release.json";
 const GITHUB_REPO_URL = "https://github.com/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels";
+const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
 
 const UI_COLOR_PRESETS = [
   { id: "aurora", label: "Aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" },
@@ -74,7 +75,7 @@ const DEFAULT_SETTINGS = {
   performanceMode: false,
   autosaveIntervalMs: 700,
   defaultLayout: "Standard Pill",
-  motionIntensity: 1,
+  motionIntensity: 0,
   exportScale: 4,
   themeMode: "system",
   uiAccent: "#4fb3d9",
@@ -91,8 +92,50 @@ const DEFAULT_SETTINGS = {
   uiPreset: "aurora",
   lightBg: "linear-gradient(160deg,#fff8fb 0%,#f4f9ff 35%,#eff4ff 62%,#f7f0ff 100%)",
   lightText: "#253247",
-  hapticFeedback: true,
+  hapticFeedback: false,
   showSlidersByTab: { layout: true, assets: true, avatar: true, text: true },
+  // Preview card customization
+  previewBgType: "card",
+  previewBgColor: "#0a0e27",
+  previewBorderRadius: 24,
+  previewPadding: 16,
+  previewGlow: false,
+  previewGlowIntensity: 28,
+  previewBorderVisible: false,
+  previewShadowIntensity: 52,
+  previewCheckerboard: false,
+};
+
+// ALL CUSTOMIZABLE SETTINGS FOR ADVANCED SETTINGS MODAL
+const ADVANCED_SETTINGS_CONFIG = {
+  "Animation & Performance": [
+    { key: "motionIntensity", label: "Motion Intensity", type: "range", min: 0, max: 2.5, step: 0.05, suffix: "x" },
+    { key: "animationSmoothness", label: "Animation Smoothness", type: "range", min: 50, max: 170, step: 1, suffix: "%" },
+    { key: "animationSpeed", label: "Animation Speed", type: "range", min: 40, max: 220, step: 1, suffix: "%" },
+    { key: "performanceMode", label: "Performance Mode", type: "toggle" },
+  ],
+  "UI Glass Effect": [
+    { key: "uiBlurStrength", label: "Blur Strength", type: "range", min: 10, max: 70, step: 1, suffix: "px" },
+    { key: "uiDarkness", label: "Glass Darkness", type: "range", min: 70, max: 98, step: 1, suffix: "%" },
+    { key: "statusBarBoost", label: "Status Bar Boost", type: "range", min: 0, max: 40, step: 1, suffix: "%" },
+    { key: "uiGlassSaturation", label: "Glass Saturation", type: "range", min: 105, max: 180, step: 1, suffix: "%" },
+    { key: "hardBlurUI", label: "Hard Blur UI", type: "toggle" },
+  ],
+  "Preview Card": [
+    { key: "previewGlow", label: "Preview Glow", type: "toggle" },
+    { key: "previewGlowIntensity", label: "Glow Intensity", type: "range", min: 10, max: 60, step: 1, suffix: "" },
+    { key: "previewBorderVisible", label: "Border Visible", type: "toggle" },
+    { key: "previewShadowIntensity", label: "Shadow Intensity", type: "range", min: 20, max: 80, step: 1, suffix: "" },
+    { key: "previewBorderRadius", label: "Border Radius", type: "range", min: 0, max: 40, step: 1, suffix: "px" },
+    { key: "previewPadding", label: "Padding", type: "range", min: 8, max: 40, step: 1, suffix: "px" },
+  ],
+  "General": [
+    { key: "hapticFeedback", label: "Haptic Feedback", type: "toggle" },
+    { key: "showScaleBadge", label: "Show Scale Badge", type: "toggle" },
+    { key: "autoSave", label: "Auto Save", type: "toggle" },
+    { key: "autosaveIntervalMs", label: "Autosave Delay", type: "select", options: [{ label: "Fast (300ms)", value: 300 }, { label: "Normal (700ms)", value: 700 }, { label: "Slow (1500ms)", value: 1500 }] },
+    { key: "exportScale", label: "Export Quality", type: "range", min: 1, max: 8, step: 1, suffix: "x" },
+  ],
 };
 
 const GEOMETRY_LIMITS = {
@@ -520,6 +563,100 @@ styleEnhance.textContent = `
   @keyframes modalBackdropFade {
     from { opacity: 0; }
     to   { opacity: 1; }
+  }
+
+  @keyframes sliderThumbExpand {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.35); }
+    100% { transform: scale(1.28); }
+  }
+
+  @keyframes modalContentSpring {
+    from {
+      opacity: 0;
+      transform: scale(0.92) translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes navSlideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes toolSlideUp {
+    from {
+      transform: translate3d(0, 100%, 0) scale(0.98);
+      opacity: 0;
+    }
+    to {
+      transform: translate3d(0, 0, 0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes navButtonSlide {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.85);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes headerSlideDown {
+    from {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes shapeButtonPop {
+    from {
+      opacity: 0;
+      transform: scale(0.8) translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes colorSwatchPop {
+    from {
+      opacity: 0;
+      transform: scale(0.7) rotate(-5deg);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) rotate(0);
+    }
+  }
+
+  @keyframes styleButtonPop {
+    from {
+      opacity: 0;
+      transform: scale(0.8) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
   }
 
   @keyframes modalContentSpring {
@@ -976,6 +1113,441 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CropModal
+// ─────────────────────────────────────────────────────────────────────────────
+function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
+  const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
+  const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
+  const [crop, setCrop] = useState({ x: 0, y: 0, w: 220, h: 220 });
+  const [ratio, setRatio] = useState("free");
+  const [customRatio, setCustomRatio] = useState("16:9");
+  const [zoom, setZoom] = useState(100);
+  const [rotation, setRotation] = useState(0);
+  const [faceMessage, setFaceMessage] = useState("");
+  const dragRef = useRef(null);
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const livePreviewPos = useMemo(() => {
+    if (!imgDisplay.w || !imgDisplay.h) return { x: "50%", y: "50%" };
+    const centerX = clamp(crop.x + crop.w / 2, 0, imgDisplay.w);
+    const centerY = clamp(crop.y + crop.h / 2, 0, imgDisplay.h);
+    return {
+      x: `${(centerX / imgDisplay.w) * 100}%`,
+      y: `${(centerY / imgDisplay.h) * 100}%`,
+    };
+  }, [crop, imgDisplay.w, imgDisplay.h]);
+
+  const onImgLoad = (e) => {
+    const img = e.currentTarget;
+    const MAX_W = Math.min(window.innerWidth - 48, 440);
+    const MAX_H = Math.min(Math.floor(window.innerHeight * 0.52), 360);
+    const scale = Math.min(MAX_W / img.naturalWidth, MAX_H / img.naturalHeight, 1);
+    const dw = Math.round(img.naturalWidth  * scale);
+    const dh = Math.round(img.naturalHeight * scale);
+    const initRatio = 1 / 3;
+    const initH = Math.max(80, Math.round(dh * 0.84));
+    const initW = Math.max(56, Math.min(Math.round(initH * initRatio), Math.round(dw * 0.9)));
+    setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
+    setImgDisplay({ w: dw, h: dh });
+    setCrop({ x: Math.round((dw - initW) / 2), y: Math.round((dh - initH) / 2), w: initW, h: initH });
+  };
+
+  const parseRatio = useCallback(() => {
+    if (ratio === "free") return null;
+    if (ratio === "1:1") return 1;
+    if (ratio === "4:5") return 4 / 5;
+    if (ratio === "16:9") return 16 / 9;
+    if (ratio === "9:16") return 9 / 16;
+    if (ratio === "1:3") return 1 / 3;
+    const parts = customRatio.split(":").map(Number);
+    if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) return parts[0] / parts[1];
+    return null;
+  }, [ratio, customRatio]);
+
+  const handlePointerDown = (e, mode) => {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { mode, px: e.clientX, py: e.clientY, snap: { ...crop } };
+  };
+
+  const handlePointerMove = (e) => {
+    if (!dragRef.current) return;
+    const { mode, px, py, snap } = dragRef.current;
+    const dx = e.clientX - px, dy = e.clientY - py;
+    if (mode === "move") {
+      setCrop(() => ({
+        x: clamp(snap.x + dx, 0, imgDisplay.w - snap.w),
+        y: clamp(snap.y + dy, 0, imgDisplay.h - snap.h),
+        w: snap.w,
+        h: snap.h,
+      }));
+    } else if (mode === "resize") {
+      const ratioValue = parseRatio();
+      let nextW = clamp(snap.w + dx, 40, imgDisplay.w - snap.x);
+      let nextH = clamp(snap.h + dy, 40, imgDisplay.h - snap.y);
+      if (ratioValue) {
+        nextH = Math.round(nextW / ratioValue);
+        if (nextH > imgDisplay.h - snap.y) {
+          nextH = imgDisplay.h - snap.y;
+          nextW = Math.round(nextH * ratioValue);
+        }
+      }
+      setCrop(c => ({ ...c, w: nextW, h: nextH }));
+    }
+  };
+
+  const handlePointerUp = () => { dragRef.current = null; };
+
+  useEffect(() => {
+    if (!imgDisplay.w || !imgDisplay.h) return;
+    const ratioValue = parseRatio();
+    if (!ratioValue) return;
+    setCrop(prev => {
+      let nextW = Math.min(prev.w, imgDisplay.w);
+      let nextH = Math.round(nextW / ratioValue);
+      if (nextH > imgDisplay.h) {
+        nextH = imgDisplay.h;
+        nextW = Math.round(nextH * ratioValue);
+      }
+      const x = clamp(prev.x, 0, imgDisplay.w - nextW);
+      const y = clamp(prev.y, 0, imgDisplay.h - nextH);
+      return { x, y, w: Math.max(40, nextW), h: Math.max(40, nextH) };
+    });
+  }, [ratio, customRatio, imgDisplay.w, imgDisplay.h, parseRatio]);
+
+  const confirmCrop = () => {
+    if (!imgDisplay.w) return;
+    const scX = imgNatural.w / imgDisplay.w;
+    const scY = imgNatural.h / imgDisplay.h;
+    const sx = Math.round(crop.x * scX);
+    const sy = Math.round(crop.y * scY);
+    const sw = Math.round(crop.w * scX);
+    const sh = Math.round(crop.h * scY);
+    const cvs = document.createElement("canvas");
+    cvs.width = sw; cvs.height = sh;
+    const ctx = cvs.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      const zoomScale = zoom / 100;
+      const srcW = Math.max(1, Math.round(sw / zoomScale));
+      const srcH = Math.max(1, Math.round(sh / zoomScale));
+      const srcX = clamp(Math.round(sx + (sw - srcW) / 2), 0, img.naturalWidth - srcW);
+      const srcY = clamp(Math.round(sy + (sh - srcH) / 2), 0, img.naturalHeight - srcH);
+      ctx.save();
+      ctx.translate(sw / 2, sh / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, -sw / 2, -sh / 2, sw, sh);
+      ctx.restore();
+      onConfirm(cvs.toDataURL("image/png"));
+    };
+    img.src = src;
+  };
+
+
+
+  const detectFaceAndCenter = async () => {
+    if (!imgDisplay.w || !imgDisplay.h) return;
+    try {
+      if (typeof window === "undefined" || !window.FaceDetector) {
+        setFaceMessage("Face detection is not supported on this browser.");
+        return;
+      }
+      const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+      const img = new Image();
+      img.src = src;
+      await img.decode();
+      const faces = await detector.detect(img);
+      if (!faces || !faces.length) {
+        setFaceMessage("No face detected. You can still crop manually.");
+        return;
+      }
+      const face = faces[0].boundingBox;
+      const sx = imgDisplay.w / Math.max(1, imgNatural.w);
+      const sy = imgDisplay.h / Math.max(1, imgNatural.h);
+      const centerX = (face.x + face.width / 2) * sx;
+      const centerY = (face.y + face.height / 2) * sy;
+      setCrop(prev => ({
+        ...prev,
+        x: clamp(Math.round(centerX - prev.w / 2), 0, Math.max(0, imgDisplay.w - prev.w)),
+        y: clamp(Math.round(centerY - prev.h / 2), 0, Math.max(0, imgDisplay.h - prev.h)),
+      }));
+      setFaceMessage("Face centered ✨");
+    } catch (_) {
+      setFaceMessage("Unable to run face detection on this image.");
+    }
+  };
+  return (
+    <div
+      style={{
+        position:"fixed", inset:0, zIndex:9999,
+        background:"rgba(0,0,0,0.88)",
+        display:"flex",
+        alignItems:"center",
+        justifyContent:"center",
+        padding:16,
+        animation: "modalBackdropFade 220ms var(--ease-ios)",
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div
+        style={{
+          background: theme?.cardBg || "#1c1c1e",
+          borderRadius: 22,
+          padding: 20,
+          width: "100%",
+          maxWidth: 480,
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
+          boxShadow: theme?.cardShadow || "0 24px 64px rgba(0,0,0,0.6)",
+          border: `1px solid ${theme?.cardBorder || "rgba(255,255,255,0.14)"}`,
+          animation: "modalContentSpring 380ms var(--ease-spring)",
+          transform: "translate3d(0,0,0)",
+        }}
+      >
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <h3 style={{ color: theme?.textPrimary || "#fff", fontSize:18, fontWeight:700, margin:0 }}>{cropTarget === "background" ? "Crop Background Image" : "Crop Avatar Image"}</h3>
+          <button
+            onClick={onCancel}
+            style={{
+              background: "rgba(255,255,255,0.1)",
+              border: "none",
+              color: theme?.textPrimary || "#fff",
+              borderRadius: "50%",
+              width: 34, height: 34,
+              fontSize: 16,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "transform 200ms var(--ease-spring), background 200ms ease",
+            }}
+          >✕</button>
+        </div>
+        <p style={{ color: theme?.textDim || "rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
+          Advanced crop studio · Accent-aware controls with gesture-friendly handles
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {["1:3", "free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
+            <button
+              key={opt}
+              onClick={() => setRatio(opt)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: ratio === opt ? (theme?.accent || "#0a84ff") : "rgba(255,255,255,0.08)",
+                color: theme?.textPrimary || "#fff",
+                cursor: "pointer",
+                transition: "all 200ms var(--ease-ios)",
+                transform: ratio === opt ? "scale(1.05)" : "scale(1)",
+                fontWeight: ratio === opt ? 600 : 400,
+              }}
+            >{opt}</button>
+          ))}
+          {ratio === "custom" && (
+            <input
+              value={customRatio}
+              onChange={e => setCustomRatio(e.target.value)}
+              placeholder="21:9"
+              style={{
+                borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.08)",
+                color: "#fff",
+                padding: "8px 12px",
+              }}
+            />
+          )}
+        </div>
+
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, border:`1px solid ${(theme?.accent || "#0a84ff")}33`, background:"rgba(255,255,255,0.04)", borderRadius:12, padding:"8px 10px" }}>
+          <button
+            onClick={detectFaceAndCenter}
+            style={{
+              border:"none",
+              borderRadius:999,
+              background:`linear-gradient(135deg, ${(theme?.accent || "#0a84ff")}dd, ${(theme?.accent2 || "#2dd4bf")}dd)`,
+              color:"#fff",
+              padding:"8px 12px",
+              fontSize:12,
+              fontWeight:600,
+              cursor:"pointer",
+              boxShadow:`0 6px 16px ${(theme?.accent || "#0a84ff")}55`,
+            }}
+          >👤 Auto Focus Face</button>
+          <span style={{ color: theme?.textDim || "rgba(255,255,255,0.5)", fontSize:11 }}>{faceMessage || "Tip: use Auto Focus Face for portraits"}</span>
+        </div>
+
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            justifyContent: "center",
+            background: "linear-gradient(160deg, rgba(5,8,18,0.95), rgba(12,16,28,0.9))",
+            borderRadius: 14,
+            overflow: "hidden",
+            userSelect: "none",
+            touchAction: "none",
+            minHeight: 80,
+          }}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+        >
+          <div style={{
+            position:"relative",
+            width: imgDisplay.w || "auto",
+            height: imgDisplay.h || "auto",
+            maxWidth: "100%"
+          }}>
+            <img
+              src={src}
+              onLoad={onImgLoad}
+              draggable={false}
+              style={{
+                display: "block",
+                width: imgDisplay.w || "auto",
+                height: imgDisplay.h || "auto",
+                maxWidth: "100%",
+                pointerEvents: "none"
+              }}
+            />
+            {imgDisplay.w > 0 && (
+              <>
+                <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+                  <div style={{ position:"absolute", top:0, left:0, right:0, height: crop.y, background:"rgba(0,0,0,0.65)" }} />
+                  <div style={{ position:"absolute", top: crop.y + crop.h, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.65)" }} />
+                  <div style={{ position:"absolute", top: crop.y, left:0, width: crop.x, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
+                  <div style={{ position:"absolute", top: crop.y, left: crop.x + crop.w, right:0, height: crop.h, background:"rgba(0,0,0,0.65)" }} />
+                </div>
+                <div
+                  onPointerDown={e => handlePointerDown(e, "move")}
+                  style={{
+                    position: "absolute",
+                    left: crop.x, top: crop.y,
+                    width: crop.w, height: crop.h,
+                    border: `2.5px solid ${theme?.accent || "#0a84ff"}`,
+                    borderRadius: "10px",
+                    cursor: "move",
+                    touchAction: "none",
+                    boxSizing: "border-box",
+                    boxShadow: "0 0 0 1px rgba(0,0,0,0.4), 0 0 20px rgba(79,179,217,0.4)",
+                  }}
+                >
+                  <div style={{ position:"absolute", top:"50%", left:6, right:6, height:1, background:"rgba(255,255,255,0.3)", transform:"translateY(-50%)", pointerEvents:"none" }} />
+                  <div style={{ position:"absolute", left:"50%", top:6, bottom:6, width:1, background:"rgba(255,255,255,0.3)", transform:"translateX(-50%)", pointerEvents:"none" }} />
+                  <div
+                    onPointerDown={e => handlePointerDown(e, "resize")}
+                    style={{
+                      position: "absolute", bottom: -10, right: -10,
+                      width: 24, height: 24,
+                      background: theme?.accent || "#0a84ff",
+                      borderRadius: "50%",
+                      cursor: "nwse-resize",
+                      touchAction: "none",
+                      border: "2px solid #fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 9,
+                      color: "#fff",
+                      fontWeight: 700,
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.6)",
+                    }}
+                  >⇲</div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Zoom {zoom}%</label>
+            <input type="range" className="ios-slider" step="1" min={50} max={180} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Rotate {rotation}°</label>
+            <input type="range" className="ios-slider" step="1" min={-180} max={180} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
+          </div>
+        </div>
+        {imgDisplay.w > 0 && (
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Live Crop Preview</label>
+            <div style={{
+              width: "100%",
+              height: 140,
+              borderRadius: 14,
+              overflow: "hidden",
+              border: `1px solid ${theme?.accent || "#0a84ff"}55`,
+              background: "#060607",
+            }}>
+              <img
+                src={src}
+                alt="Live crop preview"
+                draggable={false}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  objectPosition: `${livePreviewPos.x} ${livePreviewPos.y}`,
+                  transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+                  transformOrigin: "center center",
+                  transition: "transform 140ms var(--ease-ios), object-position 140ms var(--ease-ios)",
+                  willChange: "transform, object-position",
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {imgDisplay.w > 0 && (
+          <p style={{ color: theme?.textDim || "rgba(255,255,255,0.35)", fontSize: 11, textAlign: "center", margin: 0 }}>
+            Crop: {Math.round(crop.w)}×{Math.round(crop.h)}px display
+            {" · "}
+            Output: ~{Math.round(crop.w * (imgNatural.w / imgDisplay.w))}×{Math.round(crop.h * (imgNatural.h / imgDisplay.h))}px
+          </p>
+        )}
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1,
+              padding: "14px",
+              background: "rgba(255,255,255,0.08)",
+              border: "none",
+              borderRadius: 14,
+              color: theme?.textPrimary || "#fff",
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "transform 180ms var(--ease-spring), background 200ms ease",
+            }}
+          >Cancel</button>
+          <button
+            onClick={confirmCrop}
+            style={{
+              flex: 2,
+              padding: "14px",
+              background: `linear-gradient(135deg, ${theme?.accent || "#0a84ff"}, ${theme?.accent2 || "#2dd4bf"})`,
+              border: "none",
+              borderRadius: 14,
+              color: "#fff",
+              fontSize: 15,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 6px 20px rgba(79,179,217,0.4)",
+              transition: "transform 180ms var(--ease-spring)",
+            }}
+          >✓ Apply Crop</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ExportModal
 // ─────────────────────────────────────────────────────────────────────────────
 function ExportModal({ dataUrl, onClose }) {
@@ -1233,6 +1805,7 @@ export default function LuminaryPanels() {
   const [customFonts, setCustomFonts] = useState([]);
   const [newFontUrl, setNewFontUrl]   = useState("");
   const [mobileTab, setMobileTab]     = useState("assets");
+  const [sheetOpen, setSheetOpen]     = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsAnimState, setSettingsAnimState] = useState("closed"); // closed | opening | open | closing
   const [settingsOrigin, setSettingsOrigin] = useState({ x: 50, y: 50 });
@@ -1240,14 +1813,15 @@ export default function LuminaryPanels() {
   const [isSliding, setIsSliding] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(72);
   const [previewDockHeight, setPreviewDockHeight] = useState(340);
-  const [expandedSections, setExpandedSections] = useState({ animation: false, geometry: false });
+  const [expandedSections, setExpandedSections] = useState({ animation: false, geometry: false, advancedSettings: false, previewCustom: false });
   const [expandedOverlayId, setExpandedOverlayId] = useState(null);
+  const [advancedSettingsModalOpen, setAdvancedSettingsModalOpen] = useState(false);
+  const [advancedSettingsTab, setAdvancedSettingsTab] = useState("Animation & Performance");
   const [headerExpanded, setHeaderExpanded] = useState(false);
   const [releaseInfo, setReleaseInfo] = useState({ latestVersion: null, downloadUrl: null, hasUpdate: false, checkedAt: null, downloadCount: null });
 
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
-  const [overlayCropPending, setOverlayCropPending] = useState(false);
   const [exportDataUrl, setExportDataUrl] = useState(null);
   const [saveNotice, setSaveNotice]   = useState("");
   const [systemPrefersDark, setSystemPrefersDark] = useState(
@@ -1563,15 +2137,12 @@ export default function LuminaryPanels() {
     if (cropTarget === "background") {
       setBgRawSrc(croppedDataUrl);
       pushState({ bgImgX: 0, bgImgY: 0, bgScale: 100 });
-    } else if (cropTarget === "overlay" || overlayCropPending) {
-      addOverlay("image", croppedDataUrl);
     } else {
       setAvRawSrc(croppedDataUrl);
       pushState({ avImgX: 0, avImgY: 0 });
     }
     setCropSrc(null);
     setCropTarget("avatar");
-    setOverlayCropPending(false);
     mediumHaptic(settings.hapticFeedback);
   };
 
@@ -2197,15 +2768,20 @@ export default function LuminaryPanels() {
 
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
-  const mobilePreviewOffset = Math.max(220, headerHeight + Math.min(previewDockHeight, Math.round(window.innerHeight * 0.4)) + 18);
+  const mobilePreviewOffset = Math.max(340, headerHeight + previewDockHeight + 28);
   const previewMini = pxScale < (vp.isMobile ? 0.78 : 0.7);
   const [swipeDir, setSwipeDir] = useState(1);
   const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
 
   const changeMobileTab = (next) => {
+    if (next === mobileTab && sheetOpen) {
+      setSheetOpen(false);
+      return;
+    }
     const nextIndex = MOBILE_TABS.indexOf(next);
     setSwipeDir(nextIndex >= tabIndex ? 1 : -1);
     setMobileTab(next);
+    setSheetOpen(true);
     microHaptic(settings.hapticFeedback);
   };
 
@@ -2240,6 +2816,7 @@ export default function LuminaryPanels() {
   // ── Panels ────────────────────────────────────────────────────────────────
   const panelBaseConfig = (
     <Card label="Geometry & Layout" {...cp}>
+      <SliderSectionToggle tab="layout" />
       <button
         className="btn-bouncy"
         onClick={() => { microHaptic(settings.hapticFeedback); setExpandedSections(prev => ({ ...prev, geometry: !prev.geometry })); }}
@@ -2342,6 +2919,7 @@ export default function LuminaryPanels() {
 
   const panelEnvironment = (
     <Card label="Background" {...cp}>
+      <SliderSectionToggle tab="assets" />
       <FRow label="Pill Surface Color" textDim={textDim}>
         <ColorField value={s.pillBgColor || "#1c1c1e"}
           alpha={s.pillBgAlpha ?? 100}
@@ -2504,6 +3082,7 @@ export default function LuminaryPanels() {
 
   const panelAvatar = (
     <Card label="Avatar" {...cp}>
+      <SliderSectionToggle tab="avatar" />
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
         <span style={{ fontSize:14, color:textPrimary, fontWeight:600 }}>Show Avatar Circle</span>
         <IOSToggle checked={s.showAvatar} onChange={(v) => pushState({ showAvatar: v })} accent={accent} hapticEnabled={settings.hapticFeedback} />
@@ -2641,6 +3220,7 @@ export default function LuminaryPanels() {
 
   const panelTypography = (
     <Card label="Typography & Text" {...cp}>
+      <SliderSectionToggle tab="text" />
       <FRow label="Primary Text" textDim={textDim}>
         <TxIn value={s.mainText} onChange={v => pushState({ mainText: v })} inputSt={inputSt} />
       </FRow>
@@ -2777,6 +3357,7 @@ export default function LuminaryPanels() {
 
   const panelAssetsAndLayers = (
     <Card label="Assets & Overlays" {...cp}>
+      <SliderSectionToggle tab="assets" />
       <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -2790,11 +3371,7 @@ export default function LuminaryPanels() {
       <input ref={fileLoaderRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
         const r = new FileReader();
-        r.onload = ev => {
-          setCropTarget("overlay");
-          setOverlayCropPending(true);
-          setCropSrc(ev.target.result);
-        };
+        r.onload = ev => addOverlay("image", ev.target.result);
         r.readAsDataURL(f); e.target.value = "";
       }} />
 
@@ -2963,13 +3540,6 @@ export default function LuminaryPanels() {
 
   const panelSettings = (
     <Card label="Settings" {...cp}>
-      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Panel Slider Visibility</p>
-      <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
-        <SliderSectionToggle tab="layout" />
-        <SliderSectionToggle tab="assets" />
-        <SliderSectionToggle tab="avatar" />
-        <SliderSectionToggle tab="text" />
-      </div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Auto Save</span>
         <IOSToggle checked={settings.autoSave} onChange={v => setSettings(p => ({ ...p, autoSave: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
@@ -3269,6 +3839,22 @@ export default function LuminaryPanels() {
     </Card>
   );
 
+  // ── Preview customization values ──────────────────────────────────────────
+  const prevBorderRadius = settings.previewBorderRadius ?? 24;
+  const prevPadding = settings.previewPadding ?? 16;
+  const prevGlowIntensity = settings.previewGlowIntensity ?? 28;
+  const prevShadowIntensity = settings.previewShadowIntensity ?? 52;
+  const prevGlow = settings.previewGlow !== false;
+  const prevBorderVisible = settings.previewBorderVisible !== false;
+  const prevCheckerboard = settings.previewCheckerboard === true;
+  const prevBgType = settings.previewBgType ?? "card";
+
+  const previewContainerBg = (() => {
+    if (prevBgType === "transparent") return "transparent";
+    if (prevBgType === "custom") return settings.previewBgColor || "#0a0e27";
+    return cardBg;
+  })();
+
   // ── Canvas preview block — fluid ambient glow (no pulse) ─────────────────
   const canvasBlock = (
     <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, width:"100%" }} ref={wrapRef}>
@@ -3280,18 +3866,23 @@ export default function LuminaryPanels() {
         alignItems:"center",
         justifyContent:"center",
         overflow:"hidden",
-        padding:"24px 0",
-        borderRadius: 16,
+        padding:`${prevPadding}px 0`,
+        borderRadius: prevBorderRadius,
+        background: prevCheckerboard
+          ? `repeating-conic-gradient(rgba(128,128,128,0.12) 0% 25%, transparent 0% 50%) 0 0 / 20px 20px`
+          : undefined,
       }}>
         {/* Soft ambient glow — clipped inside wrapper */}
-        <div style={{
-          position:"absolute",
-          inset: 0,
-          background: `radial-gradient(ellipse 80% 80% at center, ${accent}26, transparent 70%)`,
-          pointerEvents:"none",
-          filter: "blur(12px)",
-          opacity: 0.85,
-        }} />
+        {prevGlow && (
+          <div style={{
+            position:"absolute",
+            inset: 0,
+            background: `radial-gradient(ellipse 80% 80% at center, ${accent}${Math.round(prevGlowIntensity).toString(16).padStart(2,"0")}, transparent 70%)`,
+            pointerEvents:"none",
+            filter: "blur(12px)",
+            opacity: 0.85,
+          }} />
+        )}
 
         <div style={{
           borderRadius: Math.min(s.pillR, Math.min(s.pillW, s.pillH)/2) * pxScale,
@@ -3303,8 +3894,8 @@ export default function LuminaryPanels() {
           flexShrink: 0,
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
-          border: `1.5px solid ${accent}50`,
-          boxShadow: `0 28px 72px rgba(0,0,0,0.82), 0 0 0 1px ${accent}26, inset 0 -28px 45px rgba(4,8,18,0.55), 0 10px 34px ${accent}20`,
+          border: prevBorderVisible ? `1.5px solid ${accent}50` : "none",
+          boxShadow: `0 ${Math.round(prevShadowIntensity * 0.54)}px ${prevShadowIntensity + 20}px rgba(0,0,0,0.82), 0 0 0 1px ${accent}26, inset 0 -28px 45px rgba(4,8,18,0.55), 0 10px 34px ${accent}20`,
           background: "linear-gradient(160deg, rgba(5,8,16,0.86), rgba(2,3,9,0.92))",
           position: "relative",
           zIndex: 1,
@@ -3354,65 +3945,41 @@ export default function LuminaryPanels() {
             {t.label}
           </button>
         ))}
+
+        {/* Advanced Settings button */}
+        <button
+          className="btn-bouncy"
+          onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(v => !v); }}
+          title="Advanced Settings"
+          style={{
+            flex:"none",
+            background: advancedSettingsModalOpen
+              ? `linear-gradient(135deg, ${accent}, ${accent2})`
+              : controlBg,
+            color: advancedSettingsModalOpen ? "#fff" : textPrimary,
+            border: advancedSettingsModalOpen ? "none" : `1px solid ${cardBorder}`,
+            fontWeight: 700,
+            fontSize: 14,
+            width: 40, height: 40,
+            borderRadius: 999,
+            cursor: "pointer",
+            boxShadow: advancedSettingsModalOpen ? `0 6px 22px ${accent}55` : "none",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            transition: "all 280ms var(--ease-spring)",
+            transform: advancedSettingsModalOpen ? "scale(1.08)" : "scale(1)",
+          }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m3.08 3.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m3.08-3.08l4.24-4.24"></path>
+          </svg>
+        </button>
       </div>
 
-      <div style={{
-        display:"flex",
-        alignItems:"center",
-        background: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
-        borderRadius: 999,
-        padding:"4px",
-        marginTop:2,
-        border:`1px solid ${cardBorder}`,
-        gap:3,
-      }}>
-        {settings.showScaleBadge && (
-          <>
-            <span style={{ fontSize:11, color:textDim, padding:"8px 12px", minWidth:102, textAlign:"center", fontWeight:500 }}>
-              Preview {Math.round(pxScale * 100)}%
-            </span>
-            <div style={{ width:1, height:24, background:cardBorder, margin:"0 2px" }} />
-          </>
-        )}
-        <button
-          className="btn-bouncy"
-          onClick={exportPNG}
-          style={{
-            background:`linear-gradient(135deg,${accent},${accent2})`,
-            border:"none",
-            padding:"11px 22px",
-            color:"#fff",
-            cursor:"pointer",
-            fontSize:14,
-            fontWeight:700,
-            borderRadius:999,
-            minHeight:44,
-            boxShadow: `0 4px 18px ${accent}55`,
-            letterSpacing: 0.2,
-          }}
-        >
-          ↓ Save
-        </button>
-        <button
-          className="btn-bouncy"
-          onClick={sharePNG}
-          style={{
-            background:`linear-gradient(135deg,${accent}cc,${accent2}cc)`,
-            border:"none",
-            padding:"11px 22px",
-            color:"#fff",
-            cursor:"pointer",
-            fontSize:14,
-            fontWeight:700,
-            borderRadius:999,
-            minHeight:44,
-            boxShadow: `0 4px 14px ${accent}33`,
-            letterSpacing: 0.2,
-          }}
-        >
-          ↑ Share
-        </button>
-      </div>
+      {settings.showScaleBadge && (
+        <span style={{ fontSize:10, color:textDim, fontWeight:500, letterSpacing:0.3 }}>
+          Preview {Math.round(pxScale * 100)}%
+        </span>
+      )}
     </div>
   );
 
@@ -3484,7 +4051,7 @@ export default function LuminaryPanels() {
         color:textPrimary,
         fontFamily:"system-ui,-apple-system,sans-serif",
         background:pageBg,
-        paddingBottom: vp.isMobile ? 110 : 0,
+        paddingBottom: vp.isMobile ? 90 : 0,
         paddingTop:0
       }}>
         {/* Header */}
@@ -3539,20 +4106,56 @@ export default function LuminaryPanels() {
               </button>
 
               <div style={{display:"flex", alignItems:"center", gap:6}}>
-                {[{ id:"settings", icon:ICONS.settings, onClick:() => { settingsOpen ? closeSettings() : openSettings(); } }, { id:"undo", icon:ICONS.undo, onClick:undo }, { id:"redo", icon:ICONS.redo, onClick:redo }, { id:"reset", icon:ICONS.reset, onClick:reset }].map((btn) => (
+                {[
+                  { id:"save",     icon:"download", title:"Save PNG",   onClick: exportPNG,  accent: true  },
+                  { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true  },
+                  { id:"settings", icon:ICONS.settings, title:"Settings", onClick:() => { settingsOpen ? closeSettings() : openSettings(); }, ref: settingsBtnRef },
+                  { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo  },
+                  { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo  },
+                  { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset },
+                ].map((btn) => (
                   <button key={btn.id} className="btn-bouncy" onClick={btn.onClick}
+                    ref={btn.ref || undefined}
+                    title={btn.title}
                     style={{
                       width:36,
                       height:36,
                       borderRadius:14,
-                      border:`1px solid ${cardBorder}`,
-                      background:controlBg,
+                      border: btn.accent ? "none" : `1px solid ${cardBorder}`,
+                      background: btn.accent
+                        ? `linear-gradient(135deg, ${accent}, ${accent2 || accent}cc)`
+                        : controlBg,
                       display:"inline-flex",
                       alignItems:"center",
                       justifyContent:"center",
-                      color:textPrimary,
+                      color: btn.accent ? "#fff" : textPrimary,
+                      fontSize: btn.label ? 15 : undefined,
+                      fontWeight: btn.label ? 800 : undefined,
+                      boxShadow: btn.accent ? `0 4px 14px ${accent}44` : "none",
+                      flexShrink: 0,
+                      cursor: "pointer",
                     }}
-                  ><UiIcon name={btn.icon} size={15} color={textPrimary} /></button>
+                  >
+                    {btn.icon === "download" && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                      </svg>
+                    )}
+                    {btn.icon === "share" && (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                      </svg>
+                    )}
+                    {btn.icon && btn.icon !== "download" && btn.icon !== "share" && (
+                      <UiIcon name={btn.icon} size={15} color={btn.accent ? "#fff" : textPrimary} />
+                    )}
+                  </button>
                 ))}
               </div>
             </div>
@@ -3614,7 +4217,9 @@ export default function LuminaryPanels() {
           <main
             ref={previewDockRef}
             style={{
-              flex:"2 1 400px",
+              flex:"none",
+              width: vp.isMobile ? "calc(100% - 28px)" : 580,
+              height: vp.isMobile ? 320 : 380,
               display:"flex",
               flexDirection:"column",
               gap:14,
@@ -3622,31 +4227,32 @@ export default function LuminaryPanels() {
               position:"fixed",
               left: vp.isMobile ? 14 : "auto",
               right: vp.isMobile ? 14 : 20,
-              top: headerHeight + (previewMini ? 2 : 8),
-              width: vp.isMobile ? (previewMini ? "min(320px, calc(100% - 28px))" : "calc(100% - 28px)") : (previewMini ? 420 : 620),
-              maxWidth: vp.isMobile ? "calc(100% - 28px)" : (previewMini ? 420 : 620),
-              maxHeight: vp.isMobile ? "40dvh" : (previewMini ? "260px" : "calc(100vh - 140px)"),
+              top: headerHeight + 8,
+              maxWidth: vp.isMobile ? "calc(100% - 28px)" : 580,
               zIndex: vp.isMobile ? 95 : 40,
-              overflowY: vp.isMobile ? "visible" : "auto",
+              overflowY: "hidden",
               alignSelf:"flex-start",
-              transition:`top ${uiTransition}, width ${uiTransition}, max-height ${uiTransition}, transform ${uiTransition}`,
-              transform: previewMini ? "translate3d(0,0,0) scale(0.96)" : "translate3d(0,0,0) scale(1)",
+              transition:`top 300ms var(--ease-ios), left 300ms var(--ease-ios), right 300ms var(--ease-ios)`,
               transformOrigin:"top right",
+              borderRadius: 28,
+              background: previewContainerBg,
             }}
           >
             <div style={{
-              background: cardBg,
-              borderRadius:24,
-              padding: "16px 16px 20px",
+              background: previewContainerBg,
+              borderRadius: prevBorderRadius,
+              padding: `${prevPadding}px ${prevPadding}px ${prevPadding + 4}px`,
               display:"flex",
               flexDirection:"column",
               alignItems:"center",
               gap:12,
-              border:`1px solid ${cardBorder}`,
-              boxShadow: `${cardShadow}, 0 22px 56px rgba(0,0,0,0.52), 0 0 0 1px ${accent}12`,
+              border: prevBorderVisible ? `1px solid ${cardBorder}` : "none",
+              boxShadow: `${cardShadow}, 0 ${Math.round(prevShadowIntensity * 0.43)}px ${prevShadowIntensity + 4}px rgba(0,0,0,0.52), 0 0 0 1px ${accent}12`,
               transition:`background ${uiTransition}, border-color ${uiTransition}, box-shadow ${uiTransition}`,
               position:"relative",
               overflow:"hidden",
+              height:"100%",
+              width:"100%",
             }}>
               {/* gradient shimmer line at top */}
               <div style={{
@@ -3667,115 +4273,390 @@ export default function LuminaryPanels() {
           )}
 
           {vp.isMobile && (
-            <div
-              key={mobileTab}
-              style={{
-                flex:"1 1 100%",
-                width:"100%",
-                display:"flex",
-                flexDirection:"column",
-                gap:14,
-                marginTop: mobilePreviewOffset,
-                animation: `bouncySlideDown 440ms var(--ease-spring)`,
-                transformOrigin: "top center",
-                "--slide-from": `${swipeDir * 20}px`,
-              }}
-              onTouchStart={(e) => {
-                if (editMode) return;
-                const target = e.target;
-                if (target.closest("input[type='range'],input,select,textarea,button,label,[role='button']")) return;
-                dragData.current = {
-                  ...dragData.current,
-                  swipeStartX: e.touches[0].clientX,
-                  swipeStartY: e.touches[0].clientY,
-                };
-              }}
-              onTouchMove={(e) => {
-                if (editMode) return;
-                if (!dragData.current?.swipeStartX) return;
-                const dx = Math.abs(e.touches[0].clientX - dragData.current.swipeStartX);
-                const dy = Math.abs(e.touches[0].clientY - dragData.current.swipeStartY);
-                if (dy > dx && dy > 10) { dragData.current = { ...dragData.current, swipeStartX: null }; }
-              }}
-              onTouchEnd={(e) => {
-                if (editMode) return;
-                if (isSliding) return;
-                const start = dragData.current?.swipeStartX;
-                if (!start) return;
-                const dx = e.changedTouches[0].clientX - start;
-                const dy = e.changedTouches[0].clientY - (dragData.current?.swipeStartY ?? 0);
-                dragData.current = null;
-                if (Math.abs(dx) < 80 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
-                if (dx < 0 && tabIndex < MOBILE_TABS.length - 1) changeMobileTab(MOBILE_TABS[tabIndex + 1]);
-                if (dx > 0 && tabIndex > 0) changeMobileTab(MOBILE_TABS[tabIndex - 1]);
-              }}
-            >
-              {mobileTab === "assets" && <><div className={tabSliderClass("layout")}>{panelBaseConfig}</div><div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div><div className={tabSliderClass("assets")}>{panelEnvironment}</div></>}
-              {mobileTab === "avatar" && <><div className={tabSliderClass("avatar")}>{panelAvatar}</div><div className={tabSliderClass("avatar")}>{panelBorder}</div></>}
-              {mobileTab === "text"   && <div className={tabSliderClass("text")}>{panelTypography}</div>}
-            </div>
+            <div style={{ flex:"1 1 100%", width:"100%", height: 0 }} />
           )}
         </div>
 
-        {/* Mobile bottom nav */}
+        {/* Mobile bottom nav — Premium V4 pill style */}
         {vp.isMobile && (
           <nav style={{
             position:"fixed",
             bottom:10,
-            left:12,
-            right:12,
-            background: isDark ? "rgba(14,16,28,0.88)" : "rgba(248,252,255,0.92)",
-            backdropFilter: `blur(${Math.min(uiBlurPx, 24)}px) saturate(1.4)`,
-            WebkitBackdropFilter: `blur(${Math.min(uiBlurPx, 24)}px) saturate(1.4)`,
+            left:10,
+            right:10,
+            background: isDark
+              ? "rgba(8,10,22,0.82)"
+              : "rgba(248,252,255,0.90)",
+            backdropFilter: `blur(${Math.min(uiBlurPx, 28)}px) saturate(${uiSaturation / 100})`,
+            WebkitBackdropFilter: `blur(${Math.min(uiBlurPx, 28)}px) saturate(${uiSaturation / 100})`,
             border:`1px solid ${cardBorder}`,
             display:"flex",
-            padding:"5px 6px",
-            paddingBottom:"calc(5px + env(safe-area-inset-bottom))",
-            gap:4,
+            flexDirection:"row",
+            padding:"6px 8px",
+            paddingBottom:`calc(6px + env(safe-area-inset-bottom))`,
+            gap:3,
             zIndex:1000,
-            borderRadius:28,
-            boxShadow:"0 16px 48px rgba(0,0,0,0.32), 0 0 0 0.5px rgba(255,255,255,0.06) inset",
+            borderRadius:32,
+            boxShadow:`0 16px 56px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.07) inset, 0 -2px 12px rgba(0,0,0,0.18)`,
+            animation:"navSlideUp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) 100ms both",
           }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
+              { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"avatar", icon:ICONS.avatar, label:"Avatar" },
               { id:"text",   icon:ICONS.text,   label:"Text"   },
-            ].map(t => {
-              const isActive = mobileTab === t.id;
+            ].map((t, idx) => {
+              const isActive = mobileTab === t.id && sheetOpen;
               return (
-                <button key={t.id} onClick={() => changeMobileTab(t.id)}
-                  className="btn-bouncy"
+                <button
+                  key={t.id}
+                  onClick={() => changeMobileTab(t.id)}
                   style={{
                     flex:1,
+                    minHeight: 56,
                     background: isActive
-                      ? `linear-gradient(135deg, ${accent}30, ${accent}18)`
+                      ? `linear-gradient(135deg, ${accent}, ${accent2 || accent}cc)`
                       : "transparent",
-                    color: isActive ? accent : textDim,
-                    border: isActive ? `1px solid ${accent}40` : "1px solid transparent",
-                    borderRadius: 18,
-                    padding:"9px 4px 8px",
+                    color: isActive ? "#fff" : textDim,
+                    border: "none",
+                    borderRadius: 22,
+                    padding:"10px 4px 8px",
                     display:"flex",
                     flexDirection:"column",
                     alignItems:"center",
-                    gap:3,
+                    justifyContent:"center",
+                    gap:4,
                     cursor:"pointer",
-                    boxShadow: isActive ? `0 4px 16px ${accent}28` : "none",
-                    animation: isActive ? "tabPillMorph 380ms var(--ease-spring)" : "none",
+                    boxShadow: isActive ? `0 6px 20px ${accent}55` : "none",
+                    transition:"all 220ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    animation: `navButtonSlide 400ms cubic-bezier(0.34, 1.56, 0.64, 1) ${idx * 40}ms backwards`,
+                    transform: isActive ? "scale(1.04)" : "scale(1)",
                   }}>
                   <span style={{
-                    fontSize:18,
-                    display:"inline-block",
-                    transform: isActive ? "scale(1.15) translateY(-1px)" : "scale(1)",
-                    transition: "transform 320ms var(--ease-spring)",
-                    filter: isActive ? `drop-shadow(0 0 6px ${accent}88)` : "none",
-                  }}><UiIcon name={t.icon} size={18} color={isActive ? accent : textDim} /></span>
-                  <span style={{ fontSize:9.5, fontWeight: isActive ? 700 : 500, letterSpacing: isActive ? 0.3 : 0 }}>{t.label}</span>
+                    display:"inline-flex",
+                    alignItems:"center",
+                    justifyContent:"center",
+                    transform: isActive ? "scale(1.18) translateY(-1px)" : "scale(1)",
+                    transition: "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+                    filter: isActive ? `drop-shadow(0 0 5px ${accent}99)` : "none",
+                  }}>
+                    <UiIcon
+                      name={t.icon}
+                      size={19}
+                      color={isActive ? "#fff" : textDim}
+                      stroke={isActive ? 2.5 : 2}
+                    />
+                  </span>
+                  <span style={{
+                    fontSize:9.5,
+                    fontWeight: isActive ? 800 : 500,
+                    letterSpacing: isActive ? 0.4 : 0,
+                    transition:"font-weight 200ms ease, letter-spacing 200ms ease",
+                  }}>{t.label}</span>
                 </button>
               );
             })}
           </nav>
         )}
       </div>
+
+      {/* Tab panel sheet overlay — same genie mechanic as settings */}
+      {vp.isMobile && sheetOpen && (
+        <div
+          style={{
+            position:"fixed",
+            inset:0,
+            background:"rgba(0,0,0,0.45)",
+            zIndex:1200,
+            display:"flex",
+            alignItems:"flex-end",
+            justifyContent:"center",
+            backdropFilter:"blur(2px)",
+            WebkitBackdropFilter:"blur(2px)",
+          }}
+          onClick={() => setSheetOpen(false)}
+        >
+          <div
+            style={{
+              width:"100%",
+              maxHeight:"72dvh",
+              overflowY:"auto",
+              borderRadius:"28px 28px 0 0",
+              background: isDark ? "rgba(10,12,24,0.97)" : "rgba(255,255,255,0.97)",
+              backdropFilter:`blur(${uiBlurPx}px) saturate(1.3)`,
+              WebkitBackdropFilter:`blur(${uiBlurPx}px) saturate(1.3)`,
+              border:`1px solid ${cardBorder}`,
+              borderBottom:"none",
+              boxShadow:"0 -20px 80px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.08) inset",
+              display:"flex",
+              flexDirection:"column",
+              marginBottom:"calc(76px + env(safe-area-inset-bottom))",
+              animation:"toolSlideUp 400ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+              willChange:"transform, opacity",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Sheet drag handle */}
+            <div style={{
+              width:48,
+              height:5,
+              borderRadius:999,
+              background: isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.18)",
+              margin:"10px auto 0",
+              flexShrink:0,
+            }} />
+
+            {/* Sheet header with tab label + close */}
+            <div style={{
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"space-between",
+              padding:"12px 20px 10px",
+              borderBottom:`1px solid ${cardBorder}`,
+              flexShrink:0,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <UiIcon
+                  name={ICONS[mobileTab] || ICONS.layout}
+                  size={18}
+                  color={accent}
+                  stroke={2.2}
+                />
+                <h3 style={{
+                  margin:0,
+                  fontSize:17,
+                  fontWeight:700,
+                  color:textPrimary,
+                  textTransform:"capitalize",
+                }}>
+                  {mobileTab === "assets" ? "Assets & Overlays"
+                    : mobileTab === "layout" ? "Layout & Style"
+                    : mobileTab === "avatar" ? "Avatar & Border"
+                    : mobileTab === "text"   ? "Typography"
+                    : mobileTab}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSheetOpen(false)}
+                style={{
+                  width:32,
+                  height:32,
+                  borderRadius:999,
+                  border:"none",
+                  background:`linear-gradient(135deg,rgba(255,80,80,0.22),rgba(255,80,80,0.12))`,
+                  color:"#ff5555",
+                  fontSize:15,
+                  fontWeight:700,
+                  cursor:"pointer",
+                  display:"flex",
+                  alignItems:"center",
+                  justifyContent:"center",
+                  flexShrink:0,
+                }}
+              >✕</button>
+            </div>
+
+            {/* Sheet scrollable content */}
+            <div
+              key={mobileTab}
+              style={{
+                flex:1,
+                overflowY:"auto",
+                padding:"16px 14px 24px",
+                display:"flex",
+                flexDirection:"column",
+                gap:14,
+                WebkitOverflowScrolling:"touch",
+                overscrollBehavior:"contain",
+                animation:`tabSlideSmooth 360ms var(--ease-spring)`,
+                "--slide-from": `${swipeDir * 18}px`,
+              }}
+            >
+              {mobileTab === "assets" && (
+                <><div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
+                  <div className={tabSliderClass("assets")}>{panelEnvironment}</div></>
+              )}
+              {mobileTab === "layout" && (
+                <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
+              )}
+              {mobileTab === "avatar" && (
+                <><div className={tabSliderClass("avatar")}>{panelAvatar}</div>
+                  <div className={tabSliderClass("avatar")}>{panelBorder}</div></>
+              )}
+              {mobileTab === "text" && (
+                <div className={tabSliderClass("text")}>{panelTypography}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Settings Modal */}
+      {advancedSettingsModalOpen && (
+        <div
+          style={{
+            position:"fixed",
+            inset:0,
+            zIndex:2200,
+            background:"rgba(0,0,0,0.5)",
+            transition:"background 220ms ease",
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"center",
+            padding: "20px",
+          }}
+          onClick={() => setAdvancedSettingsModalOpen(false)}
+        >
+          {/* Advanced Settings Content */}
+          <div
+            style={{
+              width: "min(500px, 90vw)",
+              maxHeight:"85vh",
+              display:"flex",
+              flexDirection:"column",
+              borderRadius:28,
+              background: isDark ? "rgba(10,12,24,0.97)" : "rgba(255,255,255,0.97)",
+              backdropFilter:`blur(${uiBlurPx}px) saturate(1.3)`,
+              WebkitBackdropFilter:`blur(${uiBlurPx}px) saturate(1.3)`,
+              border:`1px solid ${cardBorder}`,
+              boxShadow:"0 24px 80px rgba(0,0,0,0.7)",
+              animation:"modalContentSpring 380ms var(--ease-spring)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"space-between",
+              padding:"20px 20px 16px",
+              borderBottom:`1px solid ${cardBorder}`,
+              flexShrink:0,
+            }}>
+              <h2 style={{ margin:0, fontSize:18, fontWeight:700, color:textPrimary }}>⚙ Advanced Settings</h2>
+              <button onClick={() => setAdvancedSettingsModalOpen(false)} style={{
+                background:"none",
+                border:"none",
+                fontSize:24,
+                cursor:"pointer",
+                color:textPrimary,
+                opacity:0.6,
+              }}>✕</button>
+            </div>
+
+            {/* Tab Navigation */}
+            <div style={{
+              display:"flex",
+              gap:4,
+              padding:"12px 12px",
+              borderBottom:`1px solid ${cardBorder}`,
+              overflowX:"auto",
+              flexShrink:0,
+            }}>
+              {Object.keys(ADVANCED_SETTINGS_CONFIG).map(tab => (
+                <button key={tab} onClick={() => setAdvancedSettingsTab(tab)} style={{
+                  padding:"8px 12px",
+                  borderRadius:8,
+                  border:"none",
+                  background:advancedSettingsTab === tab ? `${accent}22` : "transparent",
+                  color:advancedSettingsTab === tab ? accent : textDim,
+                  fontSize:11,
+                  fontWeight:advancedSettingsTab === tab ? 700 : 500,
+                  cursor:"pointer",
+                  transition:"all 280ms var(--ease-spring)",
+                  whiteSpace:"nowrap",
+                  flexShrink:0,
+                }}>
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {/* Settings Content */}
+            <div style={{
+              flex:1,
+              overflowY:"auto",
+              padding:"16px 20px",
+              display:"flex",
+              flexDirection:"column",
+              gap:12,
+            }}>
+              {ADVANCED_SETTINGS_CONFIG[advancedSettingsTab]?.map(setting => (
+                <div key={setting.key} style={{
+                  display:"flex",
+                  alignItems:"center",
+                  justifyContent:"space-between",
+                  gap:12,
+                  padding:"12px",
+                  borderRadius:12,
+                  background:controlBg,
+                  border:`1px solid ${cardBorder}`,
+                }}>
+                  <div>
+                    <div style={{ color:textPrimary, fontSize:13, fontWeight:600 }}>{setting.label}</div>
+                  </div>
+                  {setting.type === "toggle" && (
+                    <IOSToggle 
+                      checked={settings[setting.key] ?? false} 
+                      onChange={v => setSettings(p => ({ ...p, [setting.key]: v }))} 
+                      accent={accent} 
+                      hapticEnabled={settings.hapticFeedback} 
+                    />
+                  )}
+                  {setting.type === "range" && (
+                    <div style={{ display:"flex", alignItems:"center", gap:8, flex:1, minWidth:0 }}>
+                      <input 
+                        type="range" 
+                        className="ios-slider" 
+                        step={setting.step} 
+                        min={setting.min} 
+                        max={setting.max} 
+                        value={settings[setting.key] ?? setting.min}
+                        onChange={e => setSettings(p => ({ ...p, [setting.key]: +e.target.value }))}
+                        style={{ flex:1, minWidth:80 }}
+                      />
+                      <span style={{ color:textDim, fontSize:11, minWidth:40, textAlign:"right" }}>
+                        {settings[setting.key] ?? setting.min}{setting.suffix}
+                      </span>
+                    </div>
+                  )}
+                  {setting.type === "select" && (
+                    <select 
+                      value={settings[setting.key] ?? (setting.options?.[0]?.value || "")}
+                      onChange={e => setSettings(p => ({ ...p, [setting.key]: isNaN(e.target.value) ? e.target.value : +e.target.value }))}
+                      style={{
+                        padding:"6px 10px",
+                        borderRadius:8,
+                        border:`1px solid ${cardBorder}`,
+                        background:controlBg,
+                        color:textPrimary,
+                        fontSize:12,
+                        cursor:"pointer",
+                      }}
+                    >
+                      {setting.options?.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer info */}
+            <div style={{
+              padding:"12px 20px",
+              borderTop:`1px solid ${cardBorder}`,
+              fontSize:11,
+              color:textDim,
+              flexShrink:0,
+              textAlign:"center",
+            }}>
+              Changes applied instantly
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Genie Settings overlay */}
       {settingsOpen && (
@@ -3797,12 +4678,13 @@ export default function LuminaryPanels() {
           <div
             style={{
               width: vp.isMobile ? "100%" : "min(540px, 96vw)",
-              maxHeight: "90vh",
+              maxHeight: vp.isMobile ? "78dvh" : "88vh",
               overflowY: "auto",
-              borderRadius: "22px 22px 0 0",
+              borderRadius: vp.isMobile ? "22px 22px 0 0" : "22px 22px 0 0",
+              marginBottom: vp.isMobile ? "calc(78px + env(safe-area-inset-bottom))" : 0,
               background: isDark ? "rgba(14,14,20,0.97)" : "rgba(255,255,255,0.97)",
               padding: "14px 12px 20px",
-              paddingBottom: "max(20px, env(safe-area-inset-bottom))",
+              paddingBottom: vp.isMobile ? "calc(max(20px, env(safe-area-inset-bottom)) + 16px)" : "max(20px, env(safe-area-inset-bottom))",
               transformOrigin: `${settingsOrigin.x}% ${settingsOrigin.y}%`,
               animation: settingsAnimState === "closing"
                 ? "fadeSlideUp 180ms var(--ease-ios) reverse forwards"
@@ -3830,7 +4712,7 @@ export default function LuminaryPanels() {
           src={cropSrc}
           cropTarget={cropTarget}
           onConfirm={onCropConfirm}
-          onCancel={() => { setCropSrc(null); setCropTarget("avatar"); setOverlayCropPending(false); }}
+          onCancel={() => setCropSrc(null)}
           theme={{ accent, accent2, textPrimary, textDim, cardBg, cardBorder, cardShadow }}
         />
       )}
@@ -3848,7 +4730,7 @@ export default function LuminaryPanels() {
         <div style={{
           position:"fixed",
           left:"50%",
-          bottom: vp.isMobile ? "calc(86px + env(safe-area-inset-bottom))" : 22,
+          bottom: vp.isMobile ? "calc(100px + env(safe-area-inset-bottom))" : 22,
           transform:"translateX(-50%) translateZ(0)",
           zIndex: 2000,
           background: `linear-gradient(135deg, ${accent}dd, ${accent2}dd)`,
