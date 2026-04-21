@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const __APP_VERSION__ = "2.1.2";
+const __APP_VERSION__ = "2.1.3";
 
 const COMBINED_FONT_URL =
   "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
@@ -102,6 +102,10 @@ const DEFAULT_SETTINGS = {
   previewBorderVisible: false,
   previewShadowIntensity: 52,
   previewCheckerboard: false,
+  sliderFocusUiOpacity: 0,
+  sliderFocusNavOpacity: 0,
+  sliderFocusPreviewZoom: 100,
+  imageGuideEnabled: true,
 };
 
 // ALL CUSTOMIZABLE SETTINGS FOR ADVANCED SETTINGS MODAL
@@ -133,6 +137,10 @@ const ADVANCED_SETTINGS_CONFIG = {
     { key: "autoSave", label: "Auto Save", type: "toggle" },
     { key: "autosaveIntervalMs", label: "Autosave Delay", type: "select", options: [{ label: "Fast (300ms)", value: 300 }, { label: "Normal (700ms)", value: 700 }, { label: "Slow (1500ms)", value: 1500 }] },
     { key: "exportScale", label: "Export Quality", type: "range", min: 1, max: 8, step: 1, suffix: "x" },
+    { key: "sliderFocusUiOpacity", label: "Slider Focus UI Opacity", type: "range", min: 0, max: 100, step: 1, suffix: "%" },
+    { key: "sliderFocusNavOpacity", label: "Slider Focus Nav Opacity", type: "range", min: 0, max: 100, step: 1, suffix: "%" },
+    { key: "sliderFocusPreviewZoom", label: "Slider Focus Preview Zoom", type: "range", min: 100, max: 140, step: 1, suffix: "%" },
+    { key: "imageGuideEnabled", label: "Image Edit Guide", type: "toggle" },
   ],
 };
 
@@ -1089,20 +1097,21 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     textureId: "none", textureOpacity: 65,
     textureTint: "#ffd8ef",
     pillBottomBlur: 0,
+    pillTopBlur: 0,
     pillBgAlpha: 100, avBgAlpha: 100, textAlpha: 100, subTextAlpha: 100, glowAlpha: 100, edgeAlpha: 100,
     subTextClr: "", subTextX: 0, subTextY: 0,
   };
 
   if (theme === "cute") {
-    def = { ...def, pillBgColor: "#fde8f0", avBgColor: "#fce4ec", textClr: "#d4af37", glowClr: "#ffd1dc", font: "'Cormorant Garamond', serif", fontWeight: 600, borderStyleId: "pearls", avBorderClr: "#f9d0dc", avBorderWidth: 4, avBorderGap: 3, avBorderParam1: 24, pillBorderWidth: 1.5, pillBorderClr: "#ffb3c6", pillBottomBlur: 8 };
+    def = { ...def, pillBgColor: "#fde8f0", avBgColor: "#fce4ec", textClr: "#d4af37", glowClr: "#ffd1dc", font: "'Cormorant Garamond', serif", fontWeight: 600, borderStyleId: "pearls", avBorderClr: "#f9d0dc", avBorderWidth: 4, avBorderGap: 3, avBorderParam1: 24, pillBorderWidth: 1.5, pillBorderClr: "#ffb3c6", pillBottomBlur: 8, pillTopBlur: 6 };
   } else if (theme === "glass") {
-    def = { ...def, pillBgColor: "rgba(20,28,52,0.76)", avBgColor: "rgba(34,44,74,0.86)", textClr: "#eef4ff", glowClr: "rgba(122,169,255,0.75)", font: "'Inter', sans-serif", fontWeight: 700, borderStyleId: "crystal", avBorderClr: "rgba(170,204,255,0.86)", avBorderWidth: 3, avBorderGap: 2, pillBottomBlur: 14 };
+    def = { ...def, pillBgColor: "rgba(20,28,52,0.76)", avBgColor: "rgba(34,44,74,0.86)", textClr: "#eef4ff", glowClr: "rgba(122,169,255,0.75)", font: "'Inter', sans-serif", fontWeight: 700, borderStyleId: "crystal", avBorderClr: "rgba(170,204,255,0.86)", avBorderWidth: 3, avBorderGap: 2, pillBottomBlur: 14, pillTopBlur: 8 };
   } else if (theme === "material" || theme === "simple") {
     def = { ...def, pillBgColor: "#ffffff", avBgColor: "#e8def8", textClr: "#1d192b", glowClr: "transparent", font: "'Roboto', sans-serif", fontWeight: 500, borderStyleId: "none", avBorderClr: "transparent" };
   } else if (theme === "luxe") {
-    def = { ...def, pillBgColor: "#1d1124", avBgColor: "#31193d", textClr: "#ffe7fb", glowClr: "#ff7ccf", font: "'Poppins', sans-serif", fontWeight: 700, borderStyleId: "heart-gem", avBorderClr: "#ff8ed6", avBorderWidth: 4, avBorderGap: 2, avBorderParam1: 22, avBorderParam2: 10, pillBorderWidth: 2, pillBorderClr: "#ff8ed6", pillBottomBlur: 16 };
+    def = { ...def, pillBgColor: "#1d1124", avBgColor: "#31193d", textClr: "#ffe7fb", glowClr: "#ff7ccf", font: "'Poppins', sans-serif", fontWeight: 700, borderStyleId: "heart-gem", avBorderClr: "#ff8ed6", avBorderWidth: 4, avBorderGap: 2, avBorderParam1: 22, avBorderParam2: 10, pillBorderWidth: 2, pillBorderClr: "#ff8ed6", pillBottomBlur: 16, pillTopBlur: 10 };
   } else if (theme === "neo") {
-    def = { ...def, pillBgColor: "#0e1e2b", avBgColor: "#163041", textClr: "#e6fbff", glowClr: "#63ffd7", font: "'Inter', sans-serif", fontWeight: 650, borderStyleId: "petal-crown", avBorderClr: "#7de7ff", avBorderWidth: 3, avBorderGap: 3, avBorderParam1: 18, avBorderParam2: 12, pillBorderWidth: 1.5, pillBorderClr: "#67e9ff", pillBottomBlur: 12 };
+    def = { ...def, pillBgColor: "#0e1e2b", avBgColor: "#163041", textClr: "#e6fbff", glowClr: "#63ffd7", font: "'Inter', sans-serif", fontWeight: 650, borderStyleId: "petal-crown", avBorderClr: "#7de7ff", avBorderWidth: 3, avBorderGap: 3, avBorderParam1: 18, avBorderParam2: 12, pillBorderWidth: 1.5, pillBorderClr: "#67e9ff", pillBottomBlur: 12, pillTopBlur: 7 };
   } else {
     def = { ...def, pillBgColor: "#1c1c1e", avBgColor: "#2c2c2e", textClr: "#ffffff", glowClr: "transparent", font: "system-ui", fontWeight: 500, borderStyleId: "solid", avBorderClr: "#444" };
   }
@@ -1805,6 +1814,8 @@ export default function LuminaryPanels() {
   const [cropTarget, setCropTarget]   = useState("avatar");
   const [exportDataUrl, setExportDataUrl] = useState(null);
   const [sliderPreviewFocus, setSliderPreviewFocus] = useState(false);
+  const [imageGuideOpen, setImageGuideOpen] = useState(false);
+  const [imageGuideTarget, setImageGuideTarget] = useState("image");
   const [saveNotice, setSaveNotice]   = useState("");
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches
@@ -2140,6 +2151,10 @@ export default function LuminaryPanels() {
     }
     setCropSrc(null);
     setCropTarget("avatar");
+    if (settings.imageGuideEnabled !== false) {
+      setImageGuideTarget(cropTarget === "background" ? "background" : "avatar");
+      setImageGuideOpen(true);
+    }
     mediumHaptic(settings.hapticFeedback);
   };
 
@@ -2450,6 +2465,18 @@ export default function LuminaryPanels() {
           ctx.fillRect(0, 0, W, H);
         }
       }
+    }
+
+    if ((s.pillTopBlur ?? 0) > 0) {
+      const topGlow = ctx.createLinearGradient(0, 0, 0, H * 0.42);
+      topGlow.addColorStop(0, withAlpha("#ffffff", Math.min(62, (s.pillTopBlur ?? 0) * 2.1)));
+      topGlow.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.globalCompositeOperation = "screen";
+      ctx.filter = `blur(${Math.max(1, (s.pillTopBlur ?? 0) * 0.55)}px)`;
+      ctx.fillStyle = topGlow;
+      ctx.fillRect(0, 0, W, H * 0.55);
+      ctx.filter = "none";
+      ctx.globalCompositeOperation = "source-over";
     }
 
     if ((s.pillBottomBlur ?? 0) > 0) {
@@ -3066,6 +3093,9 @@ export default function LuminaryPanels() {
       )}
       <FRow label={`Bottom Blur Glow — ${s.pillBottomBlur ?? 0}px`} textDim={textDim} onReset={() => pushState({ pillBottomBlur: 0 })}>
         <input type="range" className="ios-slider" step="1" min={0} max={40} value={s.pillBottomBlur ?? 0} onChange={e => pushState({ pillBottomBlur: +e.target.value })} style={{width:"100%"}} />
+      </FRow>
+      <FRow label={`Top Blur Glow — ${s.pillTopBlur ?? 0}px`} textDim={textDim} onReset={() => pushState({ pillTopBlur: 0 })}>
+        <input type="range" className="ios-slider" step="1" min={0} max={40} value={s.pillTopBlur ?? 0} onChange={e => pushState({ pillTopBlur: +e.target.value })} style={{width:"100%"}} />
       </FRow>
       {advancedMode && (
         <FRow label="Blend Mode (Requires BG Color)" textDim={textDim}>
@@ -3860,7 +3890,7 @@ export default function LuminaryPanels() {
         </div>
       </div>
 
-      <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginTop:2 }}>
+      {!sliderPreviewFocus && (<div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginTop:2 }}>
         {[
           { id:"glass",  label:"Glass" },
           { id:"cute",   label:"Cute"  },
@@ -3920,7 +3950,7 @@ export default function LuminaryPanels() {
           }}>
           <UiIcon name="sparkles" size={17} color={advancedSettingsModalOpen ? "#fff" : accent} />
         </button>
-      </div>
+      </div>)}
 
       {settings.showScaleBadge && (
         <span style={{ fontSize:10, color:textDim, fontWeight:500, letterSpacing:0.3 }}>
@@ -4008,7 +4038,7 @@ export default function LuminaryPanels() {
             position:"sticky",
             top:0,
             zIndex:100,
-            opacity: sliderPreviewFocus ? 0 : 1,
+            opacity: sliderPreviewFocus ? Math.max(0, Math.min(1, (settings.sliderFocusUiOpacity ?? 0) / 100)) : 1,
             pointerEvents: sliderPreviewFocus ? "none" : "auto",
             padding:`calc(max(env(safe-area-inset-top), 10px) + 2px) 12px 8px`,
             transition: `background ${uiTransition}, border-color ${uiTransition}`,
@@ -4153,7 +4183,7 @@ export default function LuminaryPanels() {
           maxWidth: "100%",
           margin:"0 auto",
           transition:`padding ${uiTransition}, gap ${uiTransition}, opacity ${uiTransition}` ,
-          opacity: sliderPreviewFocus ? 0.22 : 1
+          opacity: sliderPreviewFocus ? Math.max(0, Math.min(1, (settings.sliderFocusUiOpacity ?? 0) / 100)) : 1
         }}>
 
           {!vp.isMobile && (
@@ -4169,7 +4199,7 @@ export default function LuminaryPanels() {
             style={{
               flex:"none",
               width: vp.isMobile ? "calc(100% - 28px)" : 580,
-              height: sliderPreviewFocus ? (vp.isMobile ? "56dvh" : 430) : (vp.isMobile ? 320 : 380),
+              height: sliderPreviewFocus ? (vp.isMobile ? "calc(100dvh - (96px + env(safe-area-inset-bottom)))" : 460) : (vp.isMobile ? 320 : 380),
               display:"flex",
               flexDirection:"column",
               gap:14,
@@ -4178,6 +4208,7 @@ export default function LuminaryPanels() {
               left: vp.isMobile ? 14 : "auto",
               right: vp.isMobile ? 14 : 20,
               top: sliderPreviewFocus ? 8 : headerHeight + 8,
+              transform: sliderPreviewFocus ? `scale(${Math.max(1, (settings.sliderFocusPreviewZoom ?? 100) / 100)})` : "scale(1)",
               maxWidth: vp.isMobile ? "calc(100% - 28px)" : 580,
               zIndex: vp.isMobile ? 95 : 40,
               overflowY: "hidden",
@@ -4249,7 +4280,7 @@ export default function LuminaryPanels() {
             borderRadius:32,
             boxShadow:`0 16px 56px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.07) inset, 0 -2px 12px rgba(0,0,0,0.18)`,
             animation:"navSlideUp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) 100ms both",
-            opacity: sliderPreviewFocus ? 0.35 : 1,
+            opacity: sliderPreviewFocus ? Math.max(0, Math.min(1, (settings.sliderFocusNavOpacity ?? 0) / 100)) : 1,
           }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
@@ -4668,7 +4699,24 @@ export default function LuminaryPanels() {
         />
       )}
 
-      {/* Export fallback modal */}
+
+      {imageGuideOpen && (
+        <div style={{ position:"fixed", inset:0, zIndex:2300, background:"rgba(0,0,0,0.62)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={() => setImageGuideOpen(false)}>
+          <div style={{ width:"min(520px, 96vw)", borderRadius:20, background:isDark ? "rgba(12,16,28,0.98)" : "rgba(255,255,255,0.98)", border:`1px solid ${cardBorder}`, boxShadow:"0 24px 70px rgba(0,0,0,0.5)", padding:18 }} onClick={(e)=>e.stopPropagation()}>
+            <h3 style={{ margin:"0 0 8px", color:textPrimary, fontSize:18 }}>Quick Edit Guide</h3>
+            <p style={{ margin:"0 0 12px", color:textDim, fontSize:13 }}>Your {imageGuideTarget} image is ready. Pick a fast starter flow then fine tune sliders.</p>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:8, marginBottom:10 }}>
+              <button onClick={() => { setLayoutMode("Standard Pill"); setPillStyle("glass"); setImageGuideOpen(false); }} style={{ ...outlineBtn, fontSize:12 }}>Glass Layout</button>
+              <button onClick={() => { setLayoutMode("Vertical Card"); setPillStyle("cute"); setImageGuideOpen(false); }} style={{ ...outlineBtn, fontSize:12 }}>Cute Card</button>
+              <button onClick={() => { setLayoutMode("Square Post"); setPillStyle("luxe"); setImageGuideOpen(false); }} style={{ ...outlineBtn, fontSize:12 }}>Luxe Post</button>
+              <button onClick={() => { setAdvancedSettingsModalOpen(true); setAdvancedSettingsTab("Preview Card"); setImageGuideOpen(false); }} style={{ ...outlineBtn, fontSize:12 }}>Open Preview Tools</button>
+            </div>
+            <p style={{ margin:0, color:textDim, fontSize:12 }}>Tip: use Geometry, Blur, and Texture sliders for fast refinement.</p>
+          </div>
+        </div>
+      )}
+
+            {/* Export fallback modal */}
       {exportDataUrl && (
         <ExportModal
           dataUrl={exportDataUrl}
