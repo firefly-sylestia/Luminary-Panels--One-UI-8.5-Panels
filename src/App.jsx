@@ -4174,7 +4174,8 @@ export default function LuminaryPanels() {
           paddingRight: vp.isMobile ? "14px" : "calc(14px + 640px)",
           maxWidth: "100%",
           margin:"0 auto",
-          transition:`padding ${uiTransition}, gap ${uiTransition}`
+          transition:`padding ${uiTransition}, gap ${uiTransition}, opacity ${uiTransition}` ,
+          opacity: sliderPreviewFocus ? Math.max(0, Math.min(1, (settings.sliderFocusUiOpacity ?? 0) / 100)) : 1
         }}>
 
           {!vp.isMobile && (
