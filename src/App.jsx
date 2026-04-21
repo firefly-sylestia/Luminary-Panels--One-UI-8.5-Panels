@@ -1,6 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import CropModal from "./components/CropModal";
-import { MOBILE_TABS } from "./constants/ui";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const __APP_VERSION__ = "2.1.2";
