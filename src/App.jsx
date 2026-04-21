@@ -137,16 +137,16 @@ const ADVANCED_SETTINGS_CONFIG = {
 };
 
 const GEOMETRY_LIMITS = {
-  minW: 1,
-  maxW: 1600,
-  minH: 1,
+  minW: 50,
+  maxW: 600,
+  minH: 50,
   maxH: 600,
-  maxArea: 700000,
+  maxArea: 360000,
 };
 
 function clampGeometry(next, isMobile = false) {
   const minW = GEOMETRY_LIMITS.minW;
-  const maxW = isMobile ? 980 : GEOMETRY_LIMITS.maxW;
+  const maxW = GEOMETRY_LIMITS.maxW;
   const minH = GEOMETRY_LIMITS.minH;
   const maxH = GEOMETRY_LIMITS.maxH;
   let w = Math.max(minW, Math.min(maxW, Number(next.pillW) || minW));
@@ -1099,6 +1099,10 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     def = { ...def, pillBgColor: "rgba(20,28,52,0.76)", avBgColor: "rgba(34,44,74,0.86)", textClr: "#eef4ff", glowClr: "rgba(122,169,255,0.75)", font: "'Inter', sans-serif", fontWeight: 700, borderStyleId: "crystal", avBorderClr: "rgba(170,204,255,0.86)", avBorderWidth: 3, avBorderGap: 2, pillBottomBlur: 14 };
   } else if (theme === "material" || theme === "simple") {
     def = { ...def, pillBgColor: "#ffffff", avBgColor: "#e8def8", textClr: "#1d192b", glowClr: "transparent", font: "'Roboto', sans-serif", fontWeight: 500, borderStyleId: "none", avBorderClr: "transparent" };
+  } else if (theme === "luxe") {
+    def = { ...def, pillBgColor: "#1d1124", avBgColor: "#31193d", textClr: "#ffe7fb", glowClr: "#ff7ccf", font: "'Poppins', sans-serif", fontWeight: 700, borderStyleId: "heart-gem", avBorderClr: "#ff8ed6", avBorderWidth: 4, avBorderGap: 2, avBorderParam1: 22, avBorderParam2: 10, pillBorderWidth: 2, pillBorderClr: "#ff8ed6", pillBottomBlur: 16 };
+  } else if (theme === "neo") {
+    def = { ...def, pillBgColor: "#0e1e2b", avBgColor: "#163041", textClr: "#e6fbff", glowClr: "#63ffd7", font: "'Inter', sans-serif", fontWeight: 650, borderStyleId: "petal-crown", avBorderClr: "#7de7ff", avBorderWidth: 3, avBorderGap: 3, avBorderParam1: 18, avBorderParam2: 12, pillBorderWidth: 1.5, pillBorderClr: "#67e9ff", pillBottomBlur: 12 };
   } else {
     def = { ...def, pillBgColor: "#1c1c1e", avBgColor: "#2c2c2e", textClr: "#ffffff", glowClr: "transparent", font: "system-ui", fontWeight: 500, borderStyleId: "solid", avBorderClr: "#444" };
   }
@@ -1574,7 +1578,7 @@ function ExportModal({ dataUrl, onClose }) {
       }}>
         <div>
           <p style={{ color: "#fff", fontSize: 17, fontWeight: 700, margin: 0 }}>Save Image</p>
-          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, margin: "3px 0 0" }}>Hold finger on image → "Save"</p>
+          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, margin: "3px 0 0" }}>Use your device share/save action</p>
         </div>
         <button
           onClick={onClose}
@@ -1621,40 +1625,19 @@ function ExportModal({ dataUrl, onClose }) {
 
       <div style={{
         width: "100%",
-        padding: "14px 20px 28px",
+        padding: "12px 20px 20px",
         display: "flex",
-        flexDirection: "column",
-        gap: 10,
-        alignItems: "center",
+        justifyContent: "center",
       }}>
-        <div style={{
-          background: "linear-gradient(135deg, rgba(79,179,217,0.22), rgba(45,212,191,0.18))",
-          border: "1px solid rgba(79,179,217,0.5)",
-          borderRadius: 16,
-          padding: "12px 20px",
-          width: "100%",
-          textAlign: "center",
-        }}>
-          <p style={{ color: "#fff", fontSize: 14, fontWeight: 600, margin: "0 0 4px" }}>
-            👆 Hold your finger on the image for ~1s
-          </p>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, margin: 0 }}>
-            Then tap <strong style={{ color: "#fff" }}>"Save image"</strong> or <strong style={{ color: "#fff" }}>"Download"</strong>
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          style={{
-            padding: "13px 40px",
-            background: "rgba(255,255,255,0.08)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 14,
-            color: "rgba(255,255,255,0.7)",
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >Done</button>
+        <button onClick={onClose} style={{
+          padding: "10px 20px",
+          background: "rgba(255,255,255,0.08)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          borderRadius: 12,
+          color: "rgba(255,255,255,0.8)",
+          fontSize: 13,
+          cursor: "pointer",
+        }}>Close</button>
       </div>
     </div>
   );
@@ -1821,6 +1804,7 @@ export default function LuminaryPanels() {
   const [cropSrc, setCropSrc]         = useState(null);
   const [cropTarget, setCropTarget]   = useState("avatar");
   const [exportDataUrl, setExportDataUrl] = useState(null);
+  const [sliderPreviewFocus, setSliderPreviewFocus] = useState(false);
   const [saveNotice, setSaveNotice]   = useState("");
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches
@@ -2009,6 +1993,21 @@ export default function LuminaryPanels() {
   useEffect(() => {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) {}
   }, [settings]);
+
+  useEffect(() => {
+    const onDown = (e) => {
+      if (e.target instanceof HTMLInputElement && e.target.type === "range") setSliderPreviewFocus(true);
+    };
+    const onUp = () => setSliderPreviewFocus(false);
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onUp, true);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onUp, true);
+    };
+  }, []);
 
   useEffect(() => {
     if (!settings.autoSave) return;
@@ -2342,16 +2341,16 @@ export default function LuminaryPanels() {
         let cachedPattern = texturePatternCacheRef.current.get(textureKey);
         if (!cachedPattern) {
           const p = document.createElement("canvas");
-          p.width = 140; p.height = 140;
+          p.width = 256; p.height = 256;
           const pct = p.getContext("2d");
           const tint = s.textureTint || "#ffd8ef";
           pct.fillStyle = "rgba(0,0,0,0)";
-          pct.fillRect(0, 0, 140, 140);
+          pct.fillRect(0, 0, 256, 256);
           pct.globalAlpha = s.textureOpacity / 100;
 
           if (texture.css === "grain") {
             pct.fillStyle = withAlpha(tint, 82);
-            for (let i = 0; i < 1300; i++) pct.fillRect(Math.random() * 140, Math.random() * 140, 1.2, 1.2);
+            for (let i = 0; i < 3600; i++) pct.fillRect(Math.random() * 256, Math.random() * 256, 1, 1);
           } else if (texture.css === "brushed") {
             for (let y = 0; y < 140; y += 1.2) {
               pct.fillStyle = y % 6 === 0 ? withAlpha(tint, 28) : withAlpha(tint, 12);
@@ -2362,7 +2361,7 @@ export default function LuminaryPanels() {
             grd.addColorStop(0, withAlpha(tint, 66));
             grd.addColorStop(1, withAlpha(tint, 0));
             pct.fillStyle = grd;
-            pct.fillRect(0, 0, 140, 140);
+            pct.fillRect(0, 0, 256, 256);
           } else if (texture.css === "mesh") {
             pct.strokeStyle = withAlpha(tint, 26);
             pct.lineWidth = 1.2;
@@ -2372,14 +2371,14 @@ export default function LuminaryPanels() {
             }
           } else if (texture.css === "soft") {
             pct.fillStyle = withAlpha(tint, 7);
-            pct.fillRect(0, 0, 140, 140);
+            pct.fillRect(0, 0, 256, 256);
             for (let i = 0; i < 8; i++) {
               const x = Math.random() * 140, y = Math.random() * 140;
               const gr = pct.createRadialGradient(x, y, 2, x, y, 36);
               gr.addColorStop(0, withAlpha(tint, 19));
               gr.addColorStop(1, withAlpha(tint, 0));
               pct.fillStyle = gr;
-              pct.fillRect(0, 0, 140, 140);
+              pct.fillRect(0, 0, 256, 256);
             }
           } else if (texture.css === "silk") {
             const grd = pct.createLinearGradient(0, 0, 140, 140);
@@ -2387,7 +2386,7 @@ export default function LuminaryPanels() {
             grd.addColorStop(0.5, withAlpha("#ffffff", 10));
             grd.addColorStop(1, withAlpha(tint, 34));
             pct.fillStyle = grd;
-            pct.fillRect(0, 0, 140, 140);
+            pct.fillRect(0, 0, 256, 256);
             for (let y = 0; y < 140; y += 5) {
               pct.strokeStyle = withAlpha("#ffffff", y % 10 === 0 ? 14 : 7);
               pct.beginPath();
@@ -2397,7 +2396,7 @@ export default function LuminaryPanels() {
             }
           } else if (texture.css === "marble") {
             pct.fillStyle = withAlpha(tint, 16);
-            pct.fillRect(0, 0, 140, 140);
+            pct.fillRect(0, 0, 256, 256);
             for (let i = 0; i < 22; i++) {
               pct.strokeStyle = withAlpha(i % 3 ? "#ffffff" : tint, 18);
               pct.lineWidth = 1 + (i % 3) * 0.5;
@@ -2414,7 +2413,7 @@ export default function LuminaryPanels() {
             grd.addColorStop(0.6, "rgba(255,235,130,0.18)");
             grd.addColorStop(1, "rgba(160,170,255,0.22)");
             pct.fillStyle = grd;
-            pct.fillRect(0, 0, 140, 140);
+            pct.fillRect(0, 0, 256, 256);
             for (let i = -140; i < 280; i += 11) {
               pct.strokeStyle = "rgba(255,255,255,0.1)";
               pct.beginPath();
@@ -2553,19 +2552,26 @@ export default function LuminaryPanels() {
       }
     });
 
-    if (pillStyle === "cute") {
-      const blossom = ["🌸", "🌷", "✨", "🦋"];
-      const baseCount = Math.max(4, Math.round((W + H) / 220));
+    const presetDecor = {
+      cute: ["🌸", "🌷", "✨", "🦋"],
+      glass: ["✨", "💎", "❄️", "✦"],
+      simple: ["•", "◦", "◇", "✧"],
+      luxe: ["💎", "👑", "✨", "🪩"],
+      neo: ["⚡", "✶", "⬢", "✹"],
+    };
+    const decorList = presetDecor[pillStyle];
+    if (decorList) {
+      const baseCount = Math.max(5, Math.round((W + H) / 210));
       for (let i = 0; i < baseCount; i++) {
         const edge = i % 2 === 0;
         const x = edge ? ((i / baseCount) * W) : (W - (i / baseCount) * W);
-        const y = edge ? 20 + ((i * 17) % Math.max(60, H - 40)) : H - (20 + ((i * 19) % Math.max(60, H - 40)));
-        const symbol = blossom[i % blossom.length];
+        const y = edge ? 18 + ((i * 17) % Math.max(56, H - 36)) : H - (18 + ((i * 19) % Math.max(56, H - 36)));
+        const symbol = decorList[i % decorList.length];
         ctx.save();
-        ctx.globalAlpha = 0.17 + ((i % 4) * 0.05);
+        ctx.globalAlpha = pillStyle === "simple" ? (0.08 + ((i % 3) * 0.03)) : (0.13 + ((i % 4) * 0.04));
         ctx.translate(x, y);
         ctx.rotate(((i % 8) * 18 * Math.PI) / 180);
-        ctx.font = `${Math.max(14, Math.min(34, Math.round(H * 0.12) - ((i % 3) * 3)))}px serif`;
+        ctx.font = `${Math.max(12, Math.min(30, Math.round(H * 0.11) - ((i % 3) * 2)))}px serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(symbol, 0, 0);
@@ -2695,7 +2701,14 @@ export default function LuminaryPanels() {
         }
       }
 
-      setExportDataUrl(dataUrl);
+      // fallback: download directly when system share is unavailable
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `Luminary_${Date.now()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setSaveNotice("Shared unavailable · Downloaded instead");
     } catch (err) {
       if (err.name !== "AbortError") alert("Share failed: " + err.message);
     }
@@ -3589,71 +3602,8 @@ export default function LuminaryPanels() {
         boxShadow:`0 8px 20px ${accent}22`,
       }}> GitHub · firefly-sylestia</a>
 
-      <div style={{ marginBottom: 16 }}>
-        <button
-          className="btn-bouncy"
-          onClick={() => setExpandedSections(prev => ({ ...prev, animation: !prev.animation }))}
-          style={{
-            width: "100%",
-            padding: "13px 16px",
-            borderRadius: 14,
-            border: `1.5px solid ${expandedSections.animation ? accent : cardBorder}`,
-            background: expandedSections.animation
-              ? `linear-gradient(135deg, ${accent}18, ${accent}08)`
-              : controlBg,
-            color: textPrimary,
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            userSelect: "none",
-            boxShadow: expandedSections.animation ? `0 4px 20px ${accent}22` : "none",
-            transition: `background 300ms var(--ease-ios), border-color 280ms var(--ease-ios), box-shadow 300ms ease`,
-          }}
-        >
-          <span style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <span style={{
-              width:28, height:28, borderRadius:8,
-              background: expandedSections.animation ? `${accent}28` : "rgba(128,140,160,0.14)",
-              display:"flex", alignItems:"center", justifyContent:"center",
-              fontSize:13, transition:"background 220ms ease",
-            }}>⚡</span>
-            Animation Settings
-          </span>
-          <span className="chevron-morph" style={{
-            transform: `rotate(${expandedSections.animation ? 180 : 0}deg)`,
-            fontSize: 11,
-            opacity: 0.6,
-          }}>▼</span>
-        </button>
-        {expandedSections.animation && (
-          <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12, animation: "bouncySlideDown 460ms var(--ease-spring)", transformOrigin: "top center" }}>
-            <FRow label={`Motion Intensity — ${(settings.motionIntensity ?? 1).toFixed(2)}x`} textDim={textDim}>
-              <input type="range" className="ios-slider" step="0.05" min={0} max={2.5} value={settings.motionIntensity ?? 1} onChange={e => setUiSliderValue("motionIntensity", e.target.value)} style={{width:"100%"}} />
-            </FRow>
-            <FRow label={`Animation Smoothness — ${animationSmoothness}%`} textDim={textDim}>
-              <input type="range" className="ios-slider" step="1" min={50} max={170} value={animationSmoothness} onChange={e => setUiSliderValue("animationSmoothness", e.target.value)} style={{width:"100%"}} />
-            </FRow>
-            <FRow label={`Animation Speed — ${animationSpeed}%`} textDim={textDim}>
-              <input type="range" className="ios-slider" step="1" min={40} max={220} value={animationSpeed} onChange={e => setUiSliderValue("animationSpeed", e.target.value)} style={{width:"100%"}} />
-            </FRow>
-            <FRow label={`UI Blur Strength — ${uiBlurPx}px`} textDim={textDim}>
-              <input type="range" className="ios-slider" step="1" min={10} max={70} value={settings.uiBlurStrength ?? 34} onChange={e => setUiSliderValue("uiBlurStrength", e.target.value)} style={{width:"100%"}} />
-            </FRow>
-            <FRow label={`UI Glass Darkness — ${uiDarkness}%`} textDim={textDim}>
-              <input type="range" className="ios-slider" step="1" min={70} max={98} value={uiDarkness} onChange={e => setUiSliderValue("uiDarkness", e.target.value)} style={{width:"100%"}} />
-            </FRow>
-            <FRow label={`Status Bar Boost — ${statusBoost}%`} textDim={textDim}>
-              <input type="range" className="ios-slider" step="1" min={0} max={40} value={statusBoost} onChange={e => setUiSliderValue("statusBarBoost", e.target.value)} style={{width:"100%"}} />
-            </FRow>
-            <FRow label={`Glass Saturation — ${uiSaturation}%`} textDim={textDim}>
-              <input type="range" className="ios-slider" step="1" min={105} max={180} value={uiSaturation} onChange={e => setUiSliderValue("uiGlassSaturation", e.target.value)} style={{width:"100%"}} />
-            </FRow>
-          </div>
-        )}
-      </div>
+      <button onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(true); setAdvancedSettingsTab("Animation & Performance"); }} style={{ ...outlineBtn, color:accent, marginBottom:16 }}>⚙ Open Animation & Performance Settings</button>
+
 
 
       <Sep cardBorder={cardBorder} />
@@ -3915,6 +3865,8 @@ export default function LuminaryPanels() {
           { id:"glass",  label:"Glass" },
           { id:"cute",   label:"Cute"  },
           { id:"simple", label:"Simple"},
+          { id:"luxe",   label:"Luxe"  },
+          { id:"neo",    label:"Neo"   },
         ].map(t => (
           <button key={t.id}
             className="btn-bouncy"
@@ -3966,10 +3918,7 @@ export default function LuminaryPanels() {
             transition: "all 280ms var(--ease-spring)",
             transform: advancedSettingsModalOpen ? "scale(1.08)" : "scale(1)",
           }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m3.08 3.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m3.08-3.08l4.24-4.24"></path>
-          </svg>
+          <UiIcon name="sparkles" size={17} color={advancedSettingsModalOpen ? "#fff" : accent} />
         </button>
       </div>
 
@@ -4059,6 +4008,8 @@ export default function LuminaryPanels() {
             position:"sticky",
             top:0,
             zIndex:100,
+            opacity: sliderPreviewFocus ? 0 : 1,
+            pointerEvents: sliderPreviewFocus ? "none" : "auto",
             padding:`calc(max(env(safe-area-inset-top), 10px) + 2px) 12px 8px`,
             transition: `background ${uiTransition}, border-color ${uiTransition}`,
           }}
@@ -4201,7 +4152,8 @@ export default function LuminaryPanels() {
           paddingRight: vp.isMobile ? "14px" : "calc(14px + 640px)",
           maxWidth: "100%",
           margin:"0 auto",
-          transition:`padding ${uiTransition}, gap ${uiTransition}`
+          transition:`padding ${uiTransition}, gap ${uiTransition}, opacity ${uiTransition}` ,
+          opacity: sliderPreviewFocus ? 0.22 : 1
         }}>
 
           {!vp.isMobile && (
@@ -4217,7 +4169,7 @@ export default function LuminaryPanels() {
             style={{
               flex:"none",
               width: vp.isMobile ? "calc(100% - 28px)" : 580,
-              height: vp.isMobile ? 320 : 380,
+              height: sliderPreviewFocus ? (vp.isMobile ? "56dvh" : 430) : (vp.isMobile ? 320 : 380),
               display:"flex",
               flexDirection:"column",
               gap:14,
@@ -4225,7 +4177,7 @@ export default function LuminaryPanels() {
               position:"fixed",
               left: vp.isMobile ? 14 : "auto",
               right: vp.isMobile ? 14 : 20,
-              top: headerHeight + 8,
+              top: sliderPreviewFocus ? 8 : headerHeight + 8,
               maxWidth: vp.isMobile ? "calc(100% - 28px)" : 580,
               zIndex: vp.isMobile ? 95 : 40,
               overflowY: "hidden",
@@ -4293,10 +4245,11 @@ export default function LuminaryPanels() {
             padding:"6px 8px",
             paddingBottom:`calc(6px + env(safe-area-inset-bottom))`,
             gap:3,
-            zIndex:1000,
+            zIndex:1300,
             borderRadius:32,
             boxShadow:`0 16px 56px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.07) inset, 0 -2px 12px rgba(0,0,0,0.18)`,
             animation:"navSlideUp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) 100ms both",
+            opacity: sliderPreviewFocus ? 0.35 : 1,
           }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
@@ -4377,7 +4330,7 @@ export default function LuminaryPanels() {
           <div
             style={{
               width:"100%",
-              maxHeight:"72dvh",
+              maxHeight:"68dvh",
               overflowY:"auto",
               borderRadius:"28px 28px 0 0",
               background: isDark ? "rgba(10,12,24,0.97)" : "rgba(255,255,255,0.97)",
@@ -4388,7 +4341,7 @@ export default function LuminaryPanels() {
               boxShadow:"0 -20px 80px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.08) inset",
               display:"flex",
               flexDirection:"column",
-              marginBottom:"calc(76px + env(safe-area-inset-bottom))",
+              marginBottom:"calc(84px + env(safe-area-inset-bottom))",
               animation:"toolSlideUp 400ms cubic-bezier(0.34, 1.56, 0.64, 1)",
               willChange:"transform, opacity",
             }}
@@ -4531,7 +4484,7 @@ export default function LuminaryPanels() {
               borderBottom:`1px solid ${cardBorder}`,
               flexShrink:0,
             }}>
-              <h2 style={{ margin:0, fontSize:18, fontWeight:700, color:textPrimary }}>⚙ Advanced Settings</h2>
+              <h2 style={{ margin:0, fontSize:18, fontWeight:700, color:textPrimary, display:"inline-flex", alignItems:"center", gap:8 }}><UiIcon name="sparkles" size={18} color={accent} />Advanced Settings</h2>
               <button onClick={() => setAdvancedSettingsModalOpen(false)} style={{
                 background:"none",
                 border:"none",
