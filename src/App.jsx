@@ -91,7 +91,7 @@ const DEFAULT_SETTINGS = {
   lightBg: "linear-gradient(160deg,#fff8fb 0%,#f4f9ff 35%,#eff4ff 62%,#f7f0ff 100%)",
   lightText: "#253247",
   hapticFeedback: false,
-  showSlidersByTab: { layout: true, assets: true, avatar: true, text: true },
+  showSlidersByTab: { layout: false, assets: false, avatar: false, text: false },
   // Preview card customization
   previewBgType: "card",
   previewBgColor: "#0a0e27",
@@ -102,8 +102,8 @@ const DEFAULT_SETTINGS = {
   previewBorderVisible: false,
   previewShadowIntensity: 52,
   previewCheckerboard: false,
-  sliderFocusUiOpacity: 0,
-  sliderFocusNavOpacity: 0,
+  sliderFocusUiOpacity: 100,
+  sliderFocusNavOpacity: 100,
   sliderFocusPreviewZoom: 100,
   imageGuideEnabled: true,
 };
@@ -1091,7 +1091,7 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     bgBrightness: 100, bgSaturation: 100, bgContrast: 100,
     pillBorderWidth: 0, pillBorderClr: "#ffffff",
     avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "🌸✨🦋",
-    circScale: 100, avScale: 100, avImgX: 0, avImgY: 0, avShape: "circle",
+    circScale: 100, avScale: 88, avImgX: 0, avImgY: 0, avShape: "circle",
     avBrightness: 100, avSaturation: 100, avContrast: 100,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
     textureId: "none", textureOpacity: 65,
@@ -2582,7 +2582,7 @@ export default function LuminaryPanels() {
     const presetDecor = {
       cute: ["🌸", "🌷", "✨", "🦋"],
       glass: ["✨", "💎", "❄️", "✦"],
-      simple: ["•", "◦", "◇", "✧"],
+      simple: null,
       luxe: ["💎", "👑", "✨", "🪩"],
       neo: ["⚡", "✶", "⬢", "✹"],
     };
@@ -3926,31 +3926,24 @@ export default function LuminaryPanels() {
           </button>
         ))}
 
-        {/* Advanced Settings button */}
-        <button
-          className="btn-bouncy"
-          onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(v => !v); }}
-          title="Advanced Settings"
-          style={{
-            flex:"none",
-            background: advancedSettingsModalOpen
-              ? `linear-gradient(135deg, ${accent}, ${accent2})`
-              : controlBg,
-            color: advancedSettingsModalOpen ? "#fff" : textPrimary,
-            border: advancedSettingsModalOpen ? "none" : `1px solid ${cardBorder}`,
-            fontWeight: 700,
-            fontSize: 14,
-            width: 40, height: 40,
-            borderRadius: 999,
-            cursor: "pointer",
-            boxShadow: advancedSettingsModalOpen ? `0 6px 22px ${accent}55` : "none",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            transition: "all 280ms var(--ease-spring)",
-            transform: advancedSettingsModalOpen ? "scale(1.08)" : "scale(1)",
-          }}>
-          <UiIcon name="sparkles" size={17} color={advancedSettingsModalOpen ? "#fff" : accent} />
-        </button>
       </div>)}
+
+
+      <button
+        className="btn-bouncy"
+        onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(v => !v); }}
+        title="Advanced Settings"
+        style={{
+          flex:"none",
+          background: advancedSettingsModalOpen ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
+          color: advancedSettingsModalOpen ? "#fff" : textPrimary,
+          border: advancedSettingsModalOpen ? "none" : `1px solid ${cardBorder}`,
+          fontWeight: 700, fontSize: 12, padding: "8px 14px", borderRadius: 999, cursor: "pointer",
+          boxShadow: advancedSettingsModalOpen ? `0 6px 22px ${accent}55` : "none",
+          display:"inline-flex", alignItems:"center", justifyContent:"center", gap:6,
+        }}>
+        <UiIcon name="sparkles" size={15} color={advancedSettingsModalOpen ? "#fff" : accent} /> Advanced
+      </button>
 
       {settings.showScaleBadge && (
         <span style={{ fontSize:10, color:textDim, fontWeight:500, letterSpacing:0.3 }}>
@@ -4038,8 +4031,7 @@ export default function LuminaryPanels() {
             position:"sticky",
             top:0,
             zIndex:100,
-            opacity: sliderPreviewFocus ? Math.max(0, Math.min(1, (settings.sliderFocusUiOpacity ?? 0) / 100)) : 1,
-            pointerEvents: sliderPreviewFocus ? "none" : "auto",
+            opacity: sliderPreviewFocus ? Math.max(0.45, Math.min(1, (settings.sliderFocusUiOpacity ?? 100) / 100)) : 1,
             padding:`calc(max(env(safe-area-inset-top), 10px) + 2px) 12px 8px`,
             transition: `background ${uiTransition}, border-color ${uiTransition}`,
           }}
@@ -4280,7 +4272,7 @@ export default function LuminaryPanels() {
             borderRadius:32,
             boxShadow:`0 16px 56px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.07) inset, 0 -2px 12px rgba(0,0,0,0.18)`,
             animation:"navSlideUp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) 100ms both",
-            opacity: sliderPreviewFocus ? Math.max(0, Math.min(1, (settings.sliderFocusNavOpacity ?? 0) / 100)) : 1,
+            opacity: sliderPreviewFocus ? Math.max(0.6, Math.min(1, (settings.sliderFocusNavOpacity ?? 100) / 100)) : 1,
           }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
