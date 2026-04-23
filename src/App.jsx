@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const __APP_VERSION__ = "2.1.3";
+const __APP_VERSION__ = "2.1.4";
 
 const COMBINED_FONT_URL =
   "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
@@ -128,7 +128,7 @@ const ADVANCED_SETTINGS_CONFIG = {
     { key: "previewGlowIntensity", label: "Glow Intensity", type: "range", min: 10, max: 60, step: 1, suffix: "" },
     { key: "previewBorderVisible", label: "Border Visible", type: "toggle" },
     { key: "previewShadowIntensity", label: "Shadow Intensity", type: "range", min: 20, max: 80, step: 1, suffix: "" },
-    { key: "previewBorderRadius", label: "Border Radius", type: "range", min: 0, max: 40, step: 1, suffix: "px" },
+    { key: "previewBorderRadius", label: "Border Radius", type: "range", min: 0, max: 200, step: 1, suffix: "px" },
     { key: "previewPadding", label: "Padding", type: "range", min: 8, max: 40, step: 1, suffix: "px" },
   ],
   "General": [
@@ -1762,6 +1762,7 @@ export default function LuminaryPanels() {
   const vp = useViewport();
 
   const canvasRef     = useRef(null);
+  const popupCanvasRef = useRef(null);
   const wrapRef       = useRef(null);
   const headerRef     = useRef(null);
   const previewDockRef = useRef(null);
@@ -2602,6 +2603,17 @@ export default function LuminaryPanels() {
     ctx.scale(vp.safeDpr, vp.safeDpr);
     renderGraphics(ctx, s.pillW, s.pillH, vp.safeDpr, false);
   }, [s, vp.safeDpr, renderGraphics]);
+
+  // Separate useEffect for popup canvas to ensure it always updates
+  useEffect(() => {
+    if (!popupCanvasRef.current || !sliderPreviewFocus) return;
+    const ctx = popupCanvasRef.current.getContext("2d");
+    const scale = Math.max(1, 2); // Use reasonable DPR for popup
+    popupCanvasRef.current.width  = s.pillW * scale;
+    popupCanvasRef.current.height = s.pillH * scale;
+    ctx.scale(scale, scale);
+    renderGraphics(ctx, s.pillW, s.pillH, scale, false);
+  }, [s, sliderPreviewFocus, renderGraphics]);
 
   // ── Export helpers ────────────────────────────────────────────────────────
   const isAndroidWebView = () => {
@@ -4076,10 +4088,10 @@ export default function LuminaryPanels() {
                   { id:"save",     icon:"download", title:"Save PNG",   onClick: exportPNG,  accent: true  },
                   { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true  },
                   { id:"settings", icon:ICONS.settings, title:"Settings", onClick:() => { settingsOpen ? closeSettings() : openSettings(); }, ref: settingsBtnRef },
-                  { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo, mobile: false  },
-                  { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo, mobile: false  },
-                  { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset, mobile: false },
-                ].filter(btn => !vp.isMobile || btn.mobile !== false).map((btn) => (
+                  { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo, mobile: false, expandedOnly: true  },
+                  { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo, mobile: false, expandedOnly: true  },
+                  { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset, mobile: false, expandedOnly: true },
+                ].filter(btn => !vp.isMobile || btn.mobile !== false).filter(btn => !btn.expandedOnly || headerExpanded).map((btn) => (
                   <button key={btn.id} className="btn-bouncy" onClick={btn.onClick}
                     ref={btn.ref || undefined}
                     title={btn.title}
@@ -4152,6 +4164,53 @@ export default function LuminaryPanels() {
                       color: layoutMode === k ? "#fff" : textPrimary,
                     }}>{k}</button>
                   ))}
+                </div>
+
+                <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+                  {[
+                    { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo },
+                    { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo },
+                    { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset },
+                  ].map((btn) => (
+                    <button key={btn.id} className="btn-bouncy" onClick={btn.onClick}
+                      title={btn.title}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 12,
+                        border: `1px solid ${cardBorder}`,
+                        background: controlBg,
+                        display:"inline-flex",
+                        alignItems:"center",
+                        justifyContent:"center",
+                        color: textPrimary,
+                        flexShrink: 0,
+                        cursor: "pointer",
+                        transition: "transform 180ms var(--ease-spring), background 200ms ease",
+                      }}
+                    >
+                      <UiIcon name={btn.icon} size={15} color={textPrimary} />
+                    </button>
+                  ))}
+                  <button className="btn-bouncy" onClick={() => setAdvancedSettingsModalOpen(true)}
+                    title="Advanced Settings"
+                    style={{
+                      padding:"7px 12px",
+                      borderRadius:999,
+                      fontSize:11,
+                      fontWeight: 600,
+                      border: `1px solid ${cardBorder}`,
+                      background: controlBg,
+                      color: textPrimary,
+                      cursor: "pointer",
+                      transition: "transform 180ms var(--ease-spring), background 200ms ease",
+                      display:"inline-flex",
+                      alignItems:"center",
+                      gap: 6,
+                    }}
+                  >
+                    <UiIcon name="settings" size={13} color={textPrimary} /> Advanced
+                  </button>
                 </div>
 
               </>
@@ -4700,7 +4759,7 @@ export default function LuminaryPanels() {
             overflow: "hidden",
           }}>
             <canvas
-              ref={canvasRef}
+              ref={popupCanvasRef}
               style={{ 
                 display: "block", 
                 width: "100%", 
@@ -4726,7 +4785,7 @@ export default function LuminaryPanels() {
 
       {imageGuideOpen && (
         <div style={{ position:"fixed", inset:0, zIndex:2300, background:"rgba(0,0,0,0.62)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }} onClick={() => setImageGuideOpen(false)}>
-          <div style={{ width:"min(520px, 96vw)", borderRadius:20, background:isDark ? "rgba(12,16,28,0.98)" : "rgba(255,255,255,0.98)", border:`1px solid ${cardBorder}`, boxShadow:"0 24px 70px rgba(0,0,0,0.5)", padding:18 }} onClick={(e)=>e.stopPropagation()}>
+          <div style={{ width:"min(520px, 96vw)", borderRadius:32, background:isDark ? "rgba(12,16,28,0.98)" : "rgba(255,255,255,0.98)", border:`1px solid ${cardBorder}`, boxShadow:"0 24px 70px rgba(0,0,0,0.5)", padding:18 }} onClick={(e)=>e.stopPropagation()}>
             <h3 style={{ margin:"0 0 8px", color:textPrimary, fontSize:18 }}>Quick Edit Guide</h3>
             <p style={{ margin:"0 0 12px", color:textDim, fontSize:13 }}>Your {imageGuideTarget} image is ready. Pick a fast starter flow then fine tune sliders.</p>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:8, marginBottom:10 }}>
