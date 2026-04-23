@@ -4057,36 +4057,36 @@ export default function LuminaryPanels() {
                   borderRadius:999,
                   background:`linear-gradient(135deg, ${accent}38, ${accent2}22)`,
                   color:textPrimary,
-                  minWidth:140,
-                  padding:"9px 12px",
+                  minWidth: vp.isMobile ? 90 : 140,
+                  padding: vp.isMobile ? "7px 10px" : "9px 12px",
                   display:"inline-flex",
                   alignItems:"center",
                   justifyContent:"space-between",
-                  gap:8,
+                  gap: vp.isMobile ? 4 : 8,
                   fontWeight:700,
-                  fontSize:12,
+                  fontSize: vp.isMobile ? 11 : 12,
                 }}
               >
-                <span style={{display:"inline-flex", alignItems:"center", gap:6}}><UiIcon name="sparkles" size={15} color={accent} /> LP</span>
-                <span style={{opacity:0.8, fontSize:11}}>{headerExpanded ? "Close" : "Open"}</span>
+                <span style={{display:"inline-flex", alignItems:"center", gap: vp.isMobile ? 4 : 6}}><UiIcon name="sparkles" size={vp.isMobile ? 13 : 15} color={accent} /> LP</span>
+                <span style={{opacity:0.8, fontSize: vp.isMobile ? 9 : 11}}>{headerExpanded ? "Close" : "Open"}</span>
               </button>
 
-              <div style={{display:"flex", alignItems:"center", gap:6}}>
+              <div style={{display:"flex", alignItems:"center", gap: vp.isMobile ? 4 : 6}}>
                 {[
                   { id:"save",     icon:"download", title:"Save PNG",   onClick: exportPNG,  accent: true  },
                   { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true  },
                   { id:"settings", icon:ICONS.settings, title:"Settings", onClick:() => { settingsOpen ? closeSettings() : openSettings(); }, ref: settingsBtnRef },
-                  { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo  },
-                  { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo  },
-                  { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset },
-                ].map((btn) => (
+                  { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo, mobile: false  },
+                  { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo, mobile: false  },
+                  { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset, mobile: false },
+                ].filter(btn => !vp.isMobile || btn.mobile !== false).map((btn) => (
                   <button key={btn.id} className="btn-bouncy" onClick={btn.onClick}
                     ref={btn.ref || undefined}
                     title={btn.title}
                     style={{
-                      width:36,
-                      height:36,
-                      borderRadius:14,
+                      width: vp.isMobile ? 32 : 36,
+                      height: vp.isMobile ? 32 : 36,
+                      borderRadius: vp.isMobile ? 10 : 14,
                       border: btn.accent ? "none" : `1px solid ${cardBorder}`,
                       background: btn.accent
                         ? `linear-gradient(135deg, ${accent}, ${accent2 || accent}cc)`
@@ -4103,14 +4103,14 @@ export default function LuminaryPanels() {
                     }}
                   >
                     {btn.icon === "download" && (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width={vp.isMobile ? 14 : 16} height={vp.isMobile ? 14 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="7 10 12 15 17 10"></polyline>
                         <line x1="12" y1="15" x2="12" y2="3"></line>
                       </svg>
                     )}
                     {btn.icon === "share" && (
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width={vp.isMobile ? 14 : 16} height={vp.isMobile ? 14 : 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="18" cy="5" r="3"></circle>
                         <circle cx="6" cy="12" r="3"></circle>
                         <circle cx="18" cy="19" r="3"></circle>
@@ -4119,7 +4119,7 @@ export default function LuminaryPanels() {
                       </svg>
                     )}
                     {btn.icon && btn.icon !== "download" && btn.icon !== "share" && (
-                      <UiIcon name={btn.icon} size={15} color={btn.accent ? "#fff" : textPrimary} />
+                      <UiIcon name={btn.icon} size={vp.isMobile ? 13 : 15} color={btn.accent ? "#fff" : textPrimary} />
                     )}
                   </button>
                 ))}
