@@ -500,6 +500,25 @@ styleEnhance.textContent = `
     100% { transform: scale(1); opacity: 1; }
   }
 
+  @keyframes pillPreviewMorph {
+    0% {
+      transform: translate(-50%, -50%) scale(0.6);
+      opacity: 0;
+    }
+    50% {
+      transform: translate(-50%, -50%) scale(1.08);
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes fadeOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; pointer-events: none; }
+  }
+
   @keyframes liquidFlow {
     0%   { background-position: 0% 50%; }
     50%  { background-position: 100% 50%; }
@@ -1136,22 +1155,14 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
   const [rotation, setRotation] = useState(0);
   const [faceMessage, setFaceMessage] = useState("");
   const dragRef = useRef(null);
+  const isMobile = window.innerWidth < 768;
 
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const livePreviewPos = useMemo(() => {
-    if (!imgDisplay.w || !imgDisplay.h) return { x: "50%", y: "50%" };
-    const centerX = clamp(crop.x + crop.w / 2, 0, imgDisplay.w);
-    const centerY = clamp(crop.y + crop.h / 2, 0, imgDisplay.h);
-    return {
-      x: `${(centerX / imgDisplay.w) * 100}%`,
-      y: `${(centerY / imgDisplay.h) * 100}%`,
-    };
-  }, [crop, imgDisplay.w, imgDisplay.h]);
 
   const onImgLoad = (e) => {
     const img = e.currentTarget;
-    const MAX_W = Math.min(window.innerWidth - 48, 440);
-    const MAX_H = Math.min(Math.floor(window.innerHeight * 0.52), 360);
+    const MAX_W = isMobile ? Math.min(window.innerWidth - 32, 280) : Math.min(window.innerWidth - 48, 440);
+    const MAX_H = isMobile ? Math.min(Math.floor(window.innerHeight * 0.38), 260) : Math.min(Math.floor(window.innerHeight * 0.52), 360);
     const scale = Math.min(MAX_W / img.naturalWidth, MAX_H / img.naturalHeight, 1);
     const dw = Math.round(img.naturalWidth  * scale);
     const dh = Math.round(img.naturalHeight * scale);
@@ -1238,6 +1249,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
     cvs.width = sw; cvs.height = sh;
     const ctx = cvs.getContext("2d");
     const img = new Image();
+    img.crossOrigin = "anonymous";
     img.onload = () => {
       const zoomScale = zoom / 100;
       const srcW = Math.max(1, Math.round(sw / zoomScale));
@@ -1251,6 +1263,9 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
       ctx.restore();
       onConfirm(cvs.toDataURL("image/png"));
     };
+    img.onerror = () => {
+      setFaceMessage("Error loading image for crop.");
+    };
     img.src = src;
   };
 
@@ -1259,17 +1274,25 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
   const detectFaceAndCenter = async () => {
     if (!imgDisplay.w || !imgDisplay.h) return;
     try {
-      if (typeof window === "undefined" || !window.FaceDetector) {
-        setFaceMessage("Face detection is not supported on this browser.");
+      if (typeof window === "undefined") {
+        setFaceMessage("Face detection unavailable.");
+        return;
+      }
+      if (!window.FaceDetector) {
+        setFaceMessage("Face detection not supported on this device.");
         return;
       }
       const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.src = src;
-      await img.decode();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
       const faces = await detector.detect(img);
       if (!faces || !faces.length) {
-        setFaceMessage("No face detected. You can still crop manually.");
+        setFaceMessage("No face found. Crop manually.");
         return;
       }
       const face = faces[0].boundingBox;
@@ -1282,9 +1305,9 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
         x: clamp(Math.round(centerX - prev.w / 2), 0, Math.max(0, imgDisplay.w - prev.w)),
         y: clamp(Math.round(centerY - prev.h / 2), 0, Math.max(0, imgDisplay.h - prev.h)),
       }));
-      setFaceMessage("Face centered ✨");
-    } catch (_) {
-      setFaceMessage("Unable to run face detection on this image.");
+      setFaceMessage("✨ Face centered");
+    } catch (e) {
+      setFaceMessage("Face detection failed. Manual crop available.");
     }
   };
   return (
@@ -1472,7 +1495,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
             )}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, marginTop: -4 }}>
           <div style={{ flex: 1 }}>
             <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Zoom {zoom}%</label>
             <input type="range" className="ios-slider" step="1" min={50} max={180} value={zoom} onChange={e => setZoom(+e.target.value)} style={{ width: "100%" }} />
@@ -1482,43 +1505,6 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
             <input type="range" className="ios-slider" step="1" min={-180} max={180} value={rotation} onChange={e => setRotation(+e.target.value)} style={{ width: "100%" }} />
           </div>
         </div>
-        {imgDisplay.w > 0 && (
-          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-            <label style={{ color: theme?.textDim || "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>Live Crop Preview</label>
-            <div style={{
-              width: "100%",
-              height: 140,
-              borderRadius: 14,
-              overflow: "hidden",
-              border: `1px solid ${theme?.accent || "#0a84ff"}55`,
-              background: "#060607",
-            }}>
-              <img
-                src={src}
-                alt="Live crop preview"
-                draggable={false}
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  objectPosition: `${livePreviewPos.x} ${livePreviewPos.y}`,
-                  transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                  transformOrigin: "center center",
-                  transition: "transform 140ms var(--ease-ios), object-position 140ms var(--ease-ios)",
-                  willChange: "transform, object-position",
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {imgDisplay.w > 0 && (
-          <p style={{ color: theme?.textDim || "rgba(255,255,255,0.35)", fontSize: 11, textAlign: "center", margin: 0 }}>
-            Crop: {Math.round(crop.w)}×{Math.round(crop.h)}px display
-            {" · "}
-            Output: ~{Math.round(crop.w * (imgNatural.w / imgDisplay.w))}×{Math.round(crop.h * (imgNatural.h / imgDisplay.h))}px
-          </p>
-        )}
 
         <div style={{ display: "flex", gap: 10 }}>
           <button
@@ -3928,28 +3914,37 @@ export default function LuminaryPanels() {
 
       </div>)}
 
+      {/* Presets and Advanced Settings Section */}
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        alignItems: "center",
+        marginTop: sliderPreviewFocus ? 0 : 8,
+        animation: sliderPreviewFocus ? "fadeOut 200ms ease forwards" : "fadeIn 260ms ease 100ms backwards",
+      }}>
+        <button
+          className="btn-bouncy"
+          onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(v => !v); }}
+          title="Advanced Settings"
+          style={{
+            flex:"none",
+            background: advancedSettingsModalOpen ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
+            color: advancedSettingsModalOpen ? "#fff" : textPrimary,
+            border: advancedSettingsModalOpen ? "none" : `1px solid ${cardBorder}`,
+            fontWeight: 700, fontSize: 12, padding: "8px 14px", borderRadius: 999, cursor: "pointer",
+            boxShadow: advancedSettingsModalOpen ? `0 6px 22px ${accent}55` : "none",
+            display:"inline-flex", alignItems:"center", justifyContent:"center", gap:6,
+          }}>
+          <UiIcon name="sparkles" size={15} color={advancedSettingsModalOpen ? "#fff" : accent} /> Advanced
+        </button>
 
-      <button
-        className="btn-bouncy"
-        onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(v => !v); }}
-        title="Advanced Settings"
-        style={{
-          flex:"none",
-          background: advancedSettingsModalOpen ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
-          color: advancedSettingsModalOpen ? "#fff" : textPrimary,
-          border: advancedSettingsModalOpen ? "none" : `1px solid ${cardBorder}`,
-          fontWeight: 700, fontSize: 12, padding: "8px 14px", borderRadius: 999, cursor: "pointer",
-          boxShadow: advancedSettingsModalOpen ? `0 6px 22px ${accent}55` : "none",
-          display:"inline-flex", alignItems:"center", justifyContent:"center", gap:6,
-        }}>
-        <UiIcon name="sparkles" size={15} color={advancedSettingsModalOpen ? "#fff" : accent} /> Advanced
-      </button>
-
-      {settings.showScaleBadge && (
-        <span style={{ fontSize:10, color:textDim, fontWeight:500, letterSpacing:0.3 }}>
-          Preview {Math.round(pxScale * 100)}%
-        </span>
-      )}
+        {settings.showScaleBadge && (
+          <span style={{ fontSize:10, color:textDim, fontWeight:500, letterSpacing:0.3 }}>
+            Preview {Math.round(pxScale * 100)}%
+          </span>
+        )}
+      </div>
     </div>
   );
 
@@ -4676,6 +4671,43 @@ export default function LuminaryPanels() {
               margin:"0 auto 10px",
             }} />
             {panelSettings}
+          </div>
+        </div>
+      )}
+
+      {/* Small pill preview during slider focus - on top of everything */}
+      {sliderPreviewFocus && (
+        <div style={{
+          position: "fixed",
+          left: "50%",
+          top: "28%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 9998,
+          pointerEvents: "none",
+          animation: "pillPreviewMorph 280ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+        }}>
+          <div style={{
+            background: previewContainerBg,
+            borderRadius: Math.min(s.pillR * pxScale, prevBorderRadius),
+            padding: `${Math.max(4, prevPadding * 0.6)}px`,
+            border: prevBorderVisible ? `1px solid ${cardBorder}` : "none",
+            boxShadow: `0 4px 8px rgba(0,0,0,0.28), 0 12px 24px rgba(0,0,0,0.38), 0 24px 48px rgba(0,0,0,0.32), 0 0 0 1px ${accent}18`,
+            width: Math.max(120, s.pillW * pxScale * 0.7),
+            height: Math.max(60, s.pillH * pxScale * 0.7),
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            overflow: "hidden",
+          }}>
+            <canvas
+              ref={canvasRef}
+              style={{ 
+                display: "block", 
+                width: "100%", 
+                height: "100%",
+                pointerEvents: "none"
+              }}
+            />
           </div>
         </div>
       )}
