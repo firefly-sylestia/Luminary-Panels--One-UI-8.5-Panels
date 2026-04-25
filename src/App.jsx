@@ -48,7 +48,7 @@ const BLEND_MODES = [
 ];
 
 const LAYOUTS = {
-  "Standard Pill": { w: 660, h: 220, r: 110,  cx: 0, cy: 0,  showAv: true  },
+  "Standard Pill": { w: 700, h: 200, r: 100,  cx: 0, cy: 0,  showAv: true  },
   "Vertical Card": { w: 300, h: 500, r: 24,  cx: 0, cy: -120, showAv: false },
   "Square Post":   { w: 500, h: 500, r: 0,   cx: 0, cy: -50,  showAv: false },
   "Circle Toggle": { w: 160, h: 160, r: 80,  cx: 0, cy: 0,  showAv: true  },
@@ -87,6 +87,9 @@ const DEFAULT_SETTINGS = {
   uiText: "#f0f9ff",
   showScaleBadge: false,
   hardBlurUI: false,
+  hardBlurDistortion: 38,
+  hardBlurRipple: 28,
+  hardBlurTintOpacity: 32,
   uiBlurStrength: 34,
   uiDarkness: 92,
   statusBarBoost: 10,
@@ -128,6 +131,9 @@ const ADVANCED_SETTINGS_CONFIG = {
     { key: "statusBarBoost", label: "Status Bar Boost", type: "range", min: 0, max: 40, step: 1, suffix: "%" },
     { key: "uiGlassSaturation", label: "Glass Saturation", type: "range", min: 105, max: 180, step: 1, suffix: "%" },
     { key: "hardBlurUI", label: "Hard Blur UI", type: "toggle" },
+    { key: "hardBlurDistortion", label: "Glass Distortion", type: "range", min: 0, max: 100, step: 1, suffix: "%" },
+    { key: "hardBlurRipple", label: "Glass Ripple", type: "range", min: 0, max: 100, step: 1, suffix: "%" },
+    { key: "hardBlurTintOpacity", label: "Glass Tint", type: "range", min: 0, max: 80, step: 1, suffix: "%" },
   ],
   "Preview Card": [
     { key: "previewGlow", label: "Preview Glow", type: "toggle" },
@@ -1157,14 +1163,14 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
 // ── Default State Factory ─────────────────────────────────────────────────────
 const getLayoutDefaults = (layoutName, theme = "glass") => {
   let def = {
-    pillW: 660, pillH: 220, pillR: 110, circX: 0, circY: 0, textX: 0, textY: 0,
+    pillW: 700, pillH: 200, pillR: 100, circX: 0, circY: 0, textX: 0, textY: 0,
     mainText: "Quick Panel", subText: "Ultra HD Component", fontSize: 42,
     bgStretch: true, bgScale: 100, bgImgX: 0, bgImgY: 0, bgBlur: 0, bgBlend: "source-over",
     bgBrightness: 100, bgSaturation: 100, bgContrast: 100,
     pillBorderWidth: 0, pillBorderClr: "#ffffff",
     avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "🌸✨🦋",
     customBorderSrc: "", customBorderScale: 125, customBorderOpacity: 100, customBorderRotation: 0,
-    circScale: 100, avScale: 88, avImgX: 0, avImgY: 0, avShape: "circle",
+    circScale: 86, avScale: 88, avImgX: 0, avImgY: 0, avShape: "circle",
     avBrightness: 100, avSaturation: 100, avContrast: 100,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
     textureId: "none", textureOpacity: 65,
@@ -1203,8 +1209,8 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
   const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 220, h: 220 });
-  const [ratio, setRatio] = useState("free");
-  const [customRatio, setCustomRatio] = useState("16:9");
+  const [ratio, setRatio] = useState("1:3.5");
+  const [customRatio, setCustomRatio] = useState("1:3.5");
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [faceMessage, setFaceMessage] = useState("");
@@ -1220,7 +1226,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
     const scale = Math.min(MAX_W / img.naturalWidth, MAX_H / img.naturalHeight, 1);
     const dw = Math.round(img.naturalWidth  * scale);
     const dh = Math.round(img.naturalHeight * scale);
-    const initRatio = 1 / 3;
+    const initRatio = 1 / 3.5;
     const initH = Math.max(80, Math.round(dh * 0.84));
     const initW = Math.max(56, Math.min(Math.round(initH * initRatio), Math.round(dw * 0.9)));
     setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
@@ -1235,6 +1241,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
     if (ratio === "16:9") return 16 / 9;
     if (ratio === "9:16") return 9 / 16;
     if (ratio === "1:3") return 1 / 3;
+    if (ratio === "1:3.5") return 1 / 3.5;
     const parts = customRatio.split(":").map(Number);
     if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) return parts[0] / parts[1];
     return null;
@@ -1416,7 +1423,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
           Advanced crop studio · Accent-aware controls with gesture-friendly handles
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {["1:3", "free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
+          {["1:3.5", "1:3", "free", "1:1", "4:5", "16:9", "9:16", "custom"].map(opt => (
             <button
               key={opt}
               onClick={() => setRatio(opt)}
@@ -2599,7 +2606,7 @@ export default function LuminaryPanels() {
       ctx.filter = "none";
     }
 
-    if (s.textureId && s.textureId !== "none") {
+    if (!settings.performanceMode && s.textureId && s.textureId !== "none") {
       const texture = TEXTURES.find(t => t.id === s.textureId);
       const textureKey = `${texture?.css || "none"}-${s.textureOpacity || 0}-${s.textureTint || "none"}`;
       if (texture?.css) {
@@ -2717,7 +2724,7 @@ export default function LuminaryPanels() {
       }
     }
 
-    if ((s.pillTopBlur ?? 0) > 0) {
+    if (!settings.performanceMode && (s.pillTopBlur ?? 0) > 0) {
       const topGlow = ctx.createLinearGradient(0, 0, 0, H * 0.42);
       topGlow.addColorStop(0, withAlpha("#ffffff", Math.min(62, (s.pillTopBlur ?? 0) * 2.1)));
       topGlow.addColorStop(1, "rgba(255,255,255,0)");
@@ -2729,7 +2736,7 @@ export default function LuminaryPanels() {
       ctx.globalCompositeOperation = "source-over";
     }
 
-    if ((s.pillBottomBlur ?? 0) > 0) {
+    if (!settings.performanceMode && (s.pillBottomBlur ?? 0) > 0) {
       const bottomGlow = ctx.createLinearGradient(0, H * 0.58, 0, H);
       bottomGlow.addColorStop(0, "rgba(0,0,0,0)");
       bottomGlow.addColorStop(1, withAlpha("#000000", Math.min(72, (s.pillBottomBlur ?? 0) * 2.6)));
@@ -2739,7 +2746,7 @@ export default function LuminaryPanels() {
       ctx.fillRect(0, H * 0.45, W, H * 0.7);
       ctx.restore();
     }
-    if (s.edgeBlur > 0) {
+    if (!settings.performanceMode && s.edgeBlur > 0) {
       const vig = ctx.createRadialGradient(W/2, H*0.4, Math.min(W,H)*0.1, W/2, H, Math.max(W,H)*0.85);
       vig.addColorStop(0, "rgba(0,0,0,0)");
       vig.addColorStop(1, withAlpha(s.edgeColor, (s.edgeBlur * (s.edgeAlpha ?? 100)) / 100));
@@ -2856,7 +2863,7 @@ export default function LuminaryPanels() {
       neo: Array.from(presetDecorEmojis.neo || ""),
     };
     const decorList = presetDecor[pillStyle]?.length ? presetDecor[pillStyle] : null;
-    if (decorList) {
+    if (!settings.performanceMode && decorList) {
       const baseCount = Math.max(5, Math.round((W + H) / 210));
       for (let i = 0; i < baseCount; i++) {
         const edge = i % 2 === 0;
@@ -2875,7 +2882,7 @@ export default function LuminaryPanels() {
       }
     }
     ctx.restore();
-  }, [s, bgImg, avImg, customBorderImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle, presetDecorEmojis]);
+  }, [s, bgImg, avImg, customBorderImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle, presetDecorEmojis, settings.performanceMode]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -3037,12 +3044,28 @@ export default function LuminaryPanels() {
   const uiDarkness  = Math.max(70, Math.min(98, settings.uiDarkness ?? 92));
   const statusBoost = Math.max(0, Math.min(40, settings.statusBarBoost ?? 10));
   const uiSaturation = Math.max(105, Math.min(180, settings.uiGlassSaturation ?? 126));
+  const hardBlurDistortion = Math.max(0, Math.min(100, settings.hardBlurDistortion ?? 38));
+  const hardBlurRipple = Math.max(0, Math.min(100, settings.hardBlurRipple ?? 28));
+  const hardBlurTintOpacity = Math.max(0, Math.min(80, settings.hardBlurTintOpacity ?? 32));
   const animationSmoothness = Math.max(50, Math.min(170, settings.animationSmoothness ?? 100));
   const animationSpeed = Math.max(40, Math.min(220, settings.animationSpeed ?? 100));
   // Keep blur moderate to avoid lag
   const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 16) : Math.min(uiBlurPxRaw, 28);
+  const liquidGlassStyle = settings.hardBlurUI
+    ? {
+        backdropFilter: `blur(${Math.max(20, uiBlurPx + 10)}px) saturate(${Math.max(1.2, uiSaturation / 82)})`,
+        WebkitBackdropFilter: `blur(${Math.max(20, uiBlurPx + 10)}px) saturate(${Math.max(1.2, uiSaturation / 82)})`,
+        filter: "url(#liquid-glass-distort)",
+      }
+    : {
+        backdropFilter: `blur(${uiBlurPx}px) saturate(${uiSaturation / 100})`,
+        WebkitBackdropFilter: `blur(${uiBlurPx}px) saturate(${uiSaturation / 100})`,
+      };
+  const glassTint = Math.round((hardBlurTintOpacity / 100) * 255);
   const speedFactor = 100 / animationSpeed;
-  const uiTransition = `${Math.max(0.11, (0.24 * (animationSmoothness / 100) * speedFactor).toFixed(2))}s cubic-bezier(0.22, 1, 0.36, 1)`;
+  const uiTransition = settings.performanceMode
+    ? "0.12s linear"
+    : `${Math.max(0.11, (0.24 * (animationSmoothness / 100) * speedFactor).toFixed(2))}s cubic-bezier(0.22, 1, 0.36, 1)`;
   const creamControl = "rgba(255,255,255,0.9)";
   const creamCard = "rgba(255,255,255,0.84)";
   const creamBorder = "rgba(87,125,171,0.3)";
@@ -4409,6 +4432,24 @@ export default function LuminaryPanels() {
           </div>
         </div>
       )}
+      <svg width="0" height="0" style={{ position:"absolute", pointerEvents:"none" }} aria-hidden="true">
+        <filter id="liquid-glass-distort" x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence
+            type="fractalNoise"
+            baseFrequency={0.008 + (hardBlurRipple / 6000)}
+            numOctaves="2"
+            seed="8"
+            result="noise"
+          />
+          <feDisplacementMap
+            in="SourceGraphic"
+            in2="noise"
+            scale={hardBlurDistortion / 4.2}
+            xChannelSelector="R"
+            yChannelSelector="G"
+          />
+        </filter>
+      </svg>
       <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -4518,9 +4559,10 @@ export default function LuminaryPanels() {
             style={{
               margin:"0 auto",
               width:"min(860px, 100%)",
-              background: isDark ? "rgba(10,14,28,0.76)" : "rgba(246,251,255,0.86)",
-              backdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.34)` : "blur(20px)",
-              WebkitBackdropFilter: settings.hardBlurUI ? `blur(${uiBlurPx}px) saturate(1.34)` : "blur(20px)",
+              background: settings.hardBlurUI
+                ? (isDark ? `rgba(12,18,30,${Math.max(0.46, glassTint / 255)})` : `rgba(248,252,255,${Math.max(0.54, glassTint / 255)})`)
+                : (isDark ? "rgba(10,14,28,0.76)" : "rgba(246,251,255,0.86)"),
+              ...liquidGlassStyle,
               border:`1px solid ${cardBorder}`,
               borderRadius: headerExpanded ? 28 : 999,
               boxShadow: `0 14px 40px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.08)`,
@@ -4790,10 +4832,9 @@ export default function LuminaryPanels() {
             left:10,
             right:10,
             background: isDark
-              ? "rgba(8,10,22,0.82)"
-              : "rgba(248,252,255,0.90)",
-            backdropFilter: `blur(${Math.min(uiBlurPx, 28)}px) saturate(${uiSaturation / 100})`,
-            WebkitBackdropFilter: `blur(${Math.min(uiBlurPx, 28)}px) saturate(${uiSaturation / 100})`,
+              ? (settings.hardBlurUI ? `rgba(10,14,24,${Math.max(0.54, glassTint / 255)})` : "rgba(8,10,22,0.82)")
+              : (settings.hardBlurUI ? `rgba(248,252,255,${Math.max(0.6, glassTint / 255)})` : "rgba(248,252,255,0.90)"),
+            ...liquidGlassStyle,
             border:`1px solid ${cardBorder}`,
             display:"flex",
             flexDirection:"row",
@@ -4803,7 +4844,7 @@ export default function LuminaryPanels() {
             zIndex:1300,
             borderRadius:32,
             boxShadow:`0 16px 56px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.07) inset, 0 -2px 12px rgba(0,0,0,0.18)`,
-            animation:"navSlideUp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) 100ms both",
+            animation: settings.performanceMode ? "none" : "navSlideUp 380ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms both",
             opacity: sliderPreviewFocus ? Math.max(0.6, Math.min(1, (settings.sliderFocusNavOpacity ?? 100) / 100)) : 1,
           }}>
             {[
@@ -4811,7 +4852,7 @@ export default function LuminaryPanels() {
               { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"avatar", icon:ICONS.avatar, label:"Avatar" },
               { id:"text",   icon:ICONS.text,   label:"Text"   },
-            ].map((t, idx) => {
+            ].map((t) => {
               const isActive = mobileTab === t.id && sheetOpen;
               return (
                 <button
@@ -4834,9 +4875,10 @@ export default function LuminaryPanels() {
                     gap:4,
                     cursor:"pointer",
                     boxShadow: isActive ? `0 6px 20px ${accent}55` : "none",
-                    transition:"all 220ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-                    animation: `navButtonSlide 400ms cubic-bezier(0.34, 1.56, 0.64, 1) ${idx * 40}ms backwards`,
+                    transition:"transform 170ms ease, background 190ms ease, box-shadow 190ms ease, color 190ms ease",
+                    animation: "none",
                     transform: isActive ? "scale(1.04)" : "scale(1)",
+                    willChange:"transform",
                   }}>
                   <span style={{
                     display:"inline-flex",
@@ -4974,7 +5016,7 @@ export default function LuminaryPanels() {
                 gap:14,
                 WebkitOverflowScrolling:"touch",
                 overscrollBehavior:"contain",
-                animation:`tabSlideSmooth 360ms var(--ease-spring)`,
+                animation: settings.performanceMode ? "none" : `tabSlideSmooth 240ms var(--ease-ios)`,
                 "--slide-from": `${swipeDir * 18}px`,
               }}
             >
