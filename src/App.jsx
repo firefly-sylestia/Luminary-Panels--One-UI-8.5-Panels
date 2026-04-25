@@ -2915,7 +2915,7 @@ export default function LuminaryPanels() {
     return ec;
   };
 
-  const exportPNG = () => {
+  function exportPNG() {
     try {
       mediumHaptic(settings.hapticFeedback);
       const ec      = buildCanvas();
@@ -2973,7 +2973,7 @@ export default function LuminaryPanels() {
 
       setExportDataUrl(dataUrl);
     } catch (err) { console.error("Save failed:", err); }
-  };
+  }
 
   const sharePNG = async () => {
     try {
