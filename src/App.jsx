@@ -4708,6 +4708,7 @@ export default function LuminaryPanels() {
             <div style={{ flex:"1 1 300px", maxWidth:360, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
               <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
               <div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
+              <div className={tabSliderClass("assets")}>{panelAssetManager}</div>
               <div className={tabSliderClass("assets")}>{panelEnvironment}</div>
             </div>
           )}
@@ -4979,6 +4980,7 @@ export default function LuminaryPanels() {
             >
               {mobileTab === "assets" && (
                 <><div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
+                  <div className={tabSliderClass("assets")}>{panelAssetManager}</div>
                   <div className={tabSliderClass("assets")}>{panelEnvironment}</div></>
               )}
               {mobileTab === "layout" && (
