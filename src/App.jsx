@@ -718,7 +718,7 @@ styleEnhance.textContent = `
     }
   }
 `;
-if (!document.getElementById('luminary-enhance-style')) {
+if (typeof document !== "undefined" && document.head && !document.getElementById('luminary-enhance-style')) {
   document.head.appendChild(styleEnhance);
 }
 
