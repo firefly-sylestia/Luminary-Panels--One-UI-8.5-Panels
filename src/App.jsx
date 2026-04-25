@@ -59,6 +59,7 @@ const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const ASSET_LIBRARY_KEY = "luminary-panels-asset-library-v1";
 const EMOJI_PRESETS_KEY = "luminary-panels-emoji-presets-v1";
+const PRESET_DECOR_EMOJI_KEY = "luminary-panels-preset-decor-emojis-v1";
 const RELEASE_MANIFEST_URL = "/release.json";
 const GITHUB_REPO_URL = "https://github.com/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
@@ -189,6 +190,13 @@ const TEXTURES = [
 ];
 
 const DEFAULT_EMOJI_PRESETS = ["✨","🌸","🦋","💎","🎀","💫","🌈","🧸","🍓","💖"];
+const DEFAULT_PRESET_DECOR_EMOJIS = {
+  cute: "🌸🌷✨🦋",
+  glass: "✨💎❄️✦",
+  simple: "",
+  luxe: "💎👑✨🪩",
+  neo: "⚡✶⬢✹",
+};
 
 const ICONS = {
   undo: "undo",
@@ -1854,6 +1862,7 @@ export default function LuminaryPanels() {
   const [appReady, setAppReady] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [assetManagerTab, setAssetManagerTab] = useState("recent");
+  const [assetHubOpen, setAssetHubOpen] = useState(false);
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches
   );
@@ -1908,6 +1917,15 @@ export default function LuminaryPanels() {
       return Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(0, 20) : DEFAULT_EMOJI_PRESETS;
     } catch (_) {
       return DEFAULT_EMOJI_PRESETS;
+    }
+  });
+  const [presetDecorEmojis, setPresetDecorEmojis] = useState(() => {
+    try {
+      const raw = localStorage.getItem(PRESET_DECOR_EMOJI_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed ? { ...DEFAULT_PRESET_DECOR_EMOJIS, ...parsed } : DEFAULT_PRESET_DECOR_EMOJIS;
+    } catch (_) {
+      return DEFAULT_PRESET_DECOR_EMOJIS;
     }
   });
 
@@ -2157,6 +2175,10 @@ export default function LuminaryPanels() {
   useEffect(() => {
     try { localStorage.setItem(EMOJI_PRESETS_KEY, JSON.stringify(emojiPresets)); } catch (_) {}
   }, [emojiPresets]);
+
+  useEffect(() => {
+    try { localStorage.setItem(PRESET_DECOR_EMOJI_KEY, JSON.stringify(presetDecorEmojis)); } catch (_) {}
+  }, [presetDecorEmojis]);
 
   const addFont = () => {
     const match = newFontUrl.match(/family=([^&:]+)/);
@@ -2419,6 +2441,68 @@ export default function LuminaryPanels() {
   const addOverlay    = (type, content) => { microHaptic(settings.hapticFeedback); pushState({ overlays: [...s.overlays, { id: Date.now().toString(), type, content, x: s.pillW/2, y: s.pillH/2, size: 80, opacity: 100, rotation: 0, locked: false }] }); };
   const updateOverlay = (id, upd) => pushState({ overlays: s.overlays.map(o => o.id === id ? { ...o, ...upd } : o) });
   const removeOverlay = (id)      => { microHaptic(settings.hapticFeedback); pushState({ overlays: s.overlays.filter(o => o.id !== id) }); };
+
+  const featureActions = [
+    { id:"fx-01", label:"Center Avatar" }, { id:"fx-02", label:"Center Text" }, { id:"fx-03", label:"Toggle Avatar" },
+    { id:"fx-04", label:"Boost Glow" }, { id:"fx-05", label:"Soft Glow" }, { id:"fx-06", label:"Crystal Border" },
+    { id:"fx-07", label:"Cute Border" }, { id:"fx-08", label:"Rainbow Border" }, { id:"fx-09", label:"Heart Border" },
+    { id:"fx-10", label:"Clear Overlays" }, { id:"fx-11", label:"Big Font" }, { id:"fx-12", label:"Small Font" },
+    { id:"fx-13", label:"Blur Background" }, { id:"fx-14", label:"Sharp Background" }, { id:"fx-15", label:"Vivid BG" },
+    { id:"fx-16", label:"Monochrome BG" }, { id:"fx-17", label:"Rotate Overlays" }, { id:"fx-18", label:"Fade Overlays" },
+    { id:"fx-19", label:"Max Contrast" }, { id:"fx-20", label:"Soft Contrast" }, { id:"fx-21", label:"Glass Theme" },
+    { id:"fx-22", label:"Cute Theme" }, { id:"fx-23", label:"Luxe Theme" }, { id:"fx-24", label:"Neo Theme" },
+    { id:"fx-25", label:"Square Layout" }, { id:"fx-26", label:"Vertical Layout" }, { id:"fx-27", label:"Toggle Texture" },
+    { id:"fx-28", label:"Add Sparkle Emoji" }, { id:"fx-29", label:"Add Heart Emoji" }, { id:"fx-30", label:"Reset Geometry" },
+  ];
+  const runFeatureAction = (id) => {
+    microHaptic(settings.hapticFeedback);
+    const setTheme = (themeName) => {
+      setPillStyle(themeName);
+      const next = getLayoutDefaults(layoutMode, themeName);
+      pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+    };
+    switch (id) {
+      case "fx-01": return pushState({ circX: 0, circY: 0 });
+      case "fx-02": return pushState({ textX: 0, textY: 0 });
+      case "fx-03": return pushState({ showAvatar: !s.showAvatar });
+      case "fx-04": return pushState({ glowClr: "#8fddff", glowAlpha: 100 });
+      case "fx-05": return pushState({ glowClr: "#ffd2ef", glowAlpha: 55 });
+      case "fx-06": return pushState({ borderStyleId: "crystal", avBorderParam1: 24 });
+      case "fx-07": return pushState({ borderStyleId: "pearls", avBorderParam1: 26 });
+      case "fx-08": return pushState({ borderStyleId: "rainbow-pop", avBorderParam1: 4, avBorderParam2: 8 });
+      case "fx-09": return pushState({ borderStyleId: "cute-hearts", avBorderParam1: 24, avBorderParam2: 35 });
+      case "fx-10": return pushState({ overlays: [] });
+      case "fx-11": return pushState({ fontSize: Math.min(150, (s.fontSize || 42) + 10) });
+      case "fx-12": return pushState({ fontSize: Math.max(10, (s.fontSize || 42) - 10) });
+      case "fx-13": return pushState({ bgBlur: Math.min(40, (s.bgBlur || 0) + 8) });
+      case "fx-14": return pushState({ bgBlur: 0 });
+      case "fx-15": return pushState({ bgSaturation: 170 });
+      case "fx-16": return pushState({ bgSaturation: 0 });
+      case "fx-17": return pushState({ overlays: s.overlays.map(o => ({ ...o, rotation: (o.rotation || 0) + 15 })) });
+      case "fx-18": return pushState({ overlays: s.overlays.map(o => ({ ...o, opacity: Math.max(20, (o.opacity ?? 100) - 15) })) });
+      case "fx-19": return pushState({ bgContrast: 170, avContrast: 170 });
+      case "fx-20": return pushState({ bgContrast: 90, avContrast: 90 });
+      case "fx-21": return setTheme("glass");
+      case "fx-22": return setTheme("cute");
+      case "fx-23": return setTheme("luxe");
+      case "fx-24": return setTheme("neo");
+      case "fx-25": {
+        setLayoutMode("Square Post");
+        const next = getLayoutDefaults("Square Post", pillStyle);
+        return pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+      }
+      case "fx-26": {
+        setLayoutMode("Vertical Card");
+        const next = getLayoutDefaults("Vertical Card", pillStyle);
+        return pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+      }
+      case "fx-27": return pushState({ textureId: s.textureId === "none" ? "silk" : "none" });
+      case "fx-28": return addOverlay("emoji", "✨");
+      case "fx-29": return addOverlay("emoji", "💖");
+      case "fx-30": return pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW, pillH: getLayoutDefaults(layoutMode, pillStyle).pillH, pillR: getLayoutDefaults(layoutMode, pillStyle).pillR });
+      default: return null;
+    }
+  };
 
   const saveCurrentToLibrary = () => {
     mediumHaptic(settings.hapticFeedback);
@@ -2765,13 +2849,13 @@ export default function LuminaryPanels() {
     });
 
     const presetDecor = {
-      cute: ["🌸", "🌷", "✨", "🦋"],
-      glass: ["✨", "💎", "❄️", "✦"],
-      simple: null,
-      luxe: ["💎", "👑", "✨", "🪩"],
-      neo: ["⚡", "✶", "⬢", "✹"],
+      cute: Array.from(presetDecorEmojis.cute || ""),
+      glass: Array.from(presetDecorEmojis.glass || ""),
+      simple: Array.from(presetDecorEmojis.simple || ""),
+      luxe: Array.from(presetDecorEmojis.luxe || ""),
+      neo: Array.from(presetDecorEmojis.neo || ""),
     };
-    const decorList = presetDecor[pillStyle];
+    const decorList = presetDecor[pillStyle]?.length ? presetDecor[pillStyle] : null;
     if (decorList) {
       const baseCount = Math.max(5, Math.round((W + H) / 210));
       for (let i = 0; i < baseCount; i++) {
@@ -2791,7 +2875,7 @@ export default function LuminaryPanels() {
       }
     }
     ctx.restore();
-  }, [s, bgImg, avImg, customBorderImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle]);
+  }, [s, bgImg, avImg, customBorderImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle, presetDecorEmojis]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -4106,6 +4190,38 @@ export default function LuminaryPanels() {
       <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
 
       <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Emoji Presets</p>
+      <FRow label="Default overlay emojis" textDim={textDim}>
+        <TxIn value={emojiPresets.join("")} onChange={v => setEmojiPresets(Array.from(v).filter(Boolean).slice(0, 20))} inputSt={inputSt} />
+      </FRow>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:8, marginBottom:10 }}>
+        {Object.keys(DEFAULT_PRESET_DECOR_EMOJIS).map((presetKey) => (
+          <div key={presetKey} style={{ border:`1px solid ${cardBorder}`, borderRadius:10, padding:8, background:controlBg }}>
+            <div style={{ fontSize:11, color:textDim, marginBottom:6, textTransform:"capitalize" }}>{presetKey} border emojis</div>
+            <input
+              value={presetDecorEmojis[presetKey] || ""}
+              onChange={(e) => setPresetDecorEmojis(prev => ({ ...prev, [presetKey]: Array.from(e.target.value).slice(0, 12).join("") }))}
+              style={{ ...inputSt, width:"100%" }}
+            />
+          </div>
+        ))}
+      </div>
+
+      <Sep cardBorder={cardBorder} />
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Feature Lab (30)</p>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8, marginBottom:10 }}>
+        {featureActions.map((feature) => (
+          <button
+            key={feature.id}
+            onClick={() => runFeatureAction(feature.id)}
+            style={{ ...outlineBtn, padding:"8px 6px", minHeight:44, fontSize:10, borderRadius:10 }}
+          >
+            {feature.label}
+          </button>
+        ))}
+      </div>
+
+      <Sep cardBorder={cardBorder} />
       <button onClick={() => {
         localStorage.removeItem(STORAGE_KEY);
         setHistory([getLayoutDefaults(settings.defaultLayout, pillStyle)]);
@@ -4442,6 +4558,7 @@ export default function LuminaryPanels() {
                 {[
                   { id:"save",     icon:"download", title:"Save PNG",   onClick: exportPNG,  accent: true  },
                   { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true  },
+                  { id:"asset-hub", icon:ICONS.assets, title:"Assets Hub", onClick:() => { setAssetHubOpen(true); setAssetManagerTab("recent"); } },
                   { id:"settings", icon:ICONS.settings, title:"Settings", onClick:() => { settingsOpen ? closeSettings() : openSettings(); }, ref: settingsBtnRef },
                   { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo, mobile: false, expandedOnly: true  },
                   { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo, mobile: false, expandedOnly: true  },
@@ -4877,6 +4994,24 @@ export default function LuminaryPanels() {
                 <div className={tabSliderClass("text")}>{panelTypography}</div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {assetHubOpen && (
+        <div
+          style={{ position:"fixed", inset:0, zIndex:2190, background:"rgba(0,0,0,0.54)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}
+          onClick={() => setAssetHubOpen(false)}
+        >
+          <div
+            style={{ width:"min(560px,96vw)", maxHeight:"86vh", overflowY:"auto", borderRadius:24, background:isDark ? "rgba(12,16,28,0.97)" : "rgba(255,255,255,0.97)", border:`1px solid ${cardBorder}`, boxShadow:"0 26px 70px rgba(0,0,0,0.55)", padding:12 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8, padding:"2px 6px" }}>
+              <h3 style={{ margin:0, color:textPrimary, fontSize:16, display:"inline-flex", alignItems:"center", gap:6 }}><UiIcon name="assets" size={16} color={accent} /> Assets Hub</h3>
+              <button onClick={() => setAssetHubOpen(false)} style={{ ...outlineBtn, width:"auto", minWidth:52, padding:"6px 10px", minHeight:36 }}>Close</button>
+            </div>
+            {panelAssetManager}
           </div>
         </div>
       )}
