@@ -115,6 +115,7 @@ const DEFAULT_SETTINGS = {
   sliderFocusNavOpacity: 100,
   sliderFocusPreviewZoom: 100,
   imageGuideEnabled: true,
+  snapGuides: true,
 };
 
 // ALL CUSTOMIZABLE SETTINGS FOR ADVANCED SETTINGS MODAL
@@ -2036,7 +2037,7 @@ export default function LuminaryPanels() {
     setTimeout(() => {
       setSettingsOpen(false);
       setSettingsAnimState("closed");
-    }, 200);
+    }, 260);
   }, [settings.hapticFeedback]);
 
   // ── Images ────────────────────────────────────────────────────────────────
@@ -2157,6 +2158,7 @@ export default function LuminaryPanels() {
         else if ((e.key === "z" && e.shiftKey) || (e.key === "y")) { e.preventDefault(); redo(); }
         else if (e.key === "e") { e.preventDefault(); setEditMode(v => !v); }
         else if (e.key === "s") { e.preventDefault(); exportPNG(); }
+        else if (e.key === "g") { e.preventDefault(); setSettings(prev => ({ ...prev, snapGuides: !(prev.snapGuides !== false) })); }
       }
       if (e.key === "Escape") {
         setEditMode(false);
@@ -2167,13 +2169,58 @@ export default function LuminaryPanels() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [settingsOpen, closeSettings]);
+  }, [settingsOpen, closeSettings, undo, redo, exportPNG]);
 
   useEffect(() => {
     if (!saveNotice) return;
     const t = setTimeout(() => setSaveNotice(""), 2400);
     return () => clearTimeout(t);
   }, [saveNotice]);
+
+  useEffect(() => {
+    const dragState = { active: false, moved: false, startVal: "", startX: 0, startY: 0, el: null };
+    const onPointerDown = (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== "range") return;
+      dragState.active = true;
+      dragState.moved = false;
+      dragState.startVal = t.value;
+      dragState.startX = e.clientX ?? 0;
+      dragState.startY = e.clientY ?? 0;
+      dragState.el = t;
+    };
+    const onPointerMove = (e) => {
+      if (!dragState.active || !dragState.el) return;
+      const dx = Math.abs((e.clientX ?? 0) - dragState.startX);
+      const dy = Math.abs((e.clientY ?? 0) - dragState.startY);
+      if (dx > 3 || dy > 3) dragState.moved = true;
+    };
+    const onInput = (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== "range") return;
+      if (dragState.active && dragState.el === t && !dragState.moved) {
+        t.value = dragState.startVal;
+        e.stopImmediatePropagation();
+      }
+    };
+    const onPointerUp = () => {
+      dragState.active = false;
+      dragState.moved = false;
+      dragState.el = null;
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("pointermove", onPointerMove, true);
+    document.addEventListener("input", onInput, true);
+    document.addEventListener("pointerup", onPointerUp, true);
+    document.addEventListener("pointercancel", onPointerUp, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("pointermove", onPointerMove, true);
+      document.removeEventListener("input", onInput, true);
+      document.removeEventListener("pointerup", onPointerUp, true);
+      document.removeEventListener("pointercancel", onPointerUp, true);
+    };
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem(ASSET_LIBRARY_KEY, JSON.stringify(assetLibrary)); } catch (_) {}
@@ -2425,6 +2472,15 @@ export default function LuminaryPanels() {
     const d   = dragData.current;
     d.currOffX = d.startOffX + (pos.x - d.startX);
     d.currOffY = d.startOffY + (pos.y - d.startY);
+    if (settings.snapGuides !== false) {
+      if (d.type === "overlay") {
+        if (Math.abs(d.currOffX - (s.pillW / 2)) < 12) d.currOffX = s.pillW / 2;
+        if (Math.abs(d.currOffY - (s.pillH / 2)) < 12) d.currOffY = s.pillH / 2;
+      } else {
+        if (Math.abs(d.currOffX) < 10) d.currOffX = 0;
+        if (Math.abs(d.currOffY) < 10) d.currOffY = 0;
+      }
+    }
     const ctx = canvasRef.current.getContext("2d");
     renderGraphics(ctx, s.pillW, s.pillH, vp.safeDpr, false);
   };
@@ -2448,68 +2504,6 @@ export default function LuminaryPanels() {
   const addOverlay    = (type, content) => { microHaptic(settings.hapticFeedback); pushState({ overlays: [...s.overlays, { id: Date.now().toString(), type, content, x: s.pillW/2, y: s.pillH/2, size: 80, opacity: 100, rotation: 0, locked: false }] }); };
   const updateOverlay = (id, upd) => pushState({ overlays: s.overlays.map(o => o.id === id ? { ...o, ...upd } : o) });
   const removeOverlay = (id)      => { microHaptic(settings.hapticFeedback); pushState({ overlays: s.overlays.filter(o => o.id !== id) }); };
-
-  const featureActions = [
-    { id:"fx-01", label:"Center Avatar" }, { id:"fx-02", label:"Center Text" }, { id:"fx-03", label:"Toggle Avatar" },
-    { id:"fx-04", label:"Boost Glow" }, { id:"fx-05", label:"Soft Glow" }, { id:"fx-06", label:"Crystal Border" },
-    { id:"fx-07", label:"Cute Border" }, { id:"fx-08", label:"Rainbow Border" }, { id:"fx-09", label:"Heart Border" },
-    { id:"fx-10", label:"Clear Overlays" }, { id:"fx-11", label:"Big Font" }, { id:"fx-12", label:"Small Font" },
-    { id:"fx-13", label:"Blur Background" }, { id:"fx-14", label:"Sharp Background" }, { id:"fx-15", label:"Vivid BG" },
-    { id:"fx-16", label:"Monochrome BG" }, { id:"fx-17", label:"Rotate Overlays" }, { id:"fx-18", label:"Fade Overlays" },
-    { id:"fx-19", label:"Max Contrast" }, { id:"fx-20", label:"Soft Contrast" }, { id:"fx-21", label:"Glass Theme" },
-    { id:"fx-22", label:"Cute Theme" }, { id:"fx-23", label:"Luxe Theme" }, { id:"fx-24", label:"Neo Theme" },
-    { id:"fx-25", label:"Square Layout" }, { id:"fx-26", label:"Vertical Layout" }, { id:"fx-27", label:"Toggle Texture" },
-    { id:"fx-28", label:"Add Sparkle Emoji" }, { id:"fx-29", label:"Add Heart Emoji" }, { id:"fx-30", label:"Reset Geometry" },
-  ];
-  const runFeatureAction = (id) => {
-    microHaptic(settings.hapticFeedback);
-    const setTheme = (themeName) => {
-      setPillStyle(themeName);
-      const next = getLayoutDefaults(layoutMode, themeName);
-      pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
-    };
-    switch (id) {
-      case "fx-01": return pushState({ circX: 0, circY: 0 });
-      case "fx-02": return pushState({ textX: 0, textY: 0 });
-      case "fx-03": return pushState({ showAvatar: !s.showAvatar });
-      case "fx-04": return pushState({ glowClr: "#8fddff", glowAlpha: 100 });
-      case "fx-05": return pushState({ glowClr: "#ffd2ef", glowAlpha: 55 });
-      case "fx-06": return pushState({ borderStyleId: "crystal", avBorderParam1: 24 });
-      case "fx-07": return pushState({ borderStyleId: "pearls", avBorderParam1: 26 });
-      case "fx-08": return pushState({ borderStyleId: "rainbow-pop", avBorderParam1: 4, avBorderParam2: 8 });
-      case "fx-09": return pushState({ borderStyleId: "cute-hearts", avBorderParam1: 24, avBorderParam2: 35 });
-      case "fx-10": return pushState({ overlays: [] });
-      case "fx-11": return pushState({ fontSize: Math.min(150, (s.fontSize || 42) + 10) });
-      case "fx-12": return pushState({ fontSize: Math.max(10, (s.fontSize || 42) - 10) });
-      case "fx-13": return pushState({ bgBlur: Math.min(40, (s.bgBlur || 0) + 8) });
-      case "fx-14": return pushState({ bgBlur: 0 });
-      case "fx-15": return pushState({ bgSaturation: 170 });
-      case "fx-16": return pushState({ bgSaturation: 0 });
-      case "fx-17": return pushState({ overlays: s.overlays.map(o => ({ ...o, rotation: (o.rotation || 0) + 15 })) });
-      case "fx-18": return pushState({ overlays: s.overlays.map(o => ({ ...o, opacity: Math.max(20, (o.opacity ?? 100) - 15) })) });
-      case "fx-19": return pushState({ bgContrast: 170, avContrast: 170 });
-      case "fx-20": return pushState({ bgContrast: 90, avContrast: 90 });
-      case "fx-21": return setTheme("glass");
-      case "fx-22": return setTheme("cute");
-      case "fx-23": return setTheme("luxe");
-      case "fx-24": return setTheme("neo");
-      case "fx-25": {
-        setLayoutMode("Square Post");
-        const next = getLayoutDefaults("Square Post", pillStyle);
-        return pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
-      }
-      case "fx-26": {
-        setLayoutMode("Vertical Card");
-        const next = getLayoutDefaults("Vertical Card", pillStyle);
-        return pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
-      }
-      case "fx-27": return pushState({ textureId: s.textureId === "none" ? "silk" : "none" });
-      case "fx-28": return addOverlay("emoji", "✨");
-      case "fx-29": return addOverlay("emoji", "💖");
-      case "fx-30": return pushState({ pillW: getLayoutDefaults(layoutMode, pillStyle).pillW, pillH: getLayoutDefaults(layoutMode, pillStyle).pillH, pillR: getLayoutDefaults(layoutMode, pillStyle).pillR });
-      default: return null;
-    }
-  };
 
   const saveCurrentToLibrary = () => {
     mediumHaptic(settings.hapticFeedback);
@@ -3053,9 +3047,10 @@ export default function LuminaryPanels() {
   const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 16) : Math.min(uiBlurPxRaw, 28);
   const liquidGlassStyle = settings.hardBlurUI
     ? {
-        backdropFilter: `blur(${Math.max(20, uiBlurPx + 10)}px) saturate(${Math.max(1.2, uiSaturation / 82)})`,
-        WebkitBackdropFilter: `blur(${Math.max(20, uiBlurPx + 10)}px) saturate(${Math.max(1.2, uiSaturation / 82)})`,
-        filter: "url(#liquid-glass-distort)",
+        backdropFilter: `blur(${Math.max(16, uiBlurPx + 8)}px) saturate(${Math.max(1.2, uiSaturation / 95)})`,
+        WebkitBackdropFilter: `blur(${Math.max(16, uiBlurPx + 8)}px) saturate(${Math.max(1.2, uiSaturation / 95)})`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.34), inset 0 -1px 0 rgba(255,255,255,0.09), 0 10px 34px rgba(0,0,0,0.22)`,
+        backgroundImage: `linear-gradient(${120 + (hardBlurDistortion / 8)}deg, rgba(255,255,255,${Math.max(0.08, hardBlurTintOpacity / 220)}) 0%, rgba(255,255,255,0.02) 55%, rgba(255,255,255,${Math.max(0.03, hardBlurRipple / 1800)}) 100%)`,
       }
     : {
         backdropFilter: `blur(${uiBlurPx}px) saturate(${uiSaturation / 100})`,
@@ -3921,7 +3916,6 @@ export default function LuminaryPanels() {
         {[
           { id:"recent", label:"Recent Imports" },
           { id:"quick", label:"Quick Icons" },
-          { id:"presets", label:"Preset Emojis" },
         ].map(tab => (
           <button
             key={tab.id}
@@ -3976,11 +3970,6 @@ export default function LuminaryPanels() {
         </div>
       )}
 
-      {assetManagerTab === "presets" && (
-        <FRow label="Preset emoji set" textDim={textDim}>
-          <TxIn value={emojiPresets.join("")} onChange={v => setEmojiPresets(Array.from(v).filter(Boolean).slice(0, 20))} inputSt={inputSt} />
-        </FRow>
-      )}
     </Card>
   );
 
@@ -4213,36 +4202,14 @@ export default function LuminaryPanels() {
       <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
 
       <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Emoji Presets</p>
-      <FRow label="Default overlay emojis" textDim={textDim}>
-        <TxIn value={emojiPresets.join("")} onChange={v => setEmojiPresets(Array.from(v).filter(Boolean).slice(0, 20))} inputSt={inputSt} />
-      </FRow>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:8, marginBottom:10 }}>
-        {Object.keys(DEFAULT_PRESET_DECOR_EMOJIS).map((presetKey) => (
-          <div key={presetKey} style={{ border:`1px solid ${cardBorder}`, borderRadius:10, padding:8, background:controlBg }}>
-            <div style={{ fontSize:11, color:textDim, marginBottom:6, textTransform:"capitalize" }}>{presetKey} border emojis</div>
-            <input
-              value={presetDecorEmojis[presetKey] || ""}
-              onChange={(e) => setPresetDecorEmojis(prev => ({ ...prev, [presetKey]: Array.from(e.target.value).slice(0, 12).join("") }))}
-              style={{ ...inputSt, width:"100%" }}
-            />
-          </div>
-        ))}
+      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>App Assets Hub</p>
+      <div style={{ display:"flex", gap:8, marginBottom:10, flexWrap:"wrap" }}>
+        <button onClick={() => { setAssetHubOpen(true); setAssetManagerTab("recent"); }} style={{ ...outlineBtn, flex:"1 1 150px", color:accent }}>Open Assets Hub</button>
+        <button onClick={() => setAssetLibrary(prev => ({ ...prev, recent: [] }))} style={{ ...outlineBtn, flex:"1 1 120px", color:"#ff6666" }}>Clear Recent Imports</button>
       </div>
-
-      <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Feature Lab (30)</p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8, marginBottom:10 }}>
-        {featureActions.map((feature) => (
-          <button
-            key={feature.id}
-            onClick={() => runFeatureAction(feature.id)}
-            style={{ ...outlineBtn, padding:"8px 6px", minHeight:44, fontSize:10, borderRadius:10 }}
-          >
-            {feature.label}
-          </button>
-        ))}
-      </div>
+      <p style={{ margin:"0 0 12px", fontSize:11, color:textDim }}>
+        Manage PNG/JPG imports, border assets, and quick icons from the full Asset Hub page.
+      </p>
 
       <Sep cardBorder={cardBorder} />
       <button onClick={() => {
@@ -4432,24 +4399,6 @@ export default function LuminaryPanels() {
           </div>
         </div>
       )}
-      <svg width="0" height="0" style={{ position:"absolute", pointerEvents:"none" }} aria-hidden="true">
-        <filter id="liquid-glass-distort" x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency={0.008 + (hardBlurRipple / 6000)}
-            numOctaves="2"
-            seed="8"
-            result="noise"
-          />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="noise"
-            scale={hardBlurDistortion / 4.2}
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </svg>
       <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -4488,6 +4437,24 @@ export default function LuminaryPanels() {
           border-radius:5px;
         }
         input,select,button { border-radius: 16px; }
+        .liquid-water {
+          position: relative;
+          overflow: hidden;
+        }
+        .liquid-water::after {
+          content: "";
+          position: absolute;
+          inset: -35% -20%;
+          background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.20), transparent 42%),
+                      radial-gradient(circle at 70% 60%, rgba(255,255,255,0.12), transparent 48%);
+          animation: waterFloat 9s ease-in-out infinite alternate;
+          pointer-events: none;
+          mix-blend-mode: screen;
+        }
+        @keyframes waterFloat {
+          0% { transform: translate3d(-6%, -2%, 0) scale(1); opacity: .5; }
+          100% { transform: translate3d(6%, 4%, 0) scale(1.08); opacity: .82; }
+        }
 
         button {
           transition: transform 180ms var(--ease-spring),
@@ -4556,6 +4523,7 @@ export default function LuminaryPanels() {
           }}
         >
           <div
+            className="liquid-water"
             style={{
               margin:"0 auto",
               width:"min(860px, 100%)",
@@ -4582,8 +4550,8 @@ export default function LuminaryPanels() {
                   borderRadius:999,
                   background:`linear-gradient(135deg, ${accent}38, ${accent2}22)`,
                   color:textPrimary,
-                  minWidth: vp.isMobile ? 90 : 140,
-                  padding: vp.isMobile ? "7px 10px" : "9px 12px",
+                  minWidth: vp.isMobile ? 70 : 112,
+                  padding: vp.isMobile ? "6px 8px" : "8px 10px",
                   display:"inline-flex",
                   alignItems:"center",
                   justifyContent:"space-between",
@@ -4592,7 +4560,7 @@ export default function LuminaryPanels() {
                   fontSize: vp.isMobile ? 11 : 12,
                 }}
               >
-                <span style={{display:"inline-flex", alignItems:"center", gap: vp.isMobile ? 4 : 6}}><UiIcon name="sparkles" size={vp.isMobile ? 13 : 15} color={accent} /> LP</span>
+                <span style={{display:"inline-flex", alignItems:"center", gap: vp.isMobile ? 3 : 5}}><UiIcon name="sparkles" size={vp.isMobile ? 10 : 12} color={accent} /> LP</span>
                 <span style={{opacity:0.8, fontSize: vp.isMobile ? 9 : 11}}>{headerExpanded ? "Close" : "Open"}</span>
               </button>
 
@@ -4600,7 +4568,6 @@ export default function LuminaryPanels() {
                 {[
                   { id:"save",     icon:"download", title:"Save PNG",   onClick: exportPNG,  accent: true  },
                   { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true  },
-                  { id:"asset-hub", icon:ICONS.assets, title:"Assets Hub", onClick:() => { setAssetHubOpen(true); setAssetManagerTab("recent"); } },
                   { id:"settings", icon:ICONS.settings, title:"Settings", onClick:() => { settingsOpen ? closeSettings() : openSettings(); }, ref: settingsBtnRef },
                   { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo, mobile: false, expandedOnly: true  },
                   { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo, mobile: false, expandedOnly: true  },
@@ -4645,7 +4612,7 @@ export default function LuminaryPanels() {
                       </svg>
                     )}
                     {btn.icon && btn.icon !== "download" && btn.icon !== "share" && (
-                      <UiIcon name={btn.icon} size={vp.isMobile ? 13 : 15} color={btn.accent ? "#fff" : textPrimary} />
+                      <UiIcon name={btn.icon} size={vp.isMobile ? 12 : 14} color={btn.accent ? "#fff" : textPrimary} />
                     )}
                   </button>
                 ))}
@@ -4750,7 +4717,6 @@ export default function LuminaryPanels() {
             <div style={{ flex:"1 1 300px", maxWidth:360, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
               <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
               <div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
-              <div className={tabSliderClass("assets")}>{panelAssetManager}</div>
               <div className={tabSliderClass("assets")}>{panelEnvironment}</div>
             </div>
           )}
@@ -4826,7 +4792,7 @@ export default function LuminaryPanels() {
 
         {/* Mobile bottom nav — Premium V4 pill style */}
         {vp.isMobile && (
-          <nav style={{
+          <nav className="liquid-water" style={{
             position:"fixed",
             bottom:10,
             left:10,
@@ -4841,11 +4807,13 @@ export default function LuminaryPanels() {
             padding:"6px 8px",
             paddingBottom:`calc(6px + env(safe-area-inset-bottom))`,
             gap:3,
-            zIndex:1300,
+            zIndex:2100,
             borderRadius:32,
             boxShadow:`0 16px 56px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.07) inset, 0 -2px 12px rgba(0,0,0,0.18)`,
             animation: settings.performanceMode ? "none" : "navSlideUp 380ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms both",
             opacity: sliderPreviewFocus ? Math.max(0.6, Math.min(1, (settings.sliderFocusNavOpacity ?? 100) / 100)) : 1,
+            transition: "transform 320ms var(--ease-spring), box-shadow 260ms var(--ease-ios), opacity 220ms ease",
+            transform: sheetOpen ? "translateY(-2px) scale(1.01)" : "translateY(0) scale(1)",
           }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
@@ -4890,7 +4858,7 @@ export default function LuminaryPanels() {
                   }}>
                     <UiIcon
                       name={t.icon}
-                      size={19}
+                      size={17}
                       color={isActive ? "#fff" : textDim}
                       stroke={isActive ? 2.5 : 2}
                     />
@@ -4915,7 +4883,7 @@ export default function LuminaryPanels() {
             position:"fixed",
             inset:0,
             background:"rgba(0,0,0,0.45)",
-            zIndex:1200,
+            zIndex:2000,
             display:"flex",
             alignItems:"flex-end",
             justifyContent:"center",
@@ -5021,9 +4989,10 @@ export default function LuminaryPanels() {
               }}
             >
               {mobileTab === "assets" && (
-                <><div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
-                  <div className={tabSliderClass("assets")}>{panelAssetManager}</div>
-                  <div className={tabSliderClass("assets")}>{panelEnvironment}</div></>
+                <>
+                  <div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
+                  <div className={tabSliderClass("assets")}>{panelEnvironment}</div>
+                </>
               )}
               {mobileTab === "layout" && (
                 <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
@@ -5042,18 +5011,27 @@ export default function LuminaryPanels() {
 
       {assetHubOpen && (
         <div
-          style={{ position:"fixed", inset:0, zIndex:2190, background:"rgba(0,0,0,0.54)", display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}
+          style={{ position:"fixed", inset:0, zIndex:2190, background:isDark ? "rgba(4,8,16,0.78)" : "rgba(238,245,255,0.84)", display:"flex", flexDirection:"column" }}
           onClick={() => setAssetHubOpen(false)}
         >
           <div
-            style={{ width:"min(560px,96vw)", maxHeight:"86vh", overflowY:"auto", borderRadius:24, background:isDark ? "rgba(12,16,28,0.97)" : "rgba(255,255,255,0.97)", border:`1px solid ${cardBorder}`, boxShadow:"0 26px 70px rgba(0,0,0,0.55)", padding:12 }}
+            className="liquid-water"
+            style={{ width:"100%", height:"100%", overflowY:"auto", borderRadius:0, background:isDark ? "rgba(10,14,24,0.95)" : "rgba(248,252,255,0.94)", ...liquidGlassStyle, border:`1px solid ${cardBorder}`, boxShadow:"0 26px 70px rgba(0,0,0,0.35)", padding:16 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:8, padding:"2px 6px" }}>
-              <h3 style={{ margin:0, color:textPrimary, fontSize:16, display:"inline-flex", alignItems:"center", gap:6 }}><UiIcon name="assets" size={16} color={accent} /> Assets Hub</h3>
-              <button onClick={() => setAssetHubOpen(false)} style={{ ...outlineBtn, width:"auto", minWidth:52, padding:"6px 10px", minHeight:36 }}>Close</button>
+            <div style={{ position:"sticky", top:0, zIndex:2, display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10, padding:"8px 4px 12px", backdropFilter:"blur(16px)" }}>
+              <h3 style={{ margin:0, color:textPrimary, fontSize:18, display:"inline-flex", alignItems:"center", gap:8 }}><UiIcon name="assets" size={18} color={accent} /> Assets Hub</h3>
+              <button onClick={() => setAssetHubOpen(false)} style={{ ...outlineBtn, width:"auto", minWidth:64, padding:"8px 12px", minHeight:38 }}>Close</button>
             </div>
-            {panelAssetManager}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:8, marginBottom:12 }}>
+              <button onClick={() => avFileRef.current?.click()} style={outlineBtn}>🖼 Import Avatar PNG/JPG</button>
+              <button onClick={() => bgFileRef.current?.click()} style={outlineBtn}>🌄 Import Background PNG/JPG</button>
+              <button onClick={() => fileLoaderRef.current?.click()} style={outlineBtn}>➕ Import Overlay PNG/JPG</button>
+              <button onClick={() => borderFileRef.current?.click()} style={outlineBtn}>🧵 Import Border PNG/JPG</button>
+            </div>
+            <div style={{ marginBottom:12 }}>
+              {panelAssetManager}
+            </div>
           </div>
         </div>
       )}
