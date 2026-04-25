@@ -2538,7 +2538,14 @@ export default function LuminaryPanels() {
         const scale = Math.max(40, Math.min(260, s.customBorderScale ?? 125));
         const baseSize = geo.avR * 2 * (scale / 100);
         const ringSize = baseSize + (s.avBorderGap || 0) * 2;
+        const ringThickness = Math.max(2, s.avBorderWidth || 3);
+        const outerR = ringSize / 2;
+        const innerR = Math.max(0, outerR - ringThickness);
         ctx.save();
+        ctx.beginPath();
+        ctx.arc(avCX, avCY, outerR, 0, Math.PI * 2);
+        ctx.arc(avCX, avCY, innerR, 0, Math.PI * 2, true);
+        ctx.clip("evenodd");
         ctx.globalAlpha = Math.max(0, Math.min(1, (s.customBorderOpacity ?? 100) / 100));
         ctx.translate(avCX, avCY);
         ctx.rotate(((s.customBorderRotation || 0) * Math.PI) / 180);
@@ -3945,50 +3952,6 @@ export default function LuminaryPanels() {
         </div>
       </div>
 
-      {!sliderPreviewFocus && (
-        <div style={{ width: "100%", border: `1px solid ${cardBorder}`, borderRadius: 14, padding: "10px 12px", background: controlBg }}>
-          <p style={{ fontSize: 11, color: textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 700 }}>Quick Layout & Imports</p>
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginBottom: 8 }}>
-            {[
-              { id:"cute",   label:"Cute"  },
-              { id:"simple", label:"Simple"},
-              { id:"luxe",   label:"Luxe"  },
-              { id:"neo",    label:"Neo"   },
-            ].map(t => (
-              <button key={t.id}
-                className="btn-bouncy"
-                onClick={() => {
-                  microHaptic(settings.hapticFeedback);
-                  setPillStyle(t.id);
-                  const next = getLayoutDefaults(layoutMode, t.id);
-                  pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
-                }}
-                style={{
-                  flex:"none",
-                  background: pillStyle === t.id
-                    ? `linear-gradient(135deg, ${accent}, ${accent2})`
-                    : controlBg,
-                  color: pillStyle === t.id ? "#fff" : textPrimary,
-                  border: pillStyle === t.id ? "none" : `1px solid ${cardBorder}`,
-                  fontWeight: pillStyle === t.id ? 700 : 500,
-                  fontSize: 12,
-                  padding: "8px 14px",
-                  borderRadius: 999,
-                  cursor: "pointer",
-                  boxShadow: pillStyle === t.id ? `0 6px 22px ${accent}50` : "none",
-                }}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-            <button onClick={() => avFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🖼 Avatar Import</button>
-            <button onClick={() => bgFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🌄 Background Import</button>
-            <button onClick={() => borderFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🧿 Border Overlay</button>
-          </div>
-        </div>
-      )}
-
       {/* Presets and Advanced Settings Section */}
       <div style={{
         display: "flex",
@@ -4022,6 +3985,51 @@ export default function LuminaryPanels() {
       </div>
     </div>
   );
+
+  const quickLayoutBlock = (
+    <div style={{ width: "100%", border: `1px solid ${cardBorder}`, borderRadius: 14, padding: "10px 12px", background: controlBg }}>
+      <p style={{ fontSize: 11, color: textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 700 }}>Quick Layout & Imports</p>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginBottom: 8 }}>
+        {[
+          { id:"cute", label:"Cute" },
+          { id:"simple", label:"Simple" },
+          { id:"luxe", label:"Luxe" },
+          { id:"neo", label:"Neo" },
+        ].map(t => (
+          <button key={t.id}
+            className="btn-bouncy"
+            onClick={() => {
+              microHaptic(settings.hapticFeedback);
+              setPillStyle(t.id);
+              const next = getLayoutDefaults(layoutMode, t.id);
+              pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+            }}
+            style={{
+              flex:"none",
+              background: pillStyle === t.id ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
+              color: pillStyle === t.id ? "#fff" : textPrimary,
+              border: pillStyle === t.id ? "none" : `1px solid ${cardBorder}`,
+              fontWeight: pillStyle === t.id ? 700 : 500,
+              fontSize: 12,
+              padding: "8px 14px",
+              borderRadius: 999,
+              cursor: "pointer",
+              boxShadow: pillStyle === t.id ? `0 6px 22px ${accent}50` : "none",
+            }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+        <button onClick={() => avFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🖼 Avatar Import</button>
+        <button onClick={() => bgFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🌄 Background Import</button>
+        <button onClick={() => borderFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🧿 Border Overlay</button>
+      </div>
+    </div>
+  );
+  const livePreviewHeight = sliderPreviewFocus
+    ? (vp.isMobile ? "calc(100dvh - (96px + env(safe-area-inset-bottom)))" : 460)
+    : (vp.isMobile ? 320 : 380);
 
   // ── Main Return ───────────────────────────────────────────────────────────
   return (
@@ -4325,7 +4333,7 @@ export default function LuminaryPanels() {
             style={{
               flex:"none",
               width: vp.isMobile ? "calc(100% - 28px)" : 580,
-              height: sliderPreviewFocus ? (vp.isMobile ? "calc(100dvh - (96px + env(safe-area-inset-bottom)))" : 460) : (vp.isMobile ? 320 : 380),
+              height: "auto",
               display:"flex",
               flexDirection:"column",
               gap:14,
@@ -4337,7 +4345,7 @@ export default function LuminaryPanels() {
               transform: sliderPreviewFocus ? `scale(${Math.max(1, (settings.sliderFocusPreviewZoom ?? 100) / 100)})` : "scale(1)",
               maxWidth: vp.isMobile ? "calc(100% - 28px)" : 580,
               zIndex: vp.isMobile ? 95 : 40,
-              overflowY: "hidden",
+              overflowY: "visible",
               alignSelf:"flex-start",
               transition:`top 300ms var(--ease-ios), left 300ms var(--ease-ios), right 300ms var(--ease-ios)`,
               transformOrigin:"top right",
@@ -4358,7 +4366,7 @@ export default function LuminaryPanels() {
               transition:`background ${uiTransition}, border-color ${uiTransition}, box-shadow ${uiTransition}`,
               position:"relative",
               overflow:"hidden",
-              height:"100%",
+              height: livePreviewHeight,
               width:"100%",
             }}>
               {/* gradient shimmer line at top */}
@@ -4369,6 +4377,11 @@ export default function LuminaryPanels() {
               }} />
               {canvasBlock}
             </div>
+            {!sliderPreviewFocus && (
+              <div style={{ width: "100%", marginTop: 2 }}>
+                {quickLayoutBlock}
+              </div>
+            )}
           </main>
 
           {!vp.isMobile && (
