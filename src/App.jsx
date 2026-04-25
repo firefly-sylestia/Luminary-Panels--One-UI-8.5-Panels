@@ -37,6 +37,7 @@ const BORDERS = [
   { id: "petal-crown", label: "Petal Crown", icon: "❋" },
   { id: "ornate-lace", label: "Ornate Lace", icon: "✢" },
   { id: "heart-gem", label: "Heart Gem", icon: "♡" },
+  { id: "custom-image", label: "Custom", icon: "🖼" },
 ];
 
 const BLEND_MODES = [
@@ -835,6 +836,7 @@ const getBorderControls = (id) => {
     case "petal-crown": return { p1:"Petal Count", min1:8, max1:42, p2:"Bloom", min2:2, max2:20 };
     case "ornate-lace": return { p1:"Loops", min1:12, max1:60, p2:"Depth", min2:2, max2:20 };
     case "heart-gem": return { p1:"Gem Count", min1:8, max1:36, p2:"Sparkle", min2:1, max2:20 };
+    case "custom-image": return { p1:null, p2:null };
     default:        return { p1:null, p2:null };
   }
 };
@@ -1110,6 +1112,7 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
     bgBrightness: 100, bgSaturation: 100, bgContrast: 100,
     pillBorderWidth: 0, pillBorderClr: "#ffffff",
     avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "🌸✨🦋",
+    customBorderSrc: "", customBorderScale: 125, customBorderOpacity: 100, customBorderRotation: 0,
     circScale: 100, avScale: 88, avImgX: 0, avImgY: 0, avShape: "circle",
     avBrightness: 100, avSaturation: 100, avContrast: 100,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
@@ -1768,6 +1771,7 @@ export default function LuminaryPanels() {
   const previewDockRef = useRef(null);
   const avFileRef     = useRef(null);
   const bgFileRef     = useRef(null);
+  const borderFileRef = useRef(null);
   const fileLoaderRef = useRef(null);
   const settingsBtnRef = useRef(null);
   const texturePatternCacheRef = useRef(new Map());
@@ -1789,7 +1793,7 @@ export default function LuminaryPanels() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isSliding, setIsSliding] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(72);
-  const [previewDockHeight, setPreviewDockHeight] = useState(340);
+  const [previewDockHeight, setPreviewDockHeight] = useState(420);
   const [expandedSections, setExpandedSections] = useState({ animation: false, geometry: false, advancedSettings: false, previewCustom: false });
   const [expandedOverlayId, setExpandedOverlayId] = useState(null);
   const [advancedSettingsModalOpen, setAdvancedSettingsModalOpen] = useState(false);
@@ -1948,6 +1952,7 @@ export default function LuminaryPanels() {
   const [avRawSrc, setAvRawSrc]         = useState(null);
   const [bgImg, setBgImg]               = useState(null);
   const [avImg, setAvImg]               = useState(null);
+  const [customBorderImg, setCustomBorderImg] = useState(null);
   const [loadedImages, setLoadedImages] = useState({});
 
   // ── Drag Engine ───────────────────────────────────────────────────────────
@@ -2073,7 +2078,7 @@ export default function LuminaryPanels() {
       if (!wrapRef.current) return;
       const viewportWidth = wrapRef.current.clientWidth;
       const horizontalPadding = vp.isMobile ? 48 : 96;
-      const verticalBudget = vp.isMobile ? Math.max(220, window.innerHeight * 0.36) : Math.max(250, window.innerHeight * 0.5);
+      const verticalBudget = vp.isMobile ? Math.max(260, window.innerHeight * 0.46) : Math.max(300, window.innerHeight * 0.56);
       const maxPreviewWidth = Math.max(180, viewportWidth - horizontalPadding);
       const widthScale = maxPreviewWidth / Math.max(1, s.pillW);
       const heightScale = verticalBudget / Math.max(1, s.pillH);
@@ -2105,6 +2110,15 @@ export default function LuminaryPanels() {
 
   useEffect(() => { if (bgRawSrc) { const i = new Image(); i.onload = () => setBgImg(i); i.src = bgRawSrc; } }, [bgRawSrc]);
   useEffect(() => { if (avRawSrc) { const i = new Image(); i.onload = () => setAvImg(i); i.src = avRawSrc; } }, [avRawSrc]);
+  useEffect(() => {
+    if (!s.customBorderSrc) {
+      setCustomBorderImg(null);
+      return;
+    }
+    const i = new Image();
+    i.onload = () => setCustomBorderImg(i);
+    i.src = s.customBorderSrc;
+  }, [s.customBorderSrc]);
 
   useEffect(() => {
     s.overlays.forEach(ov => {
@@ -2143,6 +2157,23 @@ export default function LuminaryPanels() {
       setImageGuideOpen(true);
     }
     mediumHaptic(settings.hapticFeedback);
+  };
+
+  const handleCustomBorderFileChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = ev => {
+      pushState({
+        borderStyleId: "custom-image",
+        customBorderSrc: ev.target.result,
+        customBorderScale: s.customBorderScale ?? 125,
+        customBorderOpacity: s.customBorderOpacity ?? 100,
+        customBorderRotation: s.customBorderRotation ?? 0,
+      });
+    };
+    r.readAsDataURL(f);
+    e.target.value = "";
   };
 
   // ── Canvas Drag Helpers ───────────────────────────────────────────────────
@@ -2503,7 +2534,19 @@ export default function LuminaryPanels() {
       }
       ctx.restore();
 
-      drawDynamicBorder(ctx, avCX, avCY, geo.avR, s.borderStyleId, s.avBorderClr, s.avBorderWidth, s.avBorderGap, s.avBorderParam1, s.avBorderParam2, s.avBorderEmojis);
+      if (s.borderStyleId === "custom-image" && customBorderImg) {
+        const scale = Math.max(40, Math.min(260, s.customBorderScale ?? 125));
+        const baseSize = geo.avR * 2 * (scale / 100);
+        const ringSize = baseSize + (s.avBorderGap || 0) * 2;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, (s.customBorderOpacity ?? 100) / 100));
+        ctx.translate(avCX, avCY);
+        ctx.rotate(((s.customBorderRotation || 0) * Math.PI) / 180);
+        ctx.drawImage(customBorderImg, -ringSize / 2, -ringSize / 2, ringSize, ringSize);
+        ctx.restore();
+      } else {
+        drawDynamicBorder(ctx, avCX, avCY, geo.avR, s.borderStyleId, s.avBorderClr, s.avBorderWidth, s.avBorderGap, s.avBorderParam1, s.avBorderParam2, s.avBorderEmojis);
+      }
     }
 
     // Text
@@ -2593,7 +2636,7 @@ export default function LuminaryPanels() {
       }
     }
     ctx.restore();
-  }, [s, bgImg, avImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle]);
+  }, [s, bgImg, avImg, customBorderImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -2804,7 +2847,7 @@ export default function LuminaryPanels() {
 
   const geoPreview = getBaseGeometry(s.pillW, s.pillH);
   const avDiamPx   = Math.round(geoPreview.avR * 2);
-  const mobilePreviewOffset = Math.max(340, headerHeight + previewDockHeight + 28);
+  const mobilePreviewOffset = Math.max(420, headerHeight + previewDockHeight + 28);
   const previewMini = pxScale < (vp.isMobile ? 0.78 : 0.7);
   const [swipeDir, setSwipeDir] = useState(1);
   const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
@@ -3235,6 +3278,34 @@ export default function LuminaryPanels() {
       </div>
       {s.borderStyleId !== "none" && (
         <div style={{ animation: "slideDown 280ms var(--ease-ios)" }}>
+          {s.borderStyleId === "custom-image" && (
+            <>
+              <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                <button onClick={() => borderFileRef.current?.click()} style={outlineBtn}>🖼 Import Custom Border</button>
+                <button
+                  onClick={() => pushState({ customBorderSrc: "" })}
+                  style={{ ...outlineBtn, color:"#ff7373" }}
+                  disabled={!s.customBorderSrc}
+                >
+                  Remove
+                </button>
+              </div>
+              <FRow label={`Scale: ${s.customBorderScale ?? 125}%`} textDim={textDim}>
+                <input type="range" className="ios-slider" step="1" min={40} max={260} value={s.customBorderScale ?? 125}
+                  onChange={e => pushState({ customBorderScale: +e.target.value })} style={{width:"100%"}} />
+              </FRow>
+              <div style={{ display:"flex", gap:8 }}>
+                <FRow label={`Opacity: ${s.customBorderOpacity ?? 100}%`} textDim={textDim}>
+                  <input type="range" className="ios-slider" step="1" min={0} max={100} value={s.customBorderOpacity ?? 100}
+                    onChange={e => pushState({ customBorderOpacity: +e.target.value })} style={{width:"100%"}} />
+                </FRow>
+                <FRow label={`Rotation: ${s.customBorderRotation ?? 0}°`} textDim={textDim}>
+                  <input type="range" className="ios-slider" step="1" min={-180} max={180} value={s.customBorderRotation ?? 0}
+                    onChange={e => pushState({ customBorderRotation: +e.target.value })} style={{width:"100%"}} />
+                </FRow>
+              </div>
+            </>
+          )}
           <div style={{ display:"flex", gap:8 }}>
             <FRow label={`Thickness: ${s.avBorderWidth}px`} textDim={textDim} onReset={() => pushState({ avBorderWidth: 3 })}>
               <input type="range" className="ios-slider" step="1" min={1} max={20} value={s.avBorderWidth}
@@ -3248,10 +3319,12 @@ export default function LuminaryPanels() {
           {bCtrl.p1 && <FRow label={`${bCtrl.p1}: ${s.avBorderParam1}`} textDim={textDim}><input type="range" className="ios-slider" step="1" min={bCtrl.min1} max={bCtrl.max1} value={s.avBorderParam1} onChange={e => pushState({ avBorderParam1: +e.target.value })} style={{width:"100%"}} /></FRow>}
           {bCtrl.p2 && <FRow label={`${bCtrl.p2}: ${s.avBorderParam2}`} textDim={textDim}><input type="range" className="ios-slider" step="1" min={bCtrl.min2} max={bCtrl.max2} value={s.avBorderParam2} onChange={e => pushState({ avBorderParam2: +e.target.value })} style={{width:"100%"}} /></FRow>}
           {bCtrl.hasText && <FRow label="Emojis" textDim={textDim}><TxIn value={s.avBorderEmojis} onChange={v => pushState({ avBorderEmojis: v })} inputSt={inputSt} /></FRow>}
-          <FRow label="Border Color" textDim={textDim}>
-            <ColorField value={s.avBorderClr || "#ffffff"}
-                onChange={v => pushState({ avBorderClr: v })} textPrimary={textPrimary} />
-          </FRow>
+          {s.borderStyleId !== "custom-image" && (
+            <FRow label="Border Color" textDim={textDim}>
+              <ColorField value={s.avBorderClr || "#ffffff"}
+                  onChange={v => pushState({ avBorderClr: v })} textPrimary={textPrimary} />
+            </FRow>
+          )}
         </div>
       )}
     </Card>
@@ -3397,22 +3470,6 @@ export default function LuminaryPanels() {
   const panelAssetsAndLayers = (
     <Card label="Assets & Overlays" {...cp}>
       <SliderSectionToggle tab="assets" />
-      <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
-      <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
-        const f = e.target.files?.[0]; if (!f) return;
-        const r = new FileReader();
-        r.onload = ev => {
-          setCropTarget("background");
-          setCropSrc(ev.target.result);
-        };
-        r.readAsDataURL(f); e.target.value = "";
-      }} />
-      <input ref={fileLoaderRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
-        const f = e.target.files?.[0]; if (!f) return;
-        const r = new FileReader();
-        r.onload = ev => addOverlay("image", ev.target.result);
-        r.readAsDataURL(f); e.target.value = "";
-      }} />
 
       <div style={{ display:"flex", gap:8, marginBottom:16 }}>
         <button onClick={() => { microHaptic(settings.hapticFeedback); avFileRef.current?.click(); }} style={outlineBtn}>🖼 Avatar</button>
@@ -3866,7 +3923,7 @@ export default function LuminaryPanels() {
           width: s.pillW * pxScale,
           height: s.pillH * pxScale,
           maxWidth:"calc(100% - 24px)",
-          maxHeight: vp.isMobile ? "58dvh" : "58vh",
+          maxHeight: vp.isMobile ? "68dvh" : "68vh",
           flexShrink: 0,
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
@@ -3888,43 +3945,49 @@ export default function LuminaryPanels() {
         </div>
       </div>
 
-      {!sliderPreviewFocus && (<div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginTop:2 }}>
-        {[
-          { id:"glass",  label:"Glass" },
-          { id:"cute",   label:"Cute"  },
-          { id:"simple", label:"Simple"},
-          { id:"luxe",   label:"Luxe"  },
-          { id:"neo",    label:"Neo"   },
-        ].map(t => (
-          <button key={t.id}
-            className="btn-bouncy"
-            onClick={() => {
-              microHaptic(settings.hapticFeedback);
-              setPillStyle(t.id);
-              const next = getLayoutDefaults(layoutMode, t.id);
-              pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
-            }}
-            style={{
-              flex:"none",
-              background: pillStyle === t.id
-                ? `linear-gradient(135deg, ${accent}, ${accent2})`
-                : controlBg,
-              color: pillStyle === t.id ? "#fff" : textPrimary,
-              border: pillStyle === t.id ? "none" : `1px solid ${cardBorder}`,
-              fontWeight: pillStyle === t.id ? 700 : 500,
-              fontSize: 13,
-              padding: "9px 20px",
-              borderRadius: 999,
-              cursor: "pointer",
-              boxShadow: pillStyle === t.id ? `0 6px 22px ${accent}50` : "none",
-              letterSpacing: pillStyle === t.id ? 0.3 : 0,
-              animation: pillStyle === t.id ? "morphPillIn 380ms var(--ease-spring)" : "none",
-            }}>
-            {t.label}
-          </button>
-        ))}
-
-      </div>)}
+      {!sliderPreviewFocus && (
+        <div style={{ width: "100%", border: `1px solid ${cardBorder}`, borderRadius: 14, padding: "10px 12px", background: controlBg }}>
+          <p style={{ fontSize: 11, color: textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 700 }}>Quick Layout & Imports</p>
+          <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginBottom: 8 }}>
+            {[
+              { id:"cute",   label:"Cute"  },
+              { id:"simple", label:"Simple"},
+              { id:"luxe",   label:"Luxe"  },
+              { id:"neo",    label:"Neo"   },
+            ].map(t => (
+              <button key={t.id}
+                className="btn-bouncy"
+                onClick={() => {
+                  microHaptic(settings.hapticFeedback);
+                  setPillStyle(t.id);
+                  const next = getLayoutDefaults(layoutMode, t.id);
+                  pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
+                }}
+                style={{
+                  flex:"none",
+                  background: pillStyle === t.id
+                    ? `linear-gradient(135deg, ${accent}, ${accent2})`
+                    : controlBg,
+                  color: pillStyle === t.id ? "#fff" : textPrimary,
+                  border: pillStyle === t.id ? "none" : `1px solid ${cardBorder}`,
+                  fontWeight: pillStyle === t.id ? 700 : 500,
+                  fontSize: 12,
+                  padding: "8px 14px",
+                  borderRadius: 999,
+                  cursor: "pointer",
+                  boxShadow: pillStyle === t.id ? `0 6px 22px ${accent}50` : "none",
+                }}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+            <button onClick={() => avFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🖼 Avatar Import</button>
+            <button onClick={() => bgFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🌄 Background Import</button>
+            <button onClick={() => borderFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🧿 Border Overlay</button>
+          </div>
+        </div>
+      )}
 
       {/* Presets and Advanced Settings Section */}
       <div style={{
@@ -3963,6 +4026,23 @@ export default function LuminaryPanels() {
   // ── Main Return ───────────────────────────────────────────────────────────
   return (
     <div style={{ width:"100%", overflowX:"hidden" }}>
+      <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
+      <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+        const f = e.target.files?.[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => {
+          setCropTarget("background");
+          setCropSrc(ev.target.result);
+        };
+        r.readAsDataURL(f); e.target.value = "";
+      }} />
+      <input ref={fileLoaderRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+        const f = e.target.files?.[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => addOverlay("image", ev.target.result);
+        r.readAsDataURL(f); e.target.value = "";
+      }} />
+      <input ref={borderFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleCustomBorderFileChange} />
       <style dangerouslySetInnerHTML={{ __html: `
         *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
         * { -webkit-tap-highlight-color: transparent; }
