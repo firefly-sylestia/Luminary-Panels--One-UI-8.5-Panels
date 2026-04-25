@@ -37,6 +37,8 @@ const BORDERS = [
   { id: "petal-crown", label: "Petal Crown", icon: "❋" },
   { id: "ornate-lace", label: "Ornate Lace", icon: "✢" },
   { id: "heart-gem", label: "Heart Gem", icon: "♡" },
+  { id: "rainbow-pop", label: "Rainbow Pop", icon: "🌈" },
+  { id: "cute-hearts", label: "Cute Hearts", icon: "💖" },
   { id: "custom-image", label: "Custom", icon: "🖼" },
 ];
 
@@ -55,6 +57,8 @@ const LAYOUTS = {
 const STORAGE_KEY = "luminary-panels-v2";
 const SETTINGS_KEY = "luminary-panels-settings-v1";
 const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
+const ASSET_LIBRARY_KEY = "luminary-panels-asset-library-v1";
+const EMOJI_PRESETS_KEY = "luminary-panels-emoji-presets-v1";
 const RELEASE_MANIFEST_URL = "/release.json";
 const GITHUB_REPO_URL = "https://github.com/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
@@ -184,7 +188,7 @@ const TEXTURES = [
   { id: "bokeh",   label: "Dream Bokeh",  css: "bokeh" },
 ];
 
-const EMOJIS = ["✨","🌸","🦋","💎","🎀","💫","🦇","🌙","🔪","🩸"];
+const DEFAULT_EMOJI_PRESETS = ["✨","🌸","🦋","💎","🎀","💫","🌈","🧸","🍓","💖"];
 
 const ICONS = {
   undo: "undo",
@@ -836,6 +840,8 @@ const getBorderControls = (id) => {
     case "petal-crown": return { p1:"Petal Count", min1:8, max1:42, p2:"Bloom", min2:2, max2:20 };
     case "ornate-lace": return { p1:"Loops", min1:12, max1:60, p2:"Depth", min2:2, max2:20 };
     case "heart-gem": return { p1:"Gem Count", min1:8, max1:36, p2:"Sparkle", min2:1, max2:20 };
+    case "rainbow-pop": return { p1:"Arc Count", min1:1, max1:6, p2:"Spread", min2:2, max2:24 };
+    case "cute-hearts": return { p1:"Heart Count", min1:8, max1:60, p2:"Pulse", min2:0, max2:100 };
     case "custom-image": return { p1:null, p2:null };
     default:        return { p1:null, p2:null };
   }
@@ -962,6 +968,43 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
     ctx.beginPath();
     ctx.arc(cx, cy, R + thickness * 0.36, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  if (styleId === "rainbow-pop") {
+    const arcCount = Math.max(1, Math.round(p1 || 3));
+    const spread = Math.max(2, Math.round(p2 || 10));
+    const colors = ["#ff6ca8", "#ffb86b", "#ffe56f", "#8dffb7", "#7bd7ff", "#b79bff"];
+    for (let i = 0; i < arcCount; i++) {
+      ctx.strokeStyle = colors[i % colors.length];
+      ctx.lineWidth = Math.max(1.5, thickness * (0.6 + i * 0.2));
+      ctx.beginPath();
+      ctx.arc(cx, cy, R + thickness * 0.6 + (i * spread), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+    return;
+  }
+
+  if (styleId === "cute-hearts") {
+    const n = Math.max(8, Math.floor(p1 || 22));
+    const pulse = Math.max(0, Math.min(100, Number(p2 || 0)));
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const bounce = 1 + (Math.sin(i * 0.9) * pulse) / 260;
+      const size = Math.max(11, thickness * 2.5 * bounce);
+      const px = cx + Math.cos(a) * (R + thickness * 0.7);
+      const py = cy + Math.sin(a) * (R + thickness * 0.7);
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(a + Math.PI / 2);
+      ctx.font = `${size}px sans-serif`;
+      ctx.fillText(i % 3 === 0 ? "💗" : "💖", 0, 0);
+      ctx.restore();
+    }
     ctx.restore();
     return;
   }
@@ -1808,6 +1851,9 @@ export default function LuminaryPanels() {
   const [imageGuideOpen, setImageGuideOpen] = useState(false);
   const [imageGuideTarget, setImageGuideTarget] = useState("image");
   const [saveNotice, setSaveNotice]   = useState("");
+  const [appReady, setAppReady] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [assetManagerTab, setAssetManagerTab] = useState("recent");
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches
   );
@@ -1841,6 +1887,27 @@ export default function LuminaryPanels() {
       return Array.isArray(parsed) ? parsed : [];
     } catch (_) {
       return [];
+    }
+  });
+  const [assetLibrary, setAssetLibrary] = useState(() => {
+    try {
+      const raw = localStorage.getItem(ASSET_LIBRARY_KEY);
+      const parsed = raw ? JSON.parse(raw) : { recent: [], quickIcons: [] };
+      return {
+        recent: Array.isArray(parsed?.recent) ? parsed.recent.slice(0, 30) : [],
+        quickIcons: Array.isArray(parsed?.quickIcons) ? parsed.quickIcons.slice(0, 12) : [],
+      };
+    } catch (_) {
+      return { recent: [], quickIcons: [] };
+    }
+  });
+  const [emojiPresets, setEmojiPresets] = useState(() => {
+    try {
+      const raw = localStorage.getItem(EMOJI_PRESETS_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed.slice(0, 20) : DEFAULT_EMOJI_PRESETS;
+    } catch (_) {
+      return DEFAULT_EMOJI_PRESETS;
     }
   });
 
@@ -1967,6 +2034,28 @@ export default function LuminaryPanels() {
     else setFontsOk(true);
   }, []);
 
+  useEffect(() => {
+    let raf = 0;
+    let mounted = true;
+    const start = performance.now();
+    const tick = (now) => {
+      if (!mounted) return;
+      const elapsed = now - start;
+      const progress = Math.min(100, Math.round((elapsed / 1200) * 100));
+      setLoadingProgress(progress);
+      if (progress >= 100) {
+        setTimeout(() => setAppReady(true), 150);
+      } else {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      mounted = false;
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
 
 
   useEffect(() => {
@@ -2061,6 +2150,14 @@ export default function LuminaryPanels() {
     return () => clearTimeout(t);
   }, [saveNotice]);
 
+  useEffect(() => {
+    try { localStorage.setItem(ASSET_LIBRARY_KEY, JSON.stringify(assetLibrary)); } catch (_) {}
+  }, [assetLibrary]);
+
+  useEffect(() => {
+    try { localStorage.setItem(EMOJI_PRESETS_KEY, JSON.stringify(emojiPresets)); } catch (_) {}
+  }, [emojiPresets]);
+
   const addFont = () => {
     const match = newFontUrl.match(/family=([^&:]+)/);
     if (!match) return;
@@ -2130,6 +2227,55 @@ export default function LuminaryPanels() {
     });
   }, [s.overlays, loadedImages]);
 
+  const registerImportedAsset = useCallback((kind, src, label = "Imported") => {
+    if (!src) return;
+    const item = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      kind,
+      src,
+      label,
+      savedAt: Date.now(),
+    };
+    setAssetLibrary(prev => {
+      const recent = [item, ...(prev.recent || [])]
+        .filter((entry, idx, arr) => entry?.src && arr.findIndex(x => x.src === entry.src && x.kind === entry.kind) === idx)
+        .slice(0, 30);
+      const quickIcons = (prev.quickIcons || []).length ? prev.quickIcons : emojiPresets.slice(0, 8);
+      return { ...prev, recent, quickIcons };
+    });
+  }, [emojiPresets]);
+
+  const applyAssetFromLibrary = useCallback((item) => {
+    if (!item?.src) return;
+    microHaptic(settings.hapticFeedback);
+    if (item.kind === "avatar") {
+      setAvRawSrc(item.src);
+      pushState({ avImgX: 0, avImgY: 0 });
+    } else if (item.kind === "background") {
+      setBgRawSrc(item.src);
+      pushState({ bgImgX: 0, bgImgY: 0, bgScale: 100 });
+    } else if (item.kind === "border") {
+      pushState({ borderStyleId: "custom-image", customBorderSrc: item.src });
+    } else {
+      pushState({
+        overlays: [
+          ...s.overlays,
+          {
+            id: Date.now().toString(),
+            type: "image",
+            content: item.src,
+            x: s.pillW / 2,
+            y: s.pillH / 2,
+            size: 80,
+            opacity: 100,
+            rotation: 0,
+            locked: false,
+          },
+        ],
+      });
+    }
+  }, [settings.hapticFeedback, pushState, s.overlays, s.pillW, s.pillH]);
+
   const handleAvatarFileChange = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -2137,6 +2283,7 @@ export default function LuminaryPanels() {
     r.onload = ev => {
       setCropTarget("avatar");
       setCropSrc(ev.target.result);
+      registerImportedAsset("avatar", ev.target.result, f.name || "Avatar");
     };
     r.readAsDataURL(f);
     e.target.value = "";
@@ -2164,6 +2311,7 @@ export default function LuminaryPanels() {
     if (!f) return;
     const r = new FileReader();
     r.onload = ev => {
+      registerImportedAsset("border", ev.target.result, f.name || "Border");
       pushState({
         borderStyleId: "custom-image",
         customBorderSrc: ev.target.result,
@@ -3487,7 +3635,7 @@ export default function LuminaryPanels() {
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Add Overlay</p>
       <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:6, marginBottom:14 }}>
-        {EMOJIS.map((em, idx) => (
+        {emojiPresets.map((em, idx) => (
           <button key={em} onClick={() => addOverlay("emoji", em)}
             style={{
               fontSize:20,
@@ -3521,6 +3669,25 @@ export default function LuminaryPanels() {
           }}>
           + Image
         </button>
+      </div>
+      <FRow label="Editable default emojis" textDim={textDim}>
+        <TxIn
+          value={emojiPresets.join("")}
+          onChange={v => setEmojiPresets(Array.from(v).filter(Boolean).slice(0, 20))}
+          inputSt={inputSt}
+          placeholder="Type emojis…"
+        />
+      </FRow>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
+        {(assetLibrary.quickIcons?.length ? assetLibrary.quickIcons : emojiPresets.slice(0, 8)).map((icon, idx) => (
+          <button
+            key={`${icon}-${idx}`}
+            onClick={() => addOverlay("emoji", icon)}
+            style={{ ...outlineBtn, width:"auto", minWidth:44, padding:"8px 10px", fontSize:18 }}
+          >
+            {icon}
+          </button>
+        ))}
       </div>
 
       {s.overlays.length === 0 ? (
@@ -3637,6 +3804,75 @@ export default function LuminaryPanels() {
             </div>
           ))}
         </div>
+      )}
+    </Card>
+  );
+
+  const panelAssetManager = (
+    <Card label="App Assets Hub" {...cp}>
+      <div style={{ display:"flex", gap:8, marginBottom:10, flexWrap:"wrap" }}>
+        {[
+          { id:"recent", label:"Recent Imports" },
+          { id:"quick", label:"Quick Icons" },
+          { id:"presets", label:"Preset Emojis" },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setAssetManagerTab(tab.id)}
+            style={{
+              ...outlineBtn,
+              width:"auto",
+              minWidth:120,
+              background: assetManagerTab === tab.id ? `${accent}25` : controlBg,
+              border: assetManagerTab === tab.id ? `1px solid ${accent}` : `1px solid ${cardBorder}`,
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {assetManagerTab === "recent" && (
+        <div style={{ display:"grid", gap:8, maxHeight:260, overflowY:"auto", paddingRight:4 }}>
+          {(assetLibrary.recent || []).length === 0 && (
+            <p style={{ fontSize:12, color:textDim }}>Import an image and it will appear here automatically.</p>
+          )}
+          {(assetLibrary.recent || []).map(item => (
+            <button
+              key={item.id}
+              onClick={() => applyAssetFromLibrary(item)}
+              style={{ ...outlineBtn, justifyContent:"space-between", padding:"8px 10px", borderRadius:10 }}
+            >
+              <span style={{ fontSize:12, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:180 }}>
+                {item.kind} · {item.label || "Asset"}
+              </span>
+              <span style={{ fontSize:10, opacity:0.7 }}>{new Date(item.savedAt).toLocaleTimeString()}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {assetManagerTab === "quick" && (
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          {emojiPresets.slice(0, 12).map((icon, idx) => (
+            <button
+              key={`${icon}-${idx}`}
+              onClick={() => {
+                addOverlay("emoji", icon);
+                setAssetLibrary(prev => ({ ...prev, quickIcons: emojiPresets.slice(0, 12) }));
+              }}
+              style={{ ...outlineBtn, width:"auto", minWidth:46, fontSize:20 }}
+            >
+              {icon}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {assetManagerTab === "presets" && (
+        <FRow label="Preset emoji set" textDim={textDim}>
+          <TxIn value={emojiPresets.join("")} onChange={v => setEmojiPresets(Array.from(v).filter(Boolean).slice(0, 20))} inputSt={inputSt} />
+        </FRow>
       )}
     </Card>
   );
@@ -4034,6 +4270,29 @@ export default function LuminaryPanels() {
   // ── Main Return ───────────────────────────────────────────────────────────
   return (
     <div style={{ width:"100%", overflowX:"hidden" }}>
+      {!appReady && (
+        <div
+          style={{
+            position:"fixed",
+            inset:0,
+            zIndex:3000,
+            display:"flex",
+            alignItems:"center",
+            justifyContent:"center",
+            background:"radial-gradient(circle at 30% 20%, #2f1f67 0%, #0a0e27 55%, #05070f 100%)",
+            color:"#f8f4ff",
+            transition:"opacity 340ms ease",
+          }}
+        >
+          <div style={{ width:"min(360px, 90vw)", textAlign:"center", padding:"22px 18px", borderRadius:24, border:"1px solid rgba(255,255,255,0.18)", background:"rgba(255,255,255,0.07)", backdropFilter:"blur(20px)", animation:"fadeIn 460ms var(--ease-ios)" }}>
+            <div style={{ fontSize:40, marginBottom:6, animation:"pulse 1000ms ease-in-out infinite" }}>✨</div>
+            <div style={{ fontWeight:700, marginBottom:10 }}>Loading Luminary Panels</div>
+            <div style={{ height:8, background:"rgba(255,255,255,0.18)", borderRadius:999, overflow:"hidden" }}>
+              <div style={{ width: `${loadingProgress}%`, transition:"width 200ms ease-out", height:"100%", background:"linear-gradient(90deg,#67e8f9,#a78bfa,#f472b6)" }} />
+            </div>
+          </div>
+        </div>
+      )}
       <input ref={avFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleAvatarFileChange} />
       <input ref={bgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
@@ -4041,13 +4300,17 @@ export default function LuminaryPanels() {
         r.onload = ev => {
           setCropTarget("background");
           setCropSrc(ev.target.result);
+          registerImportedAsset("background", ev.target.result, f.name || "Background");
         };
         r.readAsDataURL(f); e.target.value = "";
       }} />
       <input ref={fileLoaderRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
         const r = new FileReader();
-        r.onload = ev => addOverlay("image", ev.target.result);
+        r.onload = ev => {
+          registerImportedAsset("overlay", ev.target.result, f.name || "Overlay");
+          addOverlay("image", ev.target.result);
+        };
         r.readAsDataURL(f); e.target.value = "";
       }} />
       <input ref={borderFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleCustomBorderFileChange} />
@@ -4111,13 +4374,17 @@ export default function LuminaryPanels() {
         }
       `}} />
 
-      <div style={{
+      <div
+        style={{
         minHeight:"100dvh",
         color:textPrimary,
         fontFamily:"system-ui,-apple-system,sans-serif",
         background:pageBg,
         paddingBottom: vp.isMobile ? 90 : 0,
-        paddingTop:0
+        paddingTop:0,
+        opacity: appReady ? 1 : 0.45,
+        transform: `translateY(${appReady ? 0 : 8}px)`,
+        transition:"opacity 420ms ease, transform 420ms ease",
       }}>
         {/* Header */}
         <header
@@ -4324,6 +4591,7 @@ export default function LuminaryPanels() {
             <div style={{ flex:"1 1 300px", maxWidth:360, display:"flex", flexDirection:"column", gap:14, minWidth:0 }}>
               <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
               <div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
+              <div className={tabSliderClass("assets")}>{panelAssetManager}</div>
               <div className={tabSliderClass("assets")}>{panelEnvironment}</div>
             </div>
           )}
@@ -4595,6 +4863,7 @@ export default function LuminaryPanels() {
             >
               {mobileTab === "assets" && (
                 <><div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
+                  <div className={tabSliderClass("assets")}>{panelAssetManager}</div>
                   <div className={tabSliderClass("assets")}>{panelEnvironment}</div></>
               )}
               {mobileTab === "layout" && (
