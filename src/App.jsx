@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const __APP_VERSION__ = "2.1.4";
+const __APP_VERSION__ = "2.4.0-liquid-glass-ai";
 
 const COMBINED_FONT_URL =
-  "https://fonts.googleapis.com/css2?family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
+  "https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=JetBrains+Mono:wght@500;600&family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
+
+// Apple System Font Stack
+const APPLE_FONTS = `-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif`;
+const APPLE_MONO = `"Menlo", "Monaco", "Courier New", monospace`;
 
 const FONTS = [
   { label: "System Default",     value: "system-ui, -apple-system, sans-serif" },
@@ -21,25 +25,24 @@ const FONTS = [
 ];
 
 const BORDERS = [
-  { id: "none",    label: "None",    icon: "∅" },
-  { id: "solid",   label: "Solid",   icon: "◉" },
-  { id: "dashed",  label: "Dashed",  icon: "╌"  },
-  { id: "dotted",  label: "Dotted",  icon: "⋯" },
-  { id: "double",  label: "Double",  icon: "◎"  },
-  { id: "glow",    label: "Glow",    icon: "◌" },
-  { id: "floral",  label: "Floral",  icon: "✿" },
-  { id: "pearls",  label: "Pearls",  icon: "◍" },
-  { id: "lace",    label: "Lace",    icon: "⌘" },
-  { id: "sparkle", label: "Sparkle", icon: "✶" },
-  { id: "ribbon",  label: "Ribbon",  icon: "⌇" },
-  { id: "crystal", label: "Crystal", icon: "◇" },
-  { id: "emoji",   label: "Emoji",   icon: "Aa" },
-  { id: "petal-crown", label: "Petal Crown", icon: "❋" },
-  { id: "ornate-lace", label: "Ornate Lace", icon: "✢" },
-  { id: "heart-gem", label: "Heart Gem", icon: "♡" },
-  { id: "rainbow-pop", label: "Rainbow Pop", icon: "🌈" },
-  { id: "cute-hearts", label: "Cute Hearts", icon: "💖" },
-  { id: "custom-image", label: "Custom", icon: "🖼" },
+  { id: "none",    label: "None",    icon: "none" },
+  { id: "solid",   label: "Solid",   icon: "solid" },
+  { id: "dashed",  label: "Dashed",  icon: "dashed"  },
+  { id: "dotted",  label: "Dotted",  icon: "dotted" },
+  { id: "double",  label: "Double",  icon: "double"  },
+  { id: "glow",    label: "Glow",    icon: "glow" },
+  { id: "floral",  label: "Floral",  icon: "floral" },
+  { id: "pearls",  label: "Pearls",  icon: "pearls" },
+  { id: "lace",    label: "Lace",    icon: "lace" },
+  { id: "sparkle", label: "Sparkle", icon: "sparkle" },
+  { id: "ribbon",  label: "Ribbon",  icon: "ribbon" },
+  { id: "crystal", label: "Crystal", icon: "crystal" },
+  { id: "petal-crown", label: "Petal Crown", icon: "petal-crown" },
+  { id: "ornate-lace", label: "Ornate Lace", icon: "ornate-lace" },
+  { id: "heart-gem", label: "Heart Gem", icon: "heart-gem" },
+  { id: "rainbow-pop", label: "Prism Arc", icon: "rainbow-pop" },
+  { id: "cute-hearts", label: "Heartline", icon: "cute-hearts" },
+  { id: "custom-image", label: "Custom", icon: "custom-image" },
 ];
 
 const BLEND_MODES = [
@@ -48,7 +51,7 @@ const BLEND_MODES = [
 ];
 
 const LAYOUTS = {
-  "Standard Pill": { w: 700, h: 200, r: 100,  cx: 0, cy: 0,  showAv: true  },
+  "Standard Pill": { w: 700, h: 200, r: 100,  cx: 24, cy: 0,  showAv: true  },
   "Vertical Card": { w: 300, h: 500, r: 24,  cx: 0, cy: -120, showAv: false },
   "Square Post":   { w: 500, h: 500, r: 0,   cx: 0, cy: -50,  showAv: false },
   "Circle Toggle": { w: 160, h: 160, r: 80,  cx: 0, cy: 0,  showAv: true  },
@@ -60,18 +63,20 @@ const PROJECT_LIBRARY_KEY = "luminary-panels-project-library-v1";
 const ASSET_LIBRARY_KEY = "luminary-panels-asset-library-v1";
 const EMOJI_PRESETS_KEY = "luminary-panels-emoji-presets-v1";
 const PRESET_DECOR_EMOJI_KEY = "luminary-panels-preset-decor-emojis-v1";
+const AI_BORDER_CONFIG_KEY = "luminary-panels-ai-border-config-v1";
 const RELEASE_MANIFEST_URL = "/release.json";
 const GITHUB_REPO_URL = "https://github.com/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
 
 const UI_COLOR_PRESETS = [
-  { id: "aurora", label: "Aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" },
-  { id: "ios-26-liquid-gold", label: "Liquid Gold", uiAccent: "#ffd37a", uiBg: "linear-gradient(150deg,#130f0a 0%,#2b1f0d 40%,#3a1642 100%)", uiText: "#fff7e8" },
-  { id: "ios-26-ultraviolet", label: "Ultraviolet", uiAccent: "#9a86ff", uiBg: "linear-gradient(145deg,#070612 0%,#1b1146 46%,#0f3a5e 100%)", uiText: "#f0edff" },
-  { id: "ios-26-arctic", label: "Arctic Glass", uiAccent: "#8ad9ff", uiBg: "linear-gradient(160deg,#071521 0%,#0b2f47 48%,#7cc7ef 100%)", uiText: "#f3fdff" },
-  { id: "rose-luxe", label: "Rose Luxe", uiAccent: "#ff7eb6", uiBg: "linear-gradient(145deg,#1a0c1a 0%,#412241 46%,#873c70 100%)", uiText: "#ffeef8" },
-  { id: "mint-pop", label: "Mint Pop", uiAccent: "#63ffd7", uiBg: "linear-gradient(145deg,#081913 0%,#0d3a32 52%,#1d5f78 100%)", uiText: "#e9fff8" },
-  { id: "sunset-fizz", label: "Sunset Fizz", uiAccent: "#ff9f6b", uiBg: "linear-gradient(145deg,#1d0e11 0%,#4d2034 44%,#7a3e2e 100%)", uiText: "#fff3ea" },
+  { id: "aurora", label: "Liquid Aurora", uiAccent: "#7cffda", uiAccent2: "#9a86ff", uiBg: "radial-gradient(circle at 18% 8%, rgba(124,255,218,0.34), transparent 30%), radial-gradient(circle at 78% 22%, rgba(154,134,255,0.30), transparent 34%), linear-gradient(155deg,#050812 0%,#0b1936 38%,#25114e 70%,#083d3b 100%)", uiText: "#f5fffd" },
+  { id: "titanium-graphite", label: "Titanium Graphite", uiAccent: "#c9d3df", uiAccent2: "#7f8ea3", uiBg: "radial-gradient(circle at 16% 10%, rgba(210,223,238,0.26), transparent 28%), radial-gradient(circle at 84% 22%, rgba(127,142,163,0.18), transparent 34%), linear-gradient(150deg,#06080d 0%,#141a23 48%,#262c37 100%)", uiText: "#f4f7fb" },
+  { id: "ios-26-liquid-gold", label: "Liquid Gold", uiAccent: "#ffd37a", uiAccent2: "#ff8cc6", uiBg: "radial-gradient(circle at 22% 10%, rgba(255,211,122,0.30), transparent 30%), radial-gradient(circle at 84% 20%, rgba(255,140,198,0.22), transparent 32%), linear-gradient(150deg,#100b08 0%,#2b1f0d 42%,#35123e 100%)", uiText: "#fff8eb" },
+  { id: "deep-ultraviolet", label: "Deep Ultraviolet", uiAccent: "#b69cff", uiAccent2: "#5ce1ff", uiBg: "radial-gradient(circle at 18% 14%, rgba(182,156,255,0.38), transparent 31%), radial-gradient(circle at 78% 18%, rgba(92,225,255,0.24), transparent 34%), linear-gradient(145deg,#070611 0%,#160d44 44%,#031d35 100%)", uiText: "#f5f0ff" },
+  { id: "arctic-pearl", label: "Arctic Pearl", uiAccent: "#80d8ff", uiAccent2: "#effbff", uiBg: "radial-gradient(circle at 14% 8%, rgba(239,251,255,0.42), transparent 30%), radial-gradient(circle at 84% 24%, rgba(128,216,255,0.30), transparent 34%), linear-gradient(160deg,#06111c 0%,#0b3755 48%,#0d7590 100%)", uiText: "#f8feff" },
+  { id: "rose-luxe", label: "Rose Luxe", uiAccent: "#ff7eb6", uiAccent2: "#ffd3ec", uiBg: "radial-gradient(circle at 22% 8%, rgba(255,126,182,0.34), transparent 31%), radial-gradient(circle at 78% 24%, rgba(255,211,236,0.20), transparent 34%), linear-gradient(145deg,#190b18 0%,#3b1d3d 46%,#7a3567 100%)", uiText: "#fff1f9" },
+  { id: "greenhouse-glass", label: "Greenhouse Glass", uiAccent: "#76ffd2", uiAccent2: "#b8ff6b", uiBg: "radial-gradient(circle at 18% 10%, rgba(118,255,210,0.32), transparent 34%), radial-gradient(circle at 82% 22%, rgba(184,255,107,0.20), transparent 34%), linear-gradient(145deg,#071711 0%,#103b2e 52%,#183b1b 100%)", uiText: "#effff8" },
+  { id: "ember-coral", label: "Ember Coral", uiAccent: "#ff9f6b", uiAccent2: "#ff5f8f", uiBg: "radial-gradient(circle at 18% 9%, rgba(255,159,107,0.34), transparent 32%), radial-gradient(circle at 84% 20%, rgba(255,95,143,0.28), transparent 34%), linear-gradient(145deg,#1b0d0f 0%,#4a1b26 44%,#6d2f1d 100%)", uiText: "#fff4ed" },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -79,25 +84,26 @@ const DEFAULT_SETTINGS = {
   performanceMode: false,
   autosaveIntervalMs: 700,
   defaultLayout: "Standard Pill",
-  motionIntensity: 0,
+  motionIntensity: 0.35,
   exportScale: 4,
   themeMode: "system",
-  uiAccent: "#4fb3d9",
-  uiBg: "#0a0e27",
-  uiText: "#f0f9ff",
+  uiAccent: "#7cffda",
+  uiAccent2: "#9a86ff",
+  uiBg: "radial-gradient(circle at 18% 8%, rgba(124,255,218,0.34), transparent 30%), radial-gradient(circle at 78% 22%, rgba(154,134,255,0.30), transparent 34%), linear-gradient(155deg,#050812 0%,#0b1936 38%,#25114e 70%,#083d3b 100%)",
+  uiText: "#f5fffd",
   showScaleBadge: false,
-  hardBlurUI: false,
+  hardBlurUI: true,
   hardBlurDistortion: 38,
   hardBlurRipple: 28,
-  hardBlurTintOpacity: 32,
-  uiBlurStrength: 34,
-  uiDarkness: 92,
-  statusBarBoost: 10,
-  uiGlassSaturation: 126,
-  animationSmoothness: 100,
-  animationSpeed: 100,
+  hardBlurTintOpacity: 42,
+  uiBlurStrength: 30,
+  uiDarkness: 88,
+  statusBarBoost: 14,
+  uiGlassSaturation: 165,
+  animationSmoothness: 128,
+  animationSpeed: 112,
   uiPreset: "aurora",
-  lightBg: "linear-gradient(160deg,#fff8fb 0%,#f4f9ff 35%,#eff4ff 62%,#f7f0ff 100%)",
+  lightBg: "radial-gradient(circle at 18% 8%, rgba(124,255,218,0.26), transparent 30%), radial-gradient(circle at 80% 14%, rgba(154,134,255,0.20), transparent 34%), linear-gradient(160deg,#fbfdff 0%,#f2f9ff 40%,#f7f2ff 100%)",
   lightText: "#253247",
   hapticFeedback: false,
   showSlidersByTab: { layout: false, assets: false, avatar: false, text: false },
@@ -106,9 +112,9 @@ const DEFAULT_SETTINGS = {
   previewBgColor: "#0a0e27",
   previewBorderRadius: 24,
   previewPadding: 16,
-  previewGlow: false,
+  previewGlow: true,
   previewGlowIntensity: 28,
-  previewBorderVisible: false,
+  previewBorderVisible: true,
   previewShadowIntensity: 52,
   previewCheckerboard: false,
   sliderFocusUiOpacity: 100,
@@ -126,15 +132,11 @@ const ADVANCED_SETTINGS_CONFIG = {
     { key: "animationSpeed", label: "Animation Speed", type: "range", min: 40, max: 220, step: 1, suffix: "%" },
     { key: "performanceMode", label: "Performance Mode", type: "toggle" },
   ],
-  "UI Glass Effect": [
+  "Liquid Materials": [
     { key: "uiBlurStrength", label: "Blur Strength", type: "range", min: 10, max: 70, step: 1, suffix: "px" },
     { key: "uiDarkness", label: "Glass Darkness", type: "range", min: 70, max: 98, step: 1, suffix: "%" },
     { key: "statusBarBoost", label: "Status Bar Boost", type: "range", min: 0, max: 40, step: 1, suffix: "%" },
     { key: "uiGlassSaturation", label: "Glass Saturation", type: "range", min: 105, max: 180, step: 1, suffix: "%" },
-    { key: "hardBlurUI", label: "Hard Blur UI", type: "toggle" },
-    { key: "hardBlurDistortion", label: "Glass Distortion", type: "range", min: 0, max: 100, step: 1, suffix: "%" },
-    { key: "hardBlurRipple", label: "Glass Ripple", type: "range", min: 0, max: 100, step: 1, suffix: "%" },
-    { key: "hardBlurTintOpacity", label: "Glass Tint", type: "range", min: 0, max: 80, step: 1, suffix: "%" },
   ],
   "Preview Card": [
     { key: "previewGlow", label: "Preview Glow", type: "toggle" },
@@ -196,14 +198,255 @@ const TEXTURES = [
   { id: "bokeh",   label: "Dream Bokeh",  css: "bokeh" },
 ];
 
-const DEFAULT_EMOJI_PRESETS = ["✨","🌸","🦋","💎","🎀","💫","🌈","🧸","🍓","💖"];
+const DEFAULT_EMOJI_PRESETS = [];
 const DEFAULT_PRESET_DECOR_EMOJIS = {
-  cute: "🌸🌷✨🦋",
-  glass: "✨💎❄️✦",
+  cute: "",
+  glass: "",
   simple: "",
-  luxe: "💎👑✨🪩",
-  neo: "⚡✶⬢✹",
+  luxe: "",
+  neo: "",
 };
+
+const ASSET_KIND_META = {
+  all: { label: "All", icon: "assets" },
+  avatar: { label: "Avatars", icon: "avatar" },
+  background: { label: "Backgrounds", icon: "background" },
+  overlay: { label: "Overlays", icon: "overlay" },
+  border: { label: "Borders", icon: "border" },
+  texture: { label: "Textures", icon: "texture" },
+};
+const ASSET_KIND_ORDER = ["avatar", "background", "border", "overlay", "texture"];
+const normalizeAssetKind = (kind = "overlay") => ASSET_KIND_META[kind] ? kind : "overlay";
+const sanitizeAssetLabel = (label = "Asset") => String(label || "Asset").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "").trim() || "Asset";
+const sortAssetItems = (items = []) => [...items]
+  .filter(item => item?.src)
+  .sort((a, b) => {
+    const ak = ASSET_KIND_ORDER.indexOf(normalizeAssetKind(a.kind));
+    const bk = ASSET_KIND_ORDER.indexOf(normalizeAssetKind(b.kind));
+    if (ak !== bk) return ak - bk;
+    return Number(b.savedAt || 0) - Number(a.savedAt || 0);
+  });
+
+function svgDataUrl(svg) {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function makeGeneratedAssetSvg(type, accent = "#7cffda", accent2 = "#9a86ff") {
+  const palette = { accent, accent2, white: "#ffffff" };
+  const shell = (body, extra = "") => svgDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${palette.accent}"/><stop offset="1" stop-color="${palette.accent2}"/></linearGradient><filter id="blur"><feGaussianBlur stdDeviation="22"/></filter></defs>${extra}${body}</svg>`);
+  if (type === "liquid-orb") return shell(`<circle cx="384" cy="384" r="206" fill="url(#g)" opacity=".92"/><circle cx="300" cy="266" r="82" fill="white" opacity=".58"/><circle cx="456" cy="482" r="142" fill="white" opacity=".12"/>`);
+  if (type === "glass-ring") return shell(`<circle cx="384" cy="384" r="230" fill="none" stroke="url(#g)" stroke-width="54" opacity=".82"/><circle cx="384" cy="384" r="204" fill="none" stroke="white" stroke-width="2" opacity=".65"/><path d="M190 302c74-94 236-142 384-58" fill="none" stroke="white" stroke-width="28" stroke-linecap="round" opacity=".22"/>`);
+  if (type === "lens-flare") return shell(`<g opacity=".92"><circle cx="384" cy="384" r="92" fill="url(#g)"/><path d="M384 70v628M70 384h628" stroke="white" stroke-width="20" stroke-linecap="round" opacity=".7"/><path d="M164 164l440 440M604 164 164 604" stroke="url(#g)" stroke-width="14" stroke-linecap="round" opacity=".58"/></g>`);
+  if (type === "corner-ribbon") return shell(`<path d="M96 96h312c146 0 264 118 264 264v312H560V386c0-98-80-178-178-178H96z" fill="url(#g)" opacity=".9"/><path d="M128 128h270c116 0 210 94 210 210v270" fill="none" stroke="white" stroke-width="20" opacity=".3"/>`);
+  if (type === "glass-frame") return shell(`<rect x="96" y="96" width="576" height="576" rx="110" fill="none" stroke="url(#g)" stroke-width="48"/><rect x="126" y="126" width="516" height="516" rx="86" fill="none" stroke="white" stroke-width="3" opacity=".55"/>`);
+  if (type === "film-grain") return shell(`<rect width="768" height="768" fill="#fff" opacity=".02"/><g fill="white" opacity=".32">${Array.from({length:70},(_,i)=>`<circle cx="${(i*97)%768}" cy="${(i*181)%768}" r="${2+(i%4)}"/>`).join("")}</g>`);
+  return shell(`<path d="M384 96l70 214 226 2-184 132 68 216-180-132-182 132 70-216L88 312l226-2z" fill="url(#g)" opacity=".9"/><path d="M384 148l46 142 150 1-122 88 45 143-119-87-121 87 46-143-122-88 150-1z" fill="white" opacity=".18"/>`);
+}
+
+function clampAiValue(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function normalizeHex(value, fallback = "#7cffda") {
+  const input = String(value || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(input)) return input;
+  if (/^#[0-9a-fA-F]{3}$/.test(input)) return `#${input[1]}${input[1]}${input[2]}${input[2]}${input[3]}${input[3]}`;
+  return fallback;
+}
+
+function hexToRgbParts(hex) {
+  const safe = normalizeHex(hex);
+  return {
+    r: Number.parseInt(safe.slice(1, 3), 16),
+    g: Number.parseInt(safe.slice(3, 5), 16),
+    b: Number.parseInt(safe.slice(5, 7), 16),
+  };
+}
+
+function rgbPartsToHex({ r, g, b }) {
+  const toHex = (n) => clampAiValue(Math.round(n), 0, 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function mixHex(a, b, t = 0.5) {
+  const ca = hexToRgbParts(a);
+  const cb = hexToRgbParts(b);
+  const ratio = clampAiValue(Number(t) || 0, 0, 1);
+  return rgbPartsToHex({
+    r: ca.r + (cb.r - ca.r) * ratio,
+    g: ca.g + (cb.g - ca.g) * ratio,
+    b: ca.b + (cb.b - ca.b) * ratio,
+  });
+}
+
+async function extractPaletteFromImageSrc(src) {
+  const fallback = {
+    primary: "#7cffda",
+    secondary: "#9a86ff",
+    highlight: "#ffffff",
+    shadow: "#23324c",
+    neutral: "#a6c9d8",
+  };
+  if (!src || typeof document === "undefined") return fallback;
+  return await new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const size = 48;
+        const cvs = document.createElement("canvas");
+        cvs.width = size;
+        cvs.height = size;
+        const ctx = cvs.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, size, size);
+        const { data } = ctx.getImageData(0, 0, size, size);
+        let total = { r: 0, g: 0, b: 0, count: 0 };
+        let left = { r: 0, g: 0, b: 0, count: 0 };
+        let right = { r: 0, g: 0, b: 0, count: 0 };
+        let bright = { r: 0, g: 0, b: 0, count: 0 };
+        for (let y = 0; y < size; y += 1) {
+          for (let x = 0; x < size; x += 1) {
+            const i = (y * size + x) * 4;
+            const a = data[i + 3];
+            if (a < 16) continue;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const lum = (r * 0.299) + (g * 0.587) + (b * 0.114);
+            total.r += r; total.g += g; total.b += b; total.count += 1;
+            const bucket = x < size / 2 ? left : right;
+            bucket.r += r; bucket.g += g; bucket.b += b; bucket.count += 1;
+            if (lum > 176) { bright.r += r; bright.g += g; bright.b += b; bright.count += 1; }
+          }
+        }
+        const avg = (bucket, fb) => bucket.count
+          ? rgbPartsToHex({ r: bucket.r / bucket.count, g: bucket.g / bucket.count, b: bucket.b / bucket.count })
+          : fb;
+        const primary = avg(left, fallback.primary);
+        const secondary = avg(right, fallback.secondary);
+        const neutral = avg(total, fallback.neutral);
+        const highlightBase = avg(bright, mixHex(primary, "#ffffff", 0.84));
+        resolve({
+          primary: mixHex(primary, neutral, 0.18),
+          secondary: mixHex(secondary, neutral, 0.12),
+          highlight: mixHex(highlightBase, "#ffffff", 0.54),
+          shadow: mixHex(neutral, "#0a1020", 0.72),
+          neutral,
+        });
+      } catch (_) {
+        resolve(fallback);
+      }
+    };
+    img.onerror = () => resolve(fallback);
+    img.src = src;
+  });
+}
+
+function inferAiBorderMood(prompt = "") {
+  const text = String(prompt || "").toLowerCase();
+  if (!text.trim()) return "glass";
+  if (/(minimal|clean|simple|thin|sleek)/.test(text)) return "minimal";
+  if (/(tech|futur|cyber|digital|matrix)/.test(text)) return "tech";
+  if (/(royal|luxe|gold|premium|elegant|luxury)/.test(text)) return "luxe";
+  if (/(soft|dream|aurora|flower|floral|petal)/.test(text)) return "soft";
+  return "glass";
+}
+
+function createAiBorderSvg({ palette, prompt = "", detail = 72, density = 58, seedLabel = "AI Border" }) {
+  const mood = inferAiBorderMood(prompt);
+  const primary = normalizeHex(palette?.primary || "#7cffda");
+  const secondary = normalizeHex(palette?.secondary || "#9a86ff");
+  const neutral = normalizeHex(palette?.neutral || mixHex(primary, secondary, 0.5));
+  const highlight = normalizeHex(palette?.highlight || mixHex(primary, "#ffffff", 0.72));
+  const shadow = normalizeHex(palette?.shadow || mixHex(neutral, "#0b1020", 0.72));
+  const complexity = clampAiValue(detail, 20, 100);
+  const count = Math.round(8 + (complexity / 100) * 14 + (density / 100) * 8);
+  const petals = Array.from({ length: count }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / count;
+    const radius = 304 + (i % 3) * 8;
+    const size = mood === "minimal" ? 18 : mood === "tech" ? 22 : mood === "luxe" ? 26 : 24;
+    const x = 384 + Math.cos(angle) * radius;
+    const y = 384 + Math.sin(angle) * radius;
+    const rot = (angle * 180) / Math.PI + 90;
+    if (mood === "tech") {
+      return `<rect x="${(x - size / 2).toFixed(2)}" y="${(y - size * 1.15).toFixed(2)}" width="${size.toFixed(2)}" height="${(size * 1.75).toFixed(2)}" rx="${(size * 0.42).toFixed(2)}" fill="url(#g2)" opacity="${(0.36 + (i % 4) * 0.08).toFixed(2)}" transform="rotate(${rot.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})"/>`;
+    }
+    if (mood === "minimal") {
+      return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(size * 0.26).toFixed(2)}" fill="${highlight}" opacity="${(0.48 + (i % 4) * 0.07).toFixed(2)}"/>`;
+    }
+    return `<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="${(size * 0.48).toFixed(2)}" ry="${(size * 1.18).toFixed(2)}" fill="url(#g2)" opacity="${(0.26 + (i % 5) * 0.08).toFixed(2)}" transform="rotate(${rot.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)})"/>`;
+  }).join("");
+
+  const luxeCrests = mood === "luxe" ? Array.from({ length: 10 }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / 10;
+    const radius = 336;
+    const x = 384 + Math.cos(angle) * radius;
+    const y = 384 + Math.sin(angle) * radius;
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="10.5" fill="${mixHex(primary, "#ffd89a", 0.58)}" opacity="0.82"/>`;
+  }).join("") : "";
+
+  const accents = Array.from({ length: Math.round(count * 0.5) }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / Math.max(1, Math.round(count * 0.5));
+    const radius = 326;
+    const x = 384 + Math.cos(angle) * radius;
+    const y = 384 + Math.sin(angle) * radius;
+    const r = mood === "minimal" ? 2.4 : 4.2;
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${r}" fill="${highlight}" opacity="${mood === "minimal" ? 0.42 : 0.58}"/>`;
+  }).join("");
+
+  return svgDataUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768" fill="none">
+    <defs>
+      <linearGradient id="g1" x1="96" y1="96" x2="672" y2="672">
+        <stop stop-color="${primary}"/>
+        <stop offset="1" stop-color="${secondary}"/>
+      </linearGradient>
+      <linearGradient id="g2" x1="150" y1="120" x2="640" y2="650">
+        <stop stop-color="${highlight}" stop-opacity="0.92"/>
+        <stop offset="0.42" stop-color="${primary}" stop-opacity="0.72"/>
+        <stop offset="1" stop-color="${secondary}" stop-opacity="0.52"/>
+      </linearGradient>
+      <radialGradient id="g3" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(292 222) rotate(49) scale(438)">
+        <stop stop-color="${highlight}" stop-opacity="0.78"/>
+        <stop offset="1" stop-color="${shadow}" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="blurGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="22"/>
+      </filter>
+    </defs>
+    <circle cx="384" cy="384" r="336" stroke="url(#g1)" stroke-width="28" opacity="${mood === "minimal" ? 0.88 : 0.8}"/>
+    <circle cx="384" cy="384" r="305" stroke="${mixHex(neutral, "#ffffff", 0.58)}" stroke-width="3.5" opacity="0.62"/>
+    <circle cx="384" cy="384" r="348" stroke="${mixHex(primary, highlight, 0.45)}" stroke-width="18" opacity="0.16" filter="url(#blurGlow)"/>
+    <circle cx="384" cy="384" r="328" stroke="url(#g3)" stroke-width="42" opacity="0.42"/>
+    ${petals}
+    ${luxeCrests}
+    ${accents}
+    <path d="M182 232c70-90 268-144 404-62" stroke="${highlight}" stroke-width="26" stroke-linecap="round" opacity="0.26"/>
+    <path d="M154 406c88 114 262 190 460 126" stroke="${mixHex(secondary, highlight, 0.34)}" stroke-width="20" stroke-linecap="round" opacity="0.12"/>
+    <title>${seedLabel.replace(/</g, "&lt;")}</title>
+  </svg>`);
+}
+
+async function requestRemoteAiBorder({ endpoint, apiKey, model, prompt, palette, imageSrc }) {
+  if (!endpoint) return null;
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) headers.Authorization = apiKey.startsWith("Bearer ") ? apiKey : `Bearer ${apiKey}`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model: model || undefined,
+      mode: "avatar-border",
+      prompt,
+      palette,
+      imageHint: { source: imageSrc ? "provided" : "none" },
+      output: { format: "svg-or-data-url", transparentBackground: true, width: 768, height: 768 },
+    }),
+  });
+  if (!res.ok) throw new Error(`Remote AI failed (${res.status})`);
+  const data = await res.json();
+  return data?.svg || data?.dataUrl || data?.image || data?.url || null;
+}
+
 
 const ICONS = {
   undo: "undo",
@@ -222,23 +465,61 @@ const styleEnhance = document.createElement('style');
 styleEnhance.id = 'luminary-enhance-style';
 styleEnhance.textContent = `
   *, *::before, *::after {
+    box-sizing: border-box;
     -webkit-font-smoothing: antialiased;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html {
     -webkit-text-size-adjust: 100%;
-    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
   }
 
   :root {
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
     --ease-ios: cubic-bezier(0.22, 1, 0.36, 1);
-    --ease-smooth: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    --ease-genie: cubic-bezier(0.42, 0, 0.58, 1);
-    --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    --ease-glass: cubic-bezier(0.20, 0.85, 0.20, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --liquid-highlight: rgba(255,255,255,0.38);
+    --liquid-stroke: rgba(255,255,255,0.18);
+    --liquid-shadow: 0 22px 70px rgba(0,0,0,0.34);
+  }
+
+  body {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button,
+  [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+  }
+
+  .gpu-layer,
+  .liquid-surface,
+  .premium-loader-card,
+  .liquid-water {
+    transform: translate3d(0,0,0);
+    backface-visibility: hidden;
+    will-change: transform, opacity, filter;
+  }
+
+  .settings-panel {
+    will-change: scroll-position;
+    contain: layout style paint;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   input[type="range"] {
@@ -247,474 +528,312 @@ styleEnhance.textContent = `
     user-select: none;
   }
 
-  .sliders-hidden input[type="range"] {
-    display: none !important;
-  }
+  .sliders-hidden input[type="range"] { display: none !important; }
 
-  .gpu-layer {
-    will-change: transform, opacity;
-    transform: translate3d(0, 0, 0);
-    backface-visibility: hidden;
-  }
-
-  /* iOS-style expanding round slider thumb */
   input[type="range"].ios-slider {
     -webkit-appearance: none;
     appearance: none;
-    height: 30px;
+    height: 34px;
     background: transparent;
     outline: none;
     cursor: pointer;
   }
   input[type="range"].ios-slider::-webkit-slider-runnable-track {
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(120,130,155,0.24);
+    height: 5px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.30), rgba(255,255,255,0.12));
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.22);
   }
   input[type="range"].ios-slider::-moz-range-track {
-    height: 4px;
-    border-radius: 2px;
-    background: rgba(120,130,155,0.24);
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.18);
   }
   input[type="range"].ios-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background: #ffffff;
-    margin-top: -9px;
-    box-shadow:
-      0 2px 8px rgba(0,0,0,0.24),
-      0 0 0 0.5px rgba(0,0,0,0.04);
-    transition:
-      transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      width 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      height 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      margin-top 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      box-shadow 200ms ease;
+    margin-top: -9.5px;
+    background:
+      radial-gradient(circle at 32% 24%, rgba(255,255,255,1), rgba(255,255,255,0.72) 48%, rgba(235,242,255,0.92));
+    border: 1px solid rgba(255,255,255,0.72);
+    box-shadow: 0 7px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.95);
+    transition: transform 260ms var(--ease-spring), box-shadow 220ms var(--ease-ios), width 260ms var(--ease-spring), height 260ms var(--ease-spring), margin-top 260ms var(--ease-spring);
   }
   input[type="range"].ios-slider:active::-webkit-slider-thumb,
   input[type="range"].ios-slider:focus::-webkit-slider-thumb {
-    width: 30px;
-    height: 30px;
-    margin-top: -13px;
-    box-shadow:
-      0 4px 16px rgba(0,0,0,0.3),
-      0 0 0 0.5px rgba(0,0,0,0.06);
+    width: 32px;
+    height: 32px;
+    margin-top: -13.5px;
+    transform: scale(1.03);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.32), inset 0 1px 1px rgba(255,255,255,0.95);
   }
   input[type="range"].ios-slider::-moz-range-thumb {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background: #ffffff;
-    border: none;
-    box-shadow:
-      0 2px 8px rgba(0,0,0,0.24),
-      0 0 0 0.5px rgba(0,0,0,0.04);
-    transition:
-      transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      width 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      height 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      box-shadow 200ms ease;
-  }
-  input[type="range"].ios-slider:active::-moz-range-thumb,
-  input[type="range"].ios-slider:focus::-moz-range-thumb {
-    width: 30px;
-    height: 30px;
+    border: 1px solid rgba(255,255,255,0.72);
+    background: #fff;
+    box-shadow: 0 7px 22px rgba(0,0,0,0.24);
+    transition: transform 260ms var(--ease-spring), box-shadow 220ms var(--ease-ios);
   }
 
-  button, [role="button"] {
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
+  .liquid-surface {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .liquid-surface::before,
+  .liquid-water::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+      linear-gradient(145deg, rgba(255,255,255,0.34), rgba(255,255,255,0.06) 46%, rgba(255,255,255,0.16)),
+      radial-gradient(circle at 18% 0%, rgba(255,255,255,0.28), transparent 36%),
+      radial-gradient(circle at 88% 100%, rgba(255,255,255,0.10), transparent 42%);
+    mix-blend-mode: screen;
+    opacity: 0.62;
+    z-index: 0;
+  }
+  .liquid-surface::after,
+  .liquid-water::after {
+    content: "";
+    position: absolute;
+    inset: -45% -30%;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+      radial-gradient(circle at 28% 32%, rgba(255,255,255,0.22), transparent 28%),
+      radial-gradient(circle at 70% 62%, rgba(255,255,255,0.13), transparent 30%),
+      linear-gradient(115deg, transparent 34%, rgba(255,255,255,0.16) 48%, transparent 62%);
+    transform: translate3d(-6%, -3%, 0) rotate(0.001deg);
+    animation: liquidRefraction 13s var(--ease-ios) infinite alternate;
+    mix-blend-mode: screen;
+    opacity: 0.54;
+    z-index: 0;
+  }
+  .liquid-surface > *,
+  .liquid-water > * {
+    position: relative;
+    z-index: 1;
   }
 
-  .settings-panel {
-    will-change: scroll-position;
-    contain: layout style;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
-
-  /* Genie animation — macOS-style minimize/expand */
-  @keyframes genieOpen {
-    0% {
-      transform: translate3d(0, 40%, 0) scaleY(0.04) scaleX(0.5);
-      opacity: 0;
-      filter: blur(6px);
-      border-radius: 80px 80px 8px 8px;
-    }
-    40% {
-      transform: translate3d(0, -4%, 0) scaleY(0.35) scaleX(0.85);
-      opacity: 0.85;
-      filter: blur(2px);
-      border-radius: 40px 40px 10px 10px;
-    }
-    70% {
-      transform: translate3d(0, 0, 0) scaleY(1.02) scaleX(1.01);
-      opacity: 1;
-      filter: blur(0);
-      border-radius: 22px 22px 0 0;
-    }
-    100% {
-      transform: translate3d(0, 0, 0) scaleY(1) scaleX(1);
-      opacity: 1;
-      filter: blur(0);
-      border-radius: 22px 22px 0 0;
-    }
-  }
-
-  @keyframes genieClose {
-    0% {
-      transform: translate3d(0, 0, 0) scaleY(1) scaleX(1);
-      opacity: 1;
-      filter: blur(0);
-      border-radius: 22px 22px 0 0;
-    }
-    40% {
-      transform: translate3d(0, 0, 0) scaleY(0.5) scaleX(0.9);
-      opacity: 0.9;
-      filter: blur(1px);
-      border-radius: 30px 30px 6px 6px;
-    }
-    100% {
-      transform: translate3d(0, 45%, 0) scaleY(0.02) scaleX(0.4);
-      opacity: 0;
-      filter: blur(8px);
-      border-radius: 80px 80px 8px 8px;
-    }
-  }
-
-  /* iOS icon morph — scale + rotate + opacity swap */
-  @keyframes iconMorphIn {
-    0% {
-      opacity: 0;
-      transform: translate3d(0,0,0) scale(0.3) rotate(-45deg);
-    }
-    60% {
-      opacity: 1;
-      transform: translate3d(0,0,0) scale(1.15) rotate(10deg);
-    }
-    100% {
-      opacity: 1;
-      transform: translate3d(0,0,0) scale(1) rotate(0);
-    }
-  }
-
-  @keyframes iconMorphOut {
-    0% {
-      opacity: 1;
-      transform: translate3d(0,0,0) scale(1) rotate(0);
-    }
-    100% {
-      opacity: 0;
-      transform: translate3d(0,0,0) scale(0.3) rotate(45deg);
-    }
-  }
-
-  @keyframes panelSpringUp {
-    0% {
-      transform: translate3d(0, 18px, 0) scale(0.985);
-      opacity: 0;
-    }
-    70% {
-      transform: translate3d(0, -2px, 0) scale(1.003);
-      opacity: 1;
-    }
-    100% {
-      transform: translate3d(0, 0, 0) scale(1);
-      opacity: 1;
-    }
-  }
-
-  @keyframes toastPop {
-    0% {
-      transform: translate3d(-50%, 22px, 0) scale(0.82);
-      opacity: 0;
-    }
-    55% {
-      transform: translate3d(-50%, -4px, 0) scale(1.05);
-      opacity: 1;
-    }
-    100% {
-      transform: translate3d(-50%, 0, 0) scale(1);
-      opacity: 1;
-    }
-  }
-
-  @keyframes tabSlideSmooth {
-    from {
-      opacity: 0;
-      transform: translate3d(var(--slide-from, 20px), 4px, 0) scale(0.995);
-    }
-    to {
-      opacity: 1;
-      transform: translate3d(0, 0, 0) scale(1);
-    }
-  }
-
-  @keyframes slideDown {
-    from {
-      opacity: 0;
-      transform: translate3d(0, -8px, 0);
-    }
-    to {
-      opacity: 1;
-      transform: translate3d(0, 0, 0);
-    }
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translate3d(0, 4px, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
-  }
-
-  @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translate3d(0, 20px, 0) scale(0.98); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
-  }
-
-  @keyframes softGlow {
-    0%, 100% { opacity: 0.5; }
-    50%      { opacity: 0.85; }
-  }
-
-  @keyframes colorSwatchPop {
-    0% { transform: translate3d(0,0,0) scale(0.85); opacity: 0; }
-    50% { transform: translate3d(0,0,0) scale(1.08); }
-    100% { transform: translate3d(0,0,0) scale(1); opacity: 1; }
-  }
-
-  /* ── Queue-style bouncy dropdown ──────────────────────────────────────── */
-  @keyframes bouncySlideDown {
-    0% {
-      opacity: 0;
-      transform: translate3d(0, -16px, 0) scaleY(0.72) scaleX(0.97);
-      transform-origin: top center;
-      filter: blur(3px);
-    }
-    45% {
-      opacity: 1;
-      transform: translate3d(0, 4px, 0) scaleY(1.03) scaleX(1.005);
-      filter: blur(0);
-    }
-    68% {
-      transform: translate3d(0, -2px, 0) scaleY(0.99) scaleX(1);
-    }
-    84% {
-      transform: translate3d(0, 1px, 0) scaleY(1.005);
-    }
-    100% {
-      opacity: 1;
-      transform: translate3d(0, 0, 0) scaleY(1) scaleX(1);
-      filter: blur(0);
-    }
-  }
-
-  /* ── Untitled-style morphing pill transition ───────────────────────────── */
-  @keyframes morphPillIn {
-    0%   { transform: scale(0.5) translateX(var(--morph-from, 0)); opacity: 0; border-radius: 999px; }
-    40%  { transform: scale(1.08) translateX(0); opacity: 1; }
-    65%  { transform: scale(0.97); }
-    100% { transform: scale(1); opacity: 1; }
-  }
-
-  @keyframes pillPreviewMorph {
-    0% {
-      transform: translate(-50%, -50%) scale(0.6);
-      opacity: 0;
-    }
-    50% {
-      transform: translate(-50%, -50%) scale(1.08);
-    }
-    100% {
-      transform: translate(-50%, -50%) scale(1);
-      opacity: 1;
-    }
-  }
-
-  @keyframes fadeOut {
-    0% { opacity: 1; }
-    100% { opacity: 0; pointer-events: none; }
-  }
-
-  @keyframes liquidFlow {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  @keyframes tabPillMorph {
-    0%   { transform: scaleX(0.6) scaleY(0.8); opacity: 0.4; border-radius: 4px; }
-    45%  { transform: scaleX(1.08) scaleY(1.04); border-radius: 12px; opacity: 1; }
-    70%  { transform: scaleX(0.97) scaleY(0.99); }
-    100% { transform: scaleX(1) scaleY(1); }
-  }
-
-  /* ── Card entrance ────────────────────────────────────────────────────── */
-  @keyframes cardFloat {
-    0%   { transform: translate3d(0, 14px, 0) scale(0.988); opacity: 0; filter: blur(2px); }
-    60%  { transform: translate3d(0, -2px, 0) scale(1.004); opacity: 1; filter: blur(0); }
-    100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; filter: blur(0); }
-  }
-
-  /* ── Staggered text reveal ────────────────────────────────────────────── */
-  @keyframes labelFadeUp {
-    from { opacity: 0; transform: translate3d(0, 5px, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
-  }
-
-  /* ── Bouncy button press echo ─────────────────────────────────────────── */
-  .btn-bouncy:active {
-    transform: scale(0.93) !important;
-    transition: transform 80ms var(--ease-spring) !important;
-  }
   .btn-bouncy {
-    transition: transform 320ms var(--ease-spring), filter 200ms ease, background 200ms ease, border-color 200ms ease, box-shadow 240ms ease !important;
+    transition: transform 220ms var(--ease-glass), filter 180ms var(--ease-ios), background 220ms var(--ease-ios), border-color 220ms var(--ease-ios), box-shadow 260ms var(--ease-ios) !important;
+  }
+  .btn-bouncy:active {
+    transform: scale(0.965) translate3d(0, 1px, 0) !important;
+    filter: brightness(1.08) saturate(1.08);
   }
 
-  /* ── Morphing dropdown chevron ────────────────────────────────────────── */
   .chevron-morph {
     display: inline-block;
-    transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 320ms var(--ease-spring);
   }
 
-  /* ── Section header pill ─────────────────────────────────────────────── */
   .section-label-pill {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: 0.8px;
     text-transform: uppercase;
-    padding: 3px 9px;
+    padding: 4px 10px;
     border-radius: 999px;
     margin-bottom: 14px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(14px) saturate(1.35);
+    -webkit-backdrop-filter: blur(14px) saturate(1.35);
   }
 
-  @keyframes overlayItemSlide {
-    from {
-      opacity: 0;
-      transform: translate3d(-8px, 0, 0);
-    }
-    to {
-      opacity: 1;
-      transform: translate3d(0, 0, 0);
-    }
+  .premium-loader-bg {
+    overflow: hidden;
+  }
+  .premium-loader-bg::before,
+  .premium-loader-bg::after {
+    content: "";
+    position: absolute;
+    width: 58vmax;
+    height: 58vmax;
+    border-radius: 50%;
+    filter: blur(34px);
+    opacity: 0.52;
+    pointer-events: none;
+    animation: auroraDrift 8s var(--ease-ios) infinite alternate;
+  }
+  .premium-loader-bg::before {
+    left: -18vmax;
+    top: -20vmax;
+    background: radial-gradient(circle, rgba(124,255,218,0.54), transparent 62%);
+  }
+  .premium-loader-bg::after {
+    right: -18vmax;
+    bottom: -22vmax;
+    background: radial-gradient(circle, rgba(154,134,255,0.48), transparent 64%);
+    animation-delay: -2.5s;
+  }
+  .premium-loader-card {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    box-shadow: 0 34px 110px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.38);
+  }
+  .premium-loader-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+      linear-gradient(145deg, rgba(255,255,255,0.28), rgba(255,255,255,0.05) 46%, rgba(255,255,255,0.14)),
+      radial-gradient(circle at 20% 0%, rgba(255,255,255,0.38), transparent 36%);
+    pointer-events: none;
+    mix-blend-mode: screen;
+    z-index: 0;
+  }
+  .premium-loader-card > * { position: relative; z-index: 1; }
+  .liquid-loader-orb {
+    width: 86px;
+    height: 86px;
+    margin: 0 auto 18px;
+    border-radius: 32px;
+    background:
+      radial-gradient(circle at 30% 25%, rgba(255,255,255,0.95), rgba(255,255,255,0.12) 28%, transparent 38%),
+      linear-gradient(135deg, rgba(124,255,218,0.95), rgba(138,217,255,0.86) 45%, rgba(154,134,255,0.92));
+    box-shadow:
+      0 24px 54px rgba(124,255,218,0.20),
+      0 0 58px rgba(154,134,255,0.23),
+      inset 0 1px 1px rgba(255,255,255,0.72),
+      inset 0 -18px 32px rgba(0,0,0,0.12);
+    animation: liquidOrb 3.8s var(--ease-ios) infinite alternate;
+  }
+  .loader-progress {
+    position: relative;
+    overflow: hidden;
+    transform: translate3d(0,0,0);
+  }
+  .loader-progress::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.46), transparent);
+    transform: translateX(-110%);
+    animation: glassSweep 1.5s var(--ease-ios) infinite;
   }
 
-  @keyframes modalBackdropFade {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+  @keyframes auroraDrift {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to   { transform: translate3d(8%, 6%, 0) scale(1.08); }
   }
+  @keyframes liquidOrb {
+    0%   { transform: translate3d(0,0,0) rotate(-5deg); border-radius: 30px 42px 34px 42px; filter: saturate(1.05); }
+    50%  { transform: translate3d(0,-7px,0) rotate(4deg); border-radius: 44px 30px 44px 32px; filter: saturate(1.18); }
+    100% { transform: translate3d(0,2px,0) rotate(-2deg); border-radius: 36px 48px 30px 46px; filter: saturate(1.12); }
+  }
+  @keyframes liquidRefraction {
+    from { transform: translate3d(-7%, -4%, 0) scale(1) rotate(0.001deg); opacity: 0.42; }
+    to   { transform: translate3d(7%, 5%, 0) scale(1.06) rotate(0.001deg); opacity: 0.72; }
+  }
+  @keyframes glassSweep {
+    from { transform: translateX(-120%); }
+    to   { transform: translateX(120%); }
+  }
+  @keyframes glassReveal {
+    from { opacity: 0; transform: translate3d(0, 12px, 0) scale(0.992); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  }
+  @keyframes iconMorphIn {
+    0% { opacity: 0; transform: scale(0.55) rotate(-18deg); }
+    70% { opacity: 1; transform: scale(1.06) rotate(2deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+  }
+  @keyframes panelSpringUp {
+    from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.985); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  }
+  @keyframes toastPop {
+    from { opacity: 0; transform: translate3d(-50%, 18px, 0) scale(0.94); }
+    to   { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+  }
+  @keyframes tabSlideSmooth {
+    from { opacity: 0; transform: translate3d(var(--slide-from, 14px), 4px, 0) scale(0.996); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translate3d(0, 6px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes fadeSlideUp { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.988); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes fadeInSmooth { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideDown { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes headerSlideDown { from { opacity: 0; transform: translate3d(0, -12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes navSlideUp { from { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.98); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes toolSlideUp { from { opacity: 0; transform: translate3d(0, 26px, 0) scale(0.985); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes bouncySlideDown { from { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.992); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes modalBackdropFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes modalContentSpring { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.982); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes cardFloat { from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.996); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes colorSwatchPop { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: scale(1); } }
+  @keyframes shapeButtonPop { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  @keyframes styleButtonPop { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  @keyframes overlayItemSlide { from { opacity: 0; transform: translate3d(-8px, 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes sliderThumbExpand { 0% { transform: scale(1); } 100% { transform: scale(1.18); } }
+  @keyframes morphPillIn { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: scale(1); } }
+  @keyframes pillPreviewMorph { from { opacity: 0; transform: translate(-50%, -50%) scale(0.82); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+  @keyframes fadeOut { to { opacity: 0; pointer-events: none; } }
+  @keyframes liquidFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  @keyframes tabPillMorph { from { opacity: 0.6; transform: scaleX(0.78) scaleY(0.92); } to { opacity: 1; transform: scaleX(1) scaleY(1); } }
+  @keyframes softGlow { 0%,100% { opacity: .48; } 50% { opacity: .84; } }
 
-  @keyframes sliderThumbExpand {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.35); }
-    100% { transform: scale(1.28); }
-  }
 
-  @keyframes modalContentSpring {
-    from {
-      opacity: 0;
-      transform: scale(0.92) translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
+  .liquid-surface,
+  .liquid-water,
+  .morph-tile,
+  .liquid-action-chip {
+    transform: translate3d(0,0,0);
+    backface-visibility: hidden;
+    contain: paint;
   }
-
-  @keyframes navSlideUp {
-    from {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
+  .morph-tile,
+  .liquid-action-chip {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    transition: transform 180ms var(--ease-glass), background 220ms var(--ease-ios), border-color 220ms var(--ease-ios), box-shadow 260ms var(--ease-ios), opacity 180ms var(--ease-ios) !important;
   }
-
-  @keyframes toolSlideUp {
-    from {
-      transform: translate3d(0, 100%, 0) scale(0.98);
-      opacity: 0;
-    }
-    to {
-      transform: translate3d(0, 0, 0) scale(1);
-      opacity: 1;
-    }
+  .morph-tile::after,
+  .liquid-action-chip::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 24% 10%, rgba(255,255,255,0.32), transparent 32%),
+      linear-gradient(135deg, rgba(255,255,255,0.14), transparent 55%);
+    opacity: 0;
+    transform: scale(.94);
+    transition: opacity 180ms var(--ease-ios), transform 220ms var(--ease-glass);
+    mix-blend-mode: screen;
   }
-
-  @keyframes navButtonSlide {
-    from {
-      opacity: 0;
-      transform: translateY(20px) scale(0.85);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  @keyframes headerSlideDown {
-    from {
-      transform: translateY(-100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-
-  @keyframes shapeButtonPop {
-    from {
-      opacity: 0;
-      transform: scale(0.8) translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-
-  @keyframes colorSwatchPop {
-    from {
-      opacity: 0;
-      transform: scale(0.7) rotate(-5deg);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) rotate(0);
-    }
-  }
-
-  @keyframes styleButtonPop {
-    from {
-      opacity: 0;
-      transform: scale(0.8) translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1) translateY(0);
-    }
-  }
-
-  @keyframes modalContentSpring {
-    0% { transform: translate3d(0, 30px, 0) scale(0.9); opacity: 0; }
-    60% { transform: translate3d(0, -4px, 0) scale(1.02); opacity: 1; }
-    100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
-  }
+  .morph-tile:active,
+  .liquid-action-chip:active { transform: scale(.965) translate3d(0,1px,0); }
+  .morph-tile:active::after,
+  .liquid-action-chip:active::after { opacity: .86; transform: scale(1); }
+  .asset-card-held { transform: scale(.97) !important; filter: saturate(1.12) brightness(1.08); }
+  .theme-liquid-transition { transition: background 420ms var(--ease-ios), color 220ms var(--ease-ios), filter 260ms var(--ease-ios), transform 260ms var(--ease-ios) !important; }
+  .premium-body-copy { letter-spacing: .02em; line-height: 1.45; }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
-      animation-duration: 0.01ms !important;
+      animation-duration: 0.001ms !important;
       animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.001ms !important;
     }
   }
 `;
@@ -971,10 +1090,27 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
         ctx.stroke();
       } else {
         ctx.globalAlpha = 0.92;
-        ctx.font = `${Math.max(12, thickness * (2.1 + depth * 0.03))}px serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(i % 3 === 0 ? "💎" : "❤", 0, 0);
+        const gemSize = Math.max(5, thickness * (1.05 + depth * 0.012));
+        const grad = ctx.createLinearGradient(-gemSize, -gemSize, gemSize, gemSize);
+        grad.addColorStop(0, "#ffffff");
+        grad.addColorStop(0.48, color);
+        grad.addColorStop(1, shadeHex(color, -50));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        if (i % 3 === 0) {
+          ctx.moveTo(0, -gemSize * 1.25);
+          ctx.lineTo(gemSize, 0);
+          ctx.lineTo(0, gemSize * 1.25);
+          ctx.lineTo(-gemSize, 0);
+        } else {
+          ctx.moveTo(0, gemSize * 1.15);
+          ctx.bezierCurveTo(-gemSize * 2.0, -gemSize * 0.15, -gemSize * 1.1, -gemSize * 1.35, 0, -gemSize * 0.55);
+          ctx.bezierCurveTo(gemSize * 1.1, -gemSize * 1.35, gemSize * 2.0, -gemSize * 0.15, 0, gemSize * 1.15);
+        }
+        ctx.closePath();
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 8;
+        ctx.fill();
       }
       ctx.restore();
     }
@@ -988,16 +1124,26 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
   }
 
   if (styleId === "rainbow-pop") {
-    const arcCount = Math.max(1, Math.round(p1 || 3));
-    const spread = Math.max(2, Math.round(p2 || 10));
+    const arcCount = Math.max(2, Math.round(p1 || 3));
+    const spread = Math.max(2, Math.round(p2 || 10)) * 0.48;
     const colors = ["#ff6ca8", "#ffb86b", "#ffe56f", "#8dffb7", "#7bd7ff", "#b79bff"];
     for (let i = 0; i < arcCount; i++) {
+      ctx.save();
       ctx.strokeStyle = colors[i % colors.length];
-      ctx.lineWidth = Math.max(1.5, thickness * (0.6 + i * 0.2));
+      ctx.globalAlpha = Math.max(0.45, 0.94 - i * 0.1);
+      ctx.lineWidth = Math.max(1.2, thickness * 0.46 + i * 0.6);
       ctx.beginPath();
-      ctx.arc(cx, cy, R + thickness * 0.6 + (i * spread), 0, Math.PI * 2);
+      ctx.arc(cx, cy, R + gap + thickness * 0.2 + (i * spread), Math.PI * 1.08, Math.PI * 1.92);
       ctx.stroke();
+      ctx.restore();
     }
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
+    ctx.lineWidth = Math.max(1, thickness * 0.16);
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + gap + thickness * 0.16, Math.PI * 1.12, Math.PI * 1.88);
+    ctx.stroke();
+    ctx.restore();
     ctx.restore();
     return;
   }
@@ -1005,19 +1151,28 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
   if (styleId === "cute-hearts") {
     const n = Math.max(8, Math.floor(p1 || 22));
     const pulse = Math.max(0, Math.min(100, Number(p2 || 0)));
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
       const bounce = 1 + (Math.sin(i * 0.9) * pulse) / 260;
-      const size = Math.max(11, thickness * 2.5 * bounce);
+      const size = Math.max(5, thickness * 1.15 * bounce);
       const px = cx + Math.cos(a) * (R + thickness * 0.7);
       const py = cy + Math.sin(a) * (R + thickness * 0.7);
       ctx.save();
       ctx.translate(px, py);
       ctx.rotate(a + Math.PI / 2);
-      ctx.font = `${size}px sans-serif`;
-      ctx.fillText(i % 3 === 0 ? "💗" : "💖", 0, 0);
+      const grad = ctx.createLinearGradient(-size, -size, size, size);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(0.55, color);
+      grad.addColorStop(1, shadeHex(color, -45));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, size * 1.08);
+      ctx.bezierCurveTo(-size * 1.85, -size * 0.08, -size, -size * 1.22, 0, -size * 0.48);
+      ctx.bezierCurveTo(size, -size * 1.22, size * 1.85, -size * 0.08, 0, size * 1.08);
+      ctx.closePath();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 7;
+      ctx.fill();
       ctx.restore();
     }
     ctx.restore();
@@ -1058,15 +1213,23 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
     ctx.shadowColor=color; ctx.shadowBlur=maxGlowSpread; ctx.shadowOffsetX=maxDepth; ctx.shadowOffsetY=maxDepth;
     ctx.lineWidth=thickness/2; ctx.beginPath(); ctx.arc(cx,cy,R+(thickness/2),0,Math.PI*2); ctx.stroke();
   } else if (styleId === "emoji") {
-    const emList = emojisStr ? Array.from(emojisStr) : ["✨"];
-    if (!emList.length) emList.push("✨");
-    const n=Math.max(1,Math.floor(p1));
-    ctx.font=`${thickness*4}px sans-serif`; ctx.textAlign="center"; ctx.textBaseline="middle";
+    const n=Math.max(6,Math.floor(p1 || 18));
+    const spike = Math.max(4, thickness * 1.45);
+    const inner = Math.max(1.5, thickness * 0.54);
+    ctx.fillStyle = color;
     for (let i=0; i<n; i++) {
       const a=(i/n)*Math.PI*2, ex=cx+Math.cos(a)*R, ey=cy+Math.sin(a)*R;
       const jitter=p2>0 ? Math.sin(i*12.9898)*(p2/100)*Math.PI : 0;
       ctx.save(); ctx.translate(ex,ey); ctx.rotate(a+Math.PI/2+jitter);
-      ctx.fillText(emList[i%emList.length],0,0); ctx.restore();
+      ctx.beginPath();
+      for (let p = 0; p < 8; p++) {
+        const rr = p % 2 === 0 ? spike : inner;
+        const pa = (p / 8) * Math.PI * 2;
+        const x = Math.cos(pa) * rr;
+        const y = Math.sin(pa) * rr;
+        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.shadowColor = color; ctx.shadowBlur = 8; ctx.fill(); ctx.restore();
     }
   } else if (styleId === "sparkle") {
     const n = Math.max(6, Math.floor(p1));
@@ -1164,14 +1327,14 @@ function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p
 // ── Default State Factory ─────────────────────────────────────────────────────
 const getLayoutDefaults = (layoutName, theme = "glass") => {
   let def = {
-    pillW: 700, pillH: 200, pillR: 100, circX: 0, circY: 0, textX: 0, textY: 0,
+    pillW: 700, pillH: 200, pillR: 100, circX: 24, circY: 0, textX: 18, textY: 0,
     mainText: "Quick Panel", subText: "Ultra HD Component", fontSize: 42,
     bgStretch: true, bgScale: 100, bgImgX: 0, bgImgY: 0, bgBlur: 0, bgBlend: "source-over",
     bgBrightness: 100, bgSaturation: 100, bgContrast: 100,
     pillBorderWidth: 0, pillBorderClr: "#ffffff",
-    avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "🌸✨🦋",
+    avBorderWidth: 2, avBorderGap: 0, avBorderParam1: 20, avBorderParam2: 0, avBorderEmojis: "",
     customBorderSrc: "", customBorderScale: 125, customBorderOpacity: 100, customBorderRotation: 0,
-    circScale: 86, avScale: 88, avImgX: 0, avImgY: 0, avShape: "circle",
+    circScale: 64, avScale: 92, avImgX: 0, avImgY: 0, avShape: "circle",
     avBrightness: 100, avSaturation: 100, avContrast: 100,
     edgeBlur: 0, edgeColor: "#000000", overlays: [], showAvatar: true,
     textureId: "none", textureOpacity: 65,
@@ -1210,8 +1373,8 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
   const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 220, h: 220 });
-  const [ratio, setRatio] = useState("1:3.5");
-  const [customRatio, setCustomRatio] = useState("1:3.5");
+  const [ratio, setRatio] = useState("free");
+  const [customRatio, setCustomRatio] = useState("1:1");
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [faceMessage, setFaceMessage] = useState("");
@@ -1227,12 +1390,9 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
     const scale = Math.min(MAX_W / img.naturalWidth, MAX_H / img.naturalHeight, 1);
     const dw = Math.round(img.naturalWidth  * scale);
     const dh = Math.round(img.naturalHeight * scale);
-    const initRatio = 1 / 3.5;
-    const initH = Math.max(80, Math.round(dh * 0.84));
-    const initW = Math.max(56, Math.min(Math.round(initH * initRatio), Math.round(dw * 0.9)));
     setImgNatural({ w: img.naturalWidth, h: img.naturalHeight });
     setImgDisplay({ w: dw, h: dh });
-    setCrop({ x: Math.round((dw - initW) / 2), y: Math.round((dh - initH) / 2), w: initW, h: initH });
+    setCrop({ x: 0, y: 0, w: dw, h: dh });
   };
 
   const parseRatio = useCallback(() => {
@@ -1367,7 +1527,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
         x: clamp(Math.round(centerX - prev.w / 2), 0, Math.max(0, imgDisplay.w - prev.w)),
         y: clamp(Math.round(centerY - prev.h / 2), 0, Math.max(0, imgDisplay.h - prev.h)),
       }));
-      setFaceMessage("✨ Face centered");
+      setFaceMessage("Face centered");
     } catch (e) {
       setFaceMessage("Face detection failed. Manual crop available.");
     }
@@ -1418,7 +1578,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
               justifyContent: "center",
               transition: "transform 200ms var(--ease-spring), background 200ms ease",
             }}
-          >✕</button>
+          ><UiIcon name="close" size={16} color={theme?.textPrimary || "#fff"} /></button>
         </div>
         <p style={{ color: theme?.textDim || "rgba(255,255,255,0.4)", fontSize:12, margin:0 }}>
           Advanced crop studio · Accent-aware controls with gesture-friendly handles
@@ -1471,7 +1631,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
               cursor:"pointer",
               boxShadow:`0 6px 16px ${(theme?.accent || "#0a84ff")}55`,
             }}
-          >👤 Auto Focus Face</button>
+          ><SvgAction icon="face" label="Auto Focus Face" /></button>
           <span style={{ color: theme?.textDim || "rgba(255,255,255,0.5)", fontSize:11 }}>{faceMessage || "Tip: use Auto Focus Face for portraits"}</span>
         </div>
 
@@ -1599,7 +1759,7 @@ function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
               boxShadow: "0 6px 20px rgba(79,179,217,0.4)",
               transition: "transform 180ms var(--ease-spring)",
             }}
-          >✓ Apply Crop</button>
+          ><SvgAction icon="check" label="Apply Crop" /></button>
         </div>
       </div>
     </div>
@@ -1725,8 +1885,54 @@ function UiIcon({ name, size = 16, color = "currentColor", stroke = 2 }) {
     rocket: <><path d="M14 4c3 0 6 3 6 6-2 1-4 1-6 0-1-2-1-4 0-6Z"/><path d="M10 14 4 20m6-6 4 4"/><path d="M7 17l-3 3M9 9l6 6"/></>,
     palette: <><path d="M12 3a9 9 0 1 0 0 18h1.1a2.4 2.4 0 0 0 .3-4.8H12a2 2 0 0 1 0-4h5a4 4 0 0 0 0-8h-5Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14" cy="7" r="1"/></>,
     sparkles: <><path d="M12 3 13.8 8.2 19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m5 3 .8 2.2L8 6l-2.2.8L5 9l-.8-2.2L2 6l2.2-.8L5 3Zm14 10 .8 2.2L22 16l-2.2.8L19 19l-.8-2.2L16 16l2.2-.8L19 13Z"/></>,
+    close: <><path d="M6 6l12 12M18 6 6 18" /></>,
+    check: <><path d="m5 12 4.2 4.2L19 6.5" /></>,
+    image: <><rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="m7 15 3.2-3.2 2.8 2.8 2-2 3 3.4"/><circle cx="8.5" cy="9" r="1.2"/></>,
+    background: <><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 14c4-5 7-5 10 0 2.5 3.5 5 3.5 8 0"/><path d="M14 8h4"/></>,
+    overlay: <><path d="M12 3 4.5 7.3 12 11.6 19.5 7.3 12 3Z"/><path d="M4.5 12 12 16.3 19.5 12"/><path d="M4.5 16.5 12 20.8l7.5-4.3"/></>,
+    border: <><rect x="4" y="4" width="16" height="16" rx="5"/><rect x="8" y="8" width="8" height="8" rx="2"/></>,
+    texture: <><path d="M5 7c5-4 9 4 14 0M5 12c5-4 9 4 14 0M5 17c5-4 9 4 14 0"/></>,
+    package: <><path d="M12 3 4 7.5v9l8 4.5 8-4.5v-9L12 3Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></>,
+    lock: <><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
+    unlock: <><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.6-1.7"/></>,
+    trash: <><path d="M4 7h16M9 7V5h6v2M8 10v8M12 10v8M16 10v8M6 7l1 14h10l1-14"/></>,
+    duplicate: <><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 16V6a1 1 0 0 1 1-1h10"/></>,
+    plus: <><path d="M12 5v14M5 12h14"/></>,
+    apply: <><path d="M20 6 9 17l-5-5"/></>,
+    face: <><circle cx="12" cy="12" r="8"/><path d="M9 10h.01M15 10h.01M9 15c1.8 1.3 4.2 1.3 6 0"/></>,
+    wand: <><path d="m4 20 12-12"/><path d="m14 4 6 6"/><path d="M5 5l1-2 1 2 2 1-2 1-1 2-1-2-2-1 2-1Zm14 9 1-2 1 2 2 1-2 1-1 2-1-2-2-1 2-1Z"/></>,
   };
   return <svg {...common}>{icons[name] || icons.layout}</svg>;
+}
+
+function BorderSvgIcon({ name, size = 18, color = "currentColor", accent = "currentColor" }) {
+  const common = { width:size, height:size, viewBox:"0 0 24 24", fill:"none", stroke:color, strokeWidth:1.8, strokeLinecap:"round", strokeLinejoin:"round", "aria-hidden":true };
+  const tinyDots = <><circle cx="7" cy="12" r="1" fill={color} stroke="none"/><circle cx="12" cy="12" r="1" fill={color} stroke="none"/><circle cx="17" cy="12" r="1" fill={color} stroke="none"/></>;
+  const icons = {
+    none: <path d="M5 19 19 5M8 5h8a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3Z" />,
+    solid: <rect x="5" y="5" width="14" height="14" rx="5" />,
+    dashed: <rect x="5" y="5" width="14" height="14" rx="5" strokeDasharray="3 2" />,
+    dotted: <>{tinyDots}<rect x="5" y="5" width="14" height="14" rx="5" strokeDasharray="1 3" /></>,
+    double: <><rect x="4" y="4" width="16" height="16" rx="5"/><rect x="8" y="8" width="8" height="8" rx="2.5"/></>,
+    glow: <><circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="9.5" opacity=".35"/></>,
+    floral: <><path d="M12 4c1.5 2.4 1.5 4.4 0 6.2C10.5 8.4 10.5 6.4 12 4Z" fill={accent} opacity=".35"/><path d="M20 12c-2.4 1.5-4.4 1.5-6.2 0 1.8-1.5 3.8-1.5 6.2 0ZM12 20c-1.5-2.4-1.5-4.4 0-6.2 1.5 1.8 1.5 3.8 0 6.2ZM4 12c2.4-1.5 4.4-1.5 6.2 0-1.8 1.5-3.8 1.5-6.2 0Z"/></>,
+    pearls: <><circle cx="7" cy="7" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="17" cy="17" r="2"/><circle cx="7" cy="17" r="2"/><rect x="5" y="5" width="14" height="14" rx="5" opacity=".35"/></>,
+    lace: <><path d="M4 12c4-6 12 6 16 0"/><path d="M4 16c4-6 12 6 16 0"/><path d="M4 8c4-6 12 6 16 0"/></>,
+    sparkle: <><path d="M12 4l1.7 5 5.3 1.7-5.3 1.7L12 18l-1.7-5.6L5 10.7 10.3 9 12 4Z"/><path d="M19 4l.6 1.8L21 6.4l-1.4.5L19 8.5l-.6-1.6L17 6.4l1.4-.6L19 4Z"/></>,
+    ribbon: <path d="M4 8c4 5 8-5 12 0 2 2.5 2.8 6 4 8M4 16c4-5 8 5 12 0"/>,
+    crystal: <><path d="M12 3 5 10l7 11 7-11-7-7Z"/><path d="M5 10h14M9 10l3 11 3-11"/></>,
+    "petal-crown": <><path d="M12 3c3.2 3 3.2 5.8 0 8.5C8.8 8.8 8.8 6 12 3Z"/><path d="M20 12c-3 3.2-5.8 3.2-8.5 0 2.7-3.2 5.5-3.2 8.5 0ZM12 21c-3.2-3-3.2-5.8 0-8.5 3.2 2.7 3.2 5.5 0 8.5ZM4 12c3-3.2 5.8-3.2 8.5 0C9.8 15.2 7 15.2 4 12Z"/></>,
+    "ornate-lace": <><circle cx="12" cy="12" r="8"/><path d="M4 12c3-3 5-3 8 0s5 3 8 0"/><path d="M12 4c3 3 3 5 0 8s-3 5 0 8"/></>,
+    "heart-gem": <><path d="M12 20s-7-4.4-7-10a3.6 3.6 0 0 1 6.3-2.4L12 8.4l.7-.8A3.6 3.6 0 0 1 19 10c0 5.6-7 10-7 10Z"/><path d="M8 10h8M10 10l2 7 2-7" opacity=".55"/></>,
+    "rainbow-pop": <><path d="M5 17a7 7 0 0 1 14 0"/><path d="M8 17a4 4 0 0 1 8 0"/><path d="M2 17h20" opacity=".45"/></>,
+    "cute-hearts": <><path d="M8 18s-4-2.4-4-5.5A2.2 2.2 0 0 1 8 11a2.2 2.2 0 0 1 4 1.5C12 15.6 8 18 8 18Z"/><path d="M17 15s-3-1.8-3-4.2A1.8 1.8 0 0 1 17 9.6a1.8 1.8 0 0 1 3 1.2c0 2.4-3 4.2-3 4.2Z"/></>,
+    "custom-image": <><rect x="4" y="5" width="16" height="14" rx="3"/><path d="m7 15 3-3 2.5 2.5 1.8-1.8L18 16"/><circle cx="8.5" cy="9" r="1.2"/></>,
+  };
+  return <svg {...common}>{icons[name] || icons.solid}</svg>;
+}
+
+function SvgAction({ icon, label, tone, size = 15 }) {
+  return <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", gap:7, minWidth:0 }}><UiIcon name={icon} size={size} color={tone || "currentColor"} />{label && <span>{label}</span>}</span>;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // iOS Toggle Component — animated icon morph like iOS Privacy Pane
@@ -1832,6 +2038,11 @@ export default function LuminaryPanels() {
   const bgFileRef     = useRef(null);
   const borderFileRef = useRef(null);
   const fileLoaderRef = useRef(null);
+  const hubAvFileRef  = useRef(null);
+  const hubBgFileRef  = useRef(null);
+  const hubOverlayFileRef = useRef(null);
+  const hubBorderFileRef  = useRef(null);
+  const [hubImportPreviews, setHubImportPreviews] = useState({});
   const settingsBtnRef = useRef(null);
   const texturePatternCacheRef = useRef(new Map());
 
@@ -1871,9 +2082,35 @@ export default function LuminaryPanels() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [assetManagerTab, setAssetManagerTab] = useState("recent");
   const [assetHubOpen, setAssetHubOpen] = useState(false);
+  const [assetKindFilter, setAssetKindFilter] = useState("all");
+  const [assetActionId, setAssetActionId] = useState(null);
+  const assetHoldTimerRef = useRef(null);
+  const assetHoldActivatedRef = useRef(false);
   const [systemPrefersDark, setSystemPrefersDark] = useState(
     typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches
   );
+  const [aiBorderConfig, setAiBorderConfig] = useState(() => {
+    const defaults = {
+      provider: "local-lite",
+      endpoint: "",
+      apiKey: "",
+      model: "",
+      autoGenerateOnAvatar: true,
+      autoApplyGeneratedBorder: true,
+      detail: 72,
+      density: 58,
+    };
+    try {
+      const raw = localStorage.getItem(AI_BORDER_CONFIG_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed ? { ...defaults, ...parsed } : defaults;
+    } catch (_) {
+      return defaults;
+    }
+  });
+  const [aiBorderPrompt, setAiBorderPrompt] = useState("");
+  const [aiBorderBusy, setAiBorderBusy] = useState(false);
+  const [aiBorderStatus, setAiBorderStatus] = useState("");
 
   // ── History ───────────────────────────────────────────────────────────────
   const [history, setHistory] = useState(() => {
@@ -1910,10 +2147,16 @@ export default function LuminaryPanels() {
     try {
       const raw = localStorage.getItem(ASSET_LIBRARY_KEY);
       const parsed = raw ? JSON.parse(raw) : { recent: [], quickIcons: [] };
-      return {
-        recent: Array.isArray(parsed?.recent) ? parsed.recent.slice(0, 30) : [],
-        quickIcons: Array.isArray(parsed?.quickIcons) ? parsed.quickIcons.slice(0, 12) : [],
-      };
+      const recent = Array.isArray(parsed?.recent)
+        ? sortAssetItems(parsed.recent.map((item, idx) => ({
+            ...item,
+            id: item.id || `${item.kind || "asset"}-${item.savedAt || Date.now()}-${idx}`,
+            kind: normalizeAssetKind(item.kind),
+            label: sanitizeAssetLabel(item.label || "Asset"),
+            savedAt: Number(item.savedAt || Date.now() - idx),
+          }))).slice(0, 120)
+        : [];
+      return { recent, quickIcons: [] };
     } catch (_) {
       return { recent: [], quickIcons: [] };
     }
@@ -2234,6 +2477,10 @@ export default function LuminaryPanels() {
     try { localStorage.setItem(PRESET_DECOR_EMOJI_KEY, JSON.stringify(presetDecorEmojis)); } catch (_) {}
   }, [presetDecorEmojis]);
 
+  useEffect(() => {
+    try { localStorage.setItem(AI_BORDER_CONFIG_KEY, JSON.stringify(aiBorderConfig)); } catch (_) {}
+  }, [aiBorderConfig]);
+
   const addFont = () => {
     const match = newFontUrl.match(/family=([^&:]+)/);
     if (!match) return;
@@ -2304,22 +2551,30 @@ export default function LuminaryPanels() {
   }, [s.overlays, loadedImages]);
 
   const registerImportedAsset = useCallback((kind, src, label = "Imported") => {
-    if (!src) return;
+    if (!src) return null;
+    const normalizedKind = normalizeAssetKind(kind);
     const item = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      kind,
+      kind: normalizedKind,
       src,
-      label,
+      label: sanitizeAssetLabel(label || ASSET_KIND_META[normalizedKind]?.label || "Asset"),
       savedAt: Date.now(),
     };
     setAssetLibrary(prev => {
-      const recent = [item, ...(prev.recent || [])]
-        .filter((entry, idx, arr) => entry?.src && arr.findIndex(x => x.src === entry.src && x.kind === entry.kind) === idx)
-        .slice(0, 30);
-      const quickIcons = (prev.quickIcons || []).length ? prev.quickIcons : emojiPresets.slice(0, 8);
-      return { ...prev, recent, quickIcons };
+      const merged = [item, ...(prev.recent || [])]
+        .filter((entry, idx, arr) => entry?.src && arr.findIndex(x => x.src === entry.src && normalizeAssetKind(x.kind) === normalizeAssetKind(entry.kind)) === idx)
+        .map((entry, idx) => ({
+          ...entry,
+          id: entry.id || `${entry.kind || "asset"}-${entry.savedAt || Date.now()}-${idx}`,
+          kind: normalizeAssetKind(entry.kind),
+          label: sanitizeAssetLabel(entry.label || "Asset"),
+          savedAt: Number(entry.savedAt || Date.now() - idx),
+        }));
+      return { ...prev, recent: sortAssetItems(merged).slice(0, 120), quickIcons: [] };
     });
-  }, [emojiPresets]);
+    setAssetKindFilter(normalizedKind);
+    return item;
+  }, []);
 
   const applyAssetFromLibrary = useCallback((item) => {
     if (!item?.src) return;
@@ -2342,14 +2597,15 @@ export default function LuminaryPanels() {
             content: item.src,
             x: s.pillW / 2,
             y: s.pillH / 2,
-            size: 80,
-            opacity: 100,
+            size: item.kind === "texture" ? Math.max(s.pillW, s.pillH) : 92,
+            opacity: item.kind === "texture" ? 34 : 100,
             rotation: 0,
             locked: false,
           },
         ],
       });
     }
+    setSaveNotice(`${ASSET_KIND_META[normalizeAssetKind(item.kind)]?.label || "Asset"} applied`);
   }, [settings.hapticFeedback, pushState, s.overlays, s.pillW, s.pillH]);
 
   const handleAvatarFileChange = (e) => {
@@ -2372,6 +2628,11 @@ export default function LuminaryPanels() {
     } else {
       setAvRawSrc(croppedDataUrl);
       pushState({ avImgX: 0, avImgY: 0 });
+      if (aiBorderConfig.autoGenerateOnAvatar) {
+        requestAnimationFrame(() => {
+          generateAiBorderAsset(croppedDataUrl, aiBorderPrompt);
+        });
+      }
     }
     setCropSrc(null);
     setCropTarget("avatar");
@@ -2849,34 +3110,36 @@ export default function LuminaryPanels() {
       }
     });
 
-    const presetDecor = {
-      cute: Array.from(presetDecorEmojis.cute || ""),
-      glass: Array.from(presetDecorEmojis.glass || ""),
-      simple: Array.from(presetDecorEmojis.simple || ""),
-      luxe: Array.from(presetDecorEmojis.luxe || ""),
-      neo: Array.from(presetDecorEmojis.neo || ""),
-    };
-    const decorList = presetDecor[pillStyle]?.length ? presetDecor[pillStyle] : null;
-    if (!settings.performanceMode && decorList) {
-      const baseCount = Math.max(5, Math.round((W + H) / 210));
+    if (!settings.performanceMode && pillStyle !== "simple") {
+      const baseCount = Math.max(4, Math.round((W + H) / 240));
       for (let i = 0; i < baseCount; i++) {
         const edge = i % 2 === 0;
         const x = edge ? ((i / baseCount) * W) : (W - (i / baseCount) * W);
         const y = edge ? 18 + ((i * 17) % Math.max(56, H - 36)) : H - (18 + ((i * 19) % Math.max(56, H - 36)));
-        const symbol = decorList[i % decorList.length];
+        const size = Math.max(5, Math.min(16, Math.round(H * 0.052) - (i % 3)));
         ctx.save();
-        ctx.globalAlpha = pillStyle === "simple" ? (0.08 + ((i % 3) * 0.03)) : (0.13 + ((i % 4) * 0.04));
+        ctx.globalAlpha = pillStyle === "glass" ? 0.13 : 0.18;
         ctx.translate(x, y);
         ctx.rotate(((i % 8) * 18 * Math.PI) / 180);
-        ctx.font = `${Math.max(12, Math.min(30, Math.round(H * 0.11) - ((i % 3) * 2)))}px serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(symbol, 0, 0);
+        const grad = ctx.createLinearGradient(-size, -size, size, size);
+        grad.addColorStop(0, "rgba(255,255,255,0.92)");
+        grad.addColorStop(1, withAlpha(s.glowClr || s.textClr || "#ffffff", 72));
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        for (let p = 0; p < 8; p++) {
+          const rr = p % 2 === 0 ? size : size * 0.42;
+          const pa = (p / 8) * Math.PI * 2;
+          const px = Math.cos(pa) * rr;
+          const py = Math.sin(pa) * rr;
+          if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
         ctx.restore();
       }
     }
     ctx.restore();
-  }, [s, bgImg, avImg, customBorderImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle, presetDecorEmojis, settings.performanceMode]);
+  }, [s, bgImg, avImg, customBorderImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle, settings.performanceMode]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -3028,10 +3291,10 @@ export default function LuminaryPanels() {
 
   const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemPrefersDark);
 
-  const accent = settings.uiAccent || "#4fb3d9";
-  const accent2 = settings.uiAccent || "#2dd4bf";
+  const accent = settings.uiAccent || "#7cffda";
+  const accent2 = settings.uiAccent2 || shadeHex(accent, isDark ? 42 : -18) || "#9a86ff";
 
-  const lightText = settings.lightText || "#2a3446";
+  const lightText = settings.lightText || "#263347";
   const textPrimary = isDark ? (settings.uiText || "#f0f9ff") : lightText;
   const textDim     = isDark ? `${settings.uiText || "#f0f9ff"}88` : `${lightText}99`;
   const uiBlurPxRaw = Math.max(10, Math.min(70, settings.uiBlurStrength ?? 34));
@@ -3043,61 +3306,69 @@ export default function LuminaryPanels() {
   const hardBlurTintOpacity = Math.max(0, Math.min(80, settings.hardBlurTintOpacity ?? 32));
   const animationSmoothness = Math.max(50, Math.min(170, settings.animationSmoothness ?? 100));
   const animationSpeed = Math.max(40, Math.min(220, settings.animationSpeed ?? 100));
-  // Keep blur moderate to avoid lag
-  const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 16) : Math.min(uiBlurPxRaw, 28);
-  const liquidGlassStyle = settings.hardBlurUI
-    ? {
-        backdropFilter: `blur(${Math.max(16, uiBlurPx + 8)}px) saturate(${Math.max(1.2, uiSaturation / 95)})`,
-        WebkitBackdropFilter: `blur(${Math.max(16, uiBlurPx + 8)}px) saturate(${Math.max(1.2, uiSaturation / 95)})`,
-        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.34), inset 0 -1px 0 rgba(255,255,255,0.09), 0 10px 34px rgba(0,0,0,0.22)`,
-        backgroundImage: `linear-gradient(${120 + (hardBlurDistortion / 8)}deg, rgba(255,255,255,${Math.max(0.08, hardBlurTintOpacity / 220)}) 0%, rgba(255,255,255,0.02) 55%, rgba(255,255,255,${Math.max(0.03, hardBlurRipple / 1800)}) 100%)`,
-      }
-    : {
-        backdropFilter: `blur(${uiBlurPx}px) saturate(${uiSaturation / 100})`,
-        WebkitBackdropFilter: `blur(${uiBlurPx}px) saturate(${uiSaturation / 100})`,
-      };
+  // Keep blur balanced for 60/120Hz mobile surfaces without melting the GPU.
+  const uiBlurPx = settings.performanceMode ? Math.min(uiBlurPxRaw, 14) : Math.min(uiBlurPxRaw, 32);
+  const glassBlur = Math.max(18, uiBlurPx + (settings.hardBlurUI ? 10 : 0));
+  const glassSaturation = Math.max(1.35, uiSaturation / 90);
+  const liquidGlassStyle = {
+    backdropFilter: `blur(${glassBlur}px) saturate(${glassSaturation}) contrast(1.04)`,
+    WebkitBackdropFilter: `blur(${glassBlur}px) saturate(${glassSaturation}) contrast(1.04)`,
+    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.34), inset 0 -1px 0 rgba(255,255,255,0.08), 0 18px 55px rgba(0,0,0,0.28)`,
+    backgroundImage: `linear-gradient(${122 + (hardBlurDistortion / 10)}deg, rgba(255,255,255,${Math.max(0.10, hardBlurTintOpacity / 190)}) 0%, rgba(255,255,255,0.035) 48%, rgba(255,255,255,${Math.max(0.05, hardBlurRipple / 900)}) 100%)`,
+  };
   const glassTint = Math.round((hardBlurTintOpacity / 100) * 255);
   const speedFactor = 100 / animationSpeed;
   const uiTransition = settings.performanceMode
-    ? "0.12s linear"
-    : `${Math.max(0.11, (0.24 * (animationSmoothness / 100) * speedFactor).toFixed(2))}s cubic-bezier(0.22, 1, 0.36, 1)`;
-  const creamControl = "rgba(255,255,255,0.9)";
-  const creamCard = "rgba(255,255,255,0.84)";
-  const creamBorder = "rgba(87,125,171,0.3)";
-  const controlBg   = isDark ? `${accent}0f` : creamControl;
-  const cardBg      = isDark ? `${accent}12` : creamCard;
-  const cardBorder  = isDark ? `${accent}30` : creamBorder;
+    ? "0.14s linear"
+    : `${Math.max(0.14, (0.28 * (animationSmoothness / 100) * speedFactor).toFixed(2))}s cubic-bezier(0.20, 0.85, 0.20, 1)`;
+  const creamControl = "linear-gradient(145deg, rgba(255,255,255,0.72), rgba(255,255,255,0.44))";
+  const creamCard = "linear-gradient(145deg, rgba(255,255,255,0.72), rgba(255,255,255,0.38))";
+  const creamBorder = "rgba(255,255,255,0.55)";
+  const controlBg   = isDark
+    ? "linear-gradient(145deg, rgba(255,255,255,0.105), rgba(255,255,255,0.045))"
+    : creamControl;
+  const cardBg      = isDark
+    ? "linear-gradient(145deg, rgba(255,255,255,0.125), rgba(255,255,255,0.052))"
+    : creamCard;
+  const cardBorder  = isDark ? "rgba(255,255,255,0.155)" : creamBorder;
   const cardShadow  = isDark
-    ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${accent}18`
-    : `0 4px 16px rgba(79,179,217,0.15), 0 0 0 1px ${accent}28`;
-  const pageBg      = isDark
-    ? (settings.uiBg || "#0a0e27")
-    : (settings.lightBg || "linear-gradient(160deg,#fffdfa 0%,#f6fbff 35%,#eef7ff 62%,#f8f4ff 100%)");
+    ? `0 22px 70px rgba(0,0,0,0.34), 0 0 0 1px rgba(255,255,255,0.045), 0 0 42px ${accent}18`
+    : `0 18px 52px rgba(71,105,145,0.18), 0 0 0 1px rgba(255,255,255,0.55), 0 0 34px ${accent}22`;
+  const pageBgBase = isDark
+    ? (settings.uiBg || "linear-gradient(155deg,#050812 0%,#0b1936 38%,#25114e 70%,#083d3b 100%)")
+    : (settings.lightBg || "linear-gradient(160deg,#fbfdff 0%,#f2f9ff 40%,#f7f2ff 100%)");
+  const pageBg = `${isDark ? "radial-gradient(circle at 50% -10%, rgba(255,255,255,0.10), transparent 30%)" : "radial-gradient(circle at 50% -10%, rgba(255,255,255,0.72), transparent 32%)"}, radial-gradient(circle at 8% 18%, ${accent}18, transparent 34%), radial-gradient(circle at 92% 12%, ${accent2}18, transparent 36%), ${pageBgBase}`;
 
   const inputSt = {
     display: "block",
     width: "100%",
     background: controlBg,
     border: `1px solid ${cardBorder}`,
-    borderRadius: 10,
+    borderRadius: 16,
     color: textPrimary,
-    padding: "11px 14px",
+    padding: "12px 14px",
     fontSize: 15,
     outline: "none",
     fontFamily: "inherit",
-    transition: "border-color 200ms ease, background 200ms ease",
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+    backdropFilter: `blur(${Math.max(12, uiBlurPx)}px) saturate(1.35)`,
+    WebkitBackdropFilter: `blur(${Math.max(12, uiBlurPx)}px) saturate(1.35)`,
+    transition: `border-color ${uiTransition}, background ${uiTransition}, box-shadow ${uiTransition}`,
   };
   const outlineBtn = {
     flex: 1,
     background: controlBg,
     border: `1px solid ${cardBorder}`,
-    borderRadius: 12,
+    borderRadius: 16,
     color: textPrimary,
-    padding: "11px",
+    padding: "12px",
     cursor: "pointer",
     fontSize: 14,
-    fontWeight: 500,
-    transition: `transform 180ms var(--ease-spring), background 200ms ease, border-color 200ms ease, color 200ms ease`,
+    fontWeight: 650,
+    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
+    backdropFilter: `blur(${Math.max(12, uiBlurPx)}px) saturate(1.35)`,
+    WebkitBackdropFilter: `blur(${Math.max(12, uiBlurPx)}px) saturate(1.35)`,
+    transition: `transform 220ms var(--ease-glass), background ${uiTransition}, border-color ${uiTransition}, color ${uiTransition}, box-shadow ${uiTransition}`,
     transform: "translate3d(0,0,0)",
   };
   const cp = { cardBg, cardBorder, textDim, accent, cardShadow, hardBlurUI: settings.hardBlurUI, uiBlurPx, uiDarkness, textPrimary };
@@ -3124,6 +3395,121 @@ export default function LuminaryPanels() {
   const slidersByTab = settings.showSlidersByTab || { layout: true, assets: true, avatar: true, text: true };
   const isTabSlidersVisible = (tab) => slidersByTab[tab] !== false;
   const tabSliderClass = (tab) => (isTabSlidersVisible(tab) ? "" : "sliders-hidden");
+  const assetItems = useMemo(() => sortAssetItems(assetLibrary.recent || []), [assetLibrary.recent]);
+  const filteredAssetItems = useMemo(() => assetKindFilter === "all" ? assetItems : assetItems.filter(item => normalizeAssetKind(item.kind) === assetKindFilter), [assetItems, assetKindFilter]);
+  const assetCounts = useMemo(() => assetItems.reduce((acc, item) => {
+    const k = normalizeAssetKind(item.kind);
+    acc.all = (acc.all || 0) + 1;
+    acc[k] = (acc[k] || 0) + 1;
+    return acc;
+  }, { all: assetItems.length }), [assetItems]);
+  const addGeneratedAsset = useCallback((kind, type, label) => {
+    const src = makeGeneratedAssetSvg(type, accent, accent2);
+    const item = registerImportedAsset(kind, src, label);
+    if (item) {
+      setSaveNotice(`${sanitizeAssetLabel(label)} added`);
+    }
+  }, [accent, accent2, registerImportedAsset]);
+
+  const generateAiBorderAsset = useCallback(async (avatarSrcOverride = null, promptOverride = "") => {
+    const sourceImage = avatarSrcOverride || avRawSrc;
+    if (!sourceImage) {
+      setAiBorderStatus("Upload or apply an avatar first.");
+      return null;
+    }
+    setAiBorderBusy(true);
+    setAiBorderStatus(aiBorderConfig.provider === "custom-api" ? "Generating border with your API…" : "Generating border with Local Lite…");
+    try {
+      const palette = await extractPaletteFromImageSrc(sourceImage);
+      const promptBase = String(promptOverride || aiBorderPrompt || "").trim();
+      const finalPrompt = promptBase || "Premium liquid glass avatar border, balanced, elegant, premium, high-end iOS style.";
+      let generatedSrc = null;
+      if (aiBorderConfig.provider === "custom-api" && aiBorderConfig.endpoint) {
+        try {
+          generatedSrc = await requestRemoteAiBorder({
+            endpoint: aiBorderConfig.endpoint,
+            apiKey: aiBorderConfig.apiKey,
+            model: aiBorderConfig.model,
+            prompt: finalPrompt,
+            palette,
+            imageSrc: sourceImage,
+          });
+        } catch (remoteErr) {
+          console.warn(remoteErr);
+          generatedSrc = null;
+        }
+      }
+      if (!generatedSrc) {
+        generatedSrc = createAiBorderSvg({
+          palette: {
+            primary: mixHex(palette.primary, accent, 0.32),
+            secondary: mixHex(palette.secondary, accent2, 0.28),
+            neutral: palette.neutral,
+            highlight: palette.highlight,
+            shadow: palette.shadow,
+          },
+          prompt: finalPrompt,
+          detail: aiBorderConfig.detail,
+          density: aiBorderConfig.density,
+          seedLabel: `AI Border · ${finalPrompt.slice(0, 34) || "Auto"}`,
+        });
+      }
+      const item = registerImportedAsset("border", generatedSrc, `AI Border ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+      if (item) {
+        setAssetHubOpen(true);
+        setAssetKindFilter("border");
+        setSaveNotice("AI border saved to Asset Hub");
+        setAiBorderStatus("AI border generated and saved.");
+        if (aiBorderConfig.autoApplyGeneratedBorder) {
+          pushState({
+            borderStyleId: "custom-image",
+            customBorderSrc: generatedSrc,
+            customBorderScale: s.customBorderScale ?? 124,
+            customBorderOpacity: s.customBorderOpacity ?? 100,
+            customBorderRotation: s.customBorderRotation ?? 0,
+          });
+        }
+      }
+      return item;
+    } catch (err) {
+      setAiBorderStatus(`AI border failed: ${err.message}`);
+      return null;
+    } finally {
+      setAiBorderBusy(false);
+    }
+  }, [accent, accent2, aiBorderConfig, aiBorderPrompt, avRawSrc, pushState, registerImportedAsset, s.customBorderOpacity, s.customBorderRotation, s.customBorderScale]);
+  const applyUiPreset = useCallback((preset) => {
+    if (!preset) return;
+    mediumHaptic(settings.hapticFeedback);
+    requestAnimationFrame(() => {
+      setSettings(prev => ({
+        ...prev,
+        uiPreset: preset.id,
+        uiAccent: preset.uiAccent,
+        uiAccent2: preset.uiAccent2 || preset.uiAccent,
+        uiBg: preset.uiBg,
+        uiText: preset.uiText,
+      }));
+    });
+  }, [settings.hapticFeedback]);
+  const beginAssetHold = useCallback((item) => {
+    if (!item) return;
+    window.clearTimeout(assetHoldTimerRef.current);
+    assetHoldActivatedRef.current = false;
+    assetHoldTimerRef.current = window.setTimeout(() => {
+      assetHoldActivatedRef.current = true;
+      setAssetActionId(item.id);
+      mediumHaptic(settings.hapticFeedback);
+    }, 430);
+  }, [settings.hapticFeedback]);
+  const endAssetHold = useCallback((item) => {
+    window.clearTimeout(assetHoldTimerRef.current);
+    if (!item) return;
+    if (!assetHoldActivatedRef.current) {
+      applyAssetFromLibrary(item);
+    }
+    assetHoldActivatedRef.current = false;
+  }, [applyAssetFromLibrary]);
   const toggleTabSliders = (tab, visible) => setSettings(prev => ({
     ...prev,
     showSlidersByTab: {
@@ -3511,7 +3897,7 @@ export default function LuminaryPanels() {
     <Card label="Avatar Border" {...cp}>
       <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:14 }}>
         {BORDERS.map((b, idx) => (
-          <button key={b.id} onClick={() => { microHaptic(settings.hapticFeedback); pushState({ borderStyleId: b.id }); }}
+          <button key={b.id} className="morph-tile" onClick={() => { microHaptic(settings.hapticFeedback); pushState({ borderStyleId: b.id }); }}
             style={{
               padding:"9px 2px",
               borderRadius:10,
@@ -3528,7 +3914,7 @@ export default function LuminaryPanels() {
               minHeight:54,
               animation: `fadeIn 280ms var(--ease-ios) ${idx * 15}ms backwards`,
             }}>
-            <span style={{ fontSize:15 }}>{b.icon}</span>
+            <span style={{ width:24, height:24, display:"inline-flex", alignItems:"center", justifyContent:"center" }}><BorderSvgIcon name={b.icon} size={19} color={s.borderStyleId === b.id ? accent : textPrimary} accent={accent} /></span>
             <span style={{ fontSize:9.5 }}>{b.label}</span>
           </button>
         ))}
@@ -3538,7 +3924,7 @@ export default function LuminaryPanels() {
           {s.borderStyleId === "custom-image" && (
             <>
               <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-                <button onClick={() => borderFileRef.current?.click()} style={outlineBtn}>🖼 Import Custom Border</button>
+                <button className="liquid-action-chip" onClick={() => borderFileRef.current?.click()} style={outlineBtn}><SvgAction icon="image" label="Import Custom Border" tone={accent} /></button>
                 <button
                   onClick={() => pushState({ customBorderSrc: "" })}
                   style={{ ...outlineBtn, color:"#ff7373" }}
@@ -3728,68 +4114,18 @@ export default function LuminaryPanels() {
     <Card label="Assets & Overlays" {...cp}>
       <SliderSectionToggle tab="assets" />
 
-      <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-        <button onClick={() => { microHaptic(settings.hapticFeedback); avFileRef.current?.click(); }} style={outlineBtn}>🖼 Avatar</button>
-        <button onClick={() => { microHaptic(settings.hapticFeedback); bgFileRef.current?.click(); }} style={outlineBtn}>🌄 Background</button>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:8, marginBottom:16 }}>
+        <button className="liquid-action-chip" onClick={() => { microHaptic(settings.hapticFeedback); avFileRef.current?.click(); }} style={outlineBtn}><SvgAction icon="avatar" label="Avatar" tone={accent} /></button>
+        <button className="liquid-action-chip" onClick={() => { microHaptic(settings.hapticFeedback); bgFileRef.current?.click(); }} style={outlineBtn}><SvgAction icon="background" label="Background" tone={accent} /></button>
       </div>
-
 
       <Sep cardBorder={cardBorder} />
-      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:600, textTransform:"uppercase", letterSpacing:0.7 }}>Add Overlay</p>
-      <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:6, marginBottom:14 }}>
-        {emojiPresets.map((em, idx) => (
-          <button key={em} onClick={() => addOverlay("emoji", em)}
-            style={{
-              fontSize:20,
-              background:controlBg,
-              border:`1px solid ${cardBorder}`,
-              borderRadius:8,
-              padding:"8px 12px",
-              cursor:"pointer",
-              flexShrink:0,
-              minHeight:44,
-              transition: "transform 180ms var(--ease-spring), background 200ms ease",
-              animation: `fadeIn 280ms var(--ease-ios) ${idx * 25}ms backwards`,
-            }}>
-            {em}
-          </button>
-        ))}
-        <button onClick={() => fileLoaderRef.current?.click()}
-          style={{
-            fontSize:13,
-            background:controlBg,
-            border:`1px solid ${cardBorder}`,
-            color:textPrimary,
-            borderRadius:8,
-            padding:"8px 12px",
-            cursor:"pointer",
-            whiteSpace:"nowrap",
-            flexShrink:0,
-            minHeight:44,
-            fontWeight:500,
-            transition: "transform 180ms var(--ease-spring), background 200ms ease",
-          }}>
-          + Image
-        </button>
-      </div>
-      <FRow label="Editable default emojis" textDim={textDim}>
-        <TxIn
-          value={emojiPresets.join("")}
-          onChange={v => setEmojiPresets(Array.from(v).filter(Boolean).slice(0, 20))}
-          inputSt={inputSt}
-          placeholder="Type emojis…"
-        />
-      </FRow>
-      <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:12 }}>
-        {(assetLibrary.quickIcons?.length ? assetLibrary.quickIcons : emojiPresets.slice(0, 8)).map((icon, idx) => (
-          <button
-            key={`${icon}-${idx}`}
-            onClick={() => addOverlay("emoji", icon)}
-            style={{ ...outlineBtn, width:"auto", minWidth:44, padding:"8px 10px", fontSize:18 }}
-          >
-            {icon}
-          </button>
-        ))}
+      <p style={{ fontSize:12, color:textDim, marginBottom:8, fontWeight:700, textTransform:"uppercase", letterSpacing:0.7 }}>Add Overlay</p>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:8, marginBottom:14 }}>
+        <button className="liquid-action-chip" onClick={() => fileLoaderRef.current?.click()} style={{ ...outlineBtn, minHeight:44 }}><SvgAction icon="image" label="Image Overlay" tone={accent} /></button>
+        <button className="liquid-action-chip" onClick={() => addGeneratedAsset("overlay", "liquid-orb", "Liquid Orb")} style={{ ...outlineBtn, minHeight:44 }}><SvgAction icon="sparkles" label="Liquid Orb" tone={accent} /></button>
+        <button className="liquid-action-chip" onClick={() => addGeneratedAsset("overlay", "glass-ring", "Glass Ring")} style={{ ...outlineBtn, minHeight:44 }}><SvgAction icon="overlay" label="Glass Ring" tone={accent} /></button>
+        <button className="liquid-action-chip" onClick={() => addGeneratedAsset("overlay", "lens-flare", "Lens Flare")} style={{ ...outlineBtn, minHeight:44 }}><SvgAction icon="wand" label="Lens Flare" tone={accent} /></button>
       </div>
 
       {s.overlays.length === 0 ? (
@@ -3809,7 +4145,7 @@ export default function LuminaryPanels() {
               animation: `overlayItemSlide 320ms var(--ease-spring) ${idx * 40}ms backwards`,
             }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:16, width:24, flexShrink:0 }}>{ov.type === "emoji" ? ov.content : "🖼️"}</span>
+                <span style={{ width:24, flexShrink:0, display:"inline-flex", alignItems:"center", justifyContent:"center" }}><UiIcon name={ov.type === "emoji" ? "text" : "image"} size={15} color={accent} /></span>
                 <div style={{ flex:1, fontSize:12, color:textPrimary, fontWeight:600 }}>Overlay {idx + 1}</div>
                 <button onClick={() => { microHaptic(settings.hapticFeedback); setExpandedOverlayId(expandedOverlayId === ov.id ? null : ov.id); }}
                   style={{
@@ -3823,7 +4159,7 @@ export default function LuminaryPanels() {
                     fontWeight:600,
                     transition: "all 220ms var(--ease-ios)",
                   }}>
-                  {expandedOverlayId === ov.id ? "✕ Close" : "⚙ Adjust"}
+                  {expandedOverlayId === ov.id ? "Close" : "Adjust"}
                 </button>
                 <button onClick={() => updateOverlay(ov.id, { locked: !ov.locked })}
                   style={{
@@ -3836,7 +4172,7 @@ export default function LuminaryPanels() {
                     minWidth:32,
                     transition: "opacity 200ms ease, transform 180ms var(--ease-spring)",
                   }}>
-                  {ov.locked ? "🔒" : "🔓"}
+                  <UiIcon name={ov.locked ? "lock" : "unlock"} size={15} color={ov.locked ? accent : textDim} />
                 </button>
                 <button onClick={() => removeOverlay(ov.id)}
                   style={{
@@ -3849,7 +4185,7 @@ export default function LuminaryPanels() {
                     color:"#ff5555",
                     transition: "color 200ms ease, transform 180ms var(--ease-spring)",
                   }}>
-                  🗑️
+                  <UiIcon name="trash" size={15} color="#ff5555" />
                 </button>
               </div>
 
@@ -3900,7 +4236,7 @@ export default function LuminaryPanels() {
                     alignSelf:"flex-end",
                     animation: "fadeIn 280ms var(--ease-ios) 80ms backwards",
                   }}>
-                  📋 Duplicate
+                  <SvgAction icon="duplicate" label="Duplicate" tone={accent} />
                 </button>
               )}
             </div>
@@ -3988,10 +4324,6 @@ export default function LuminaryPanels() {
         <IOSToggle checked={settings.hapticFeedback !== false} onChange={v => setSettings(p => ({ ...p, hapticFeedback: v }))} accent={accent} hapticEnabled={true} />
       </div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
-        <span style={{ color:textPrimary, fontSize:14 }}>Hard Blur UI</span>
-        <IOSToggle checked={settings.hardBlurUI !== false} onChange={v => setSettings(p => ({ ...p, hardBlurUI: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
-      </div>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:12, minHeight:44 }}>
         <span style={{ color:textPrimary, fontSize:14 }}>Show Scale Badge</span>
         <IOSToggle checked={settings.showScaleBadge === true} onChange={v => setSettings(p => ({ ...p, showScaleBadge: v }))} accent={accent} hapticEnabled={settings.hapticFeedback} />
       </div>
@@ -4026,15 +4358,15 @@ export default function LuminaryPanels() {
         boxShadow:`0 8px 20px ${accent}22`,
       }}> GitHub · firefly-sylestia</a>
 
-      <button onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(true); setAdvancedSettingsTab("Animation & Performance"); }} style={{ ...outlineBtn, color:accent, marginBottom:16 }}>⚙ Open Animation & Performance Settings</button>
+      <button className="liquid-action-chip" onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(true); setAdvancedSettingsTab("Animation & Performance"); }} style={{ ...outlineBtn, color:accent, marginBottom:16 }}><SvgAction icon="settings" label="Open Animation & Performance Settings" tone={accent} /></button>
 
 
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>Project Management</p>
       <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
-        <button onClick={async () => { await saveProjectWithShare({ history, hIndex, state: s }); }} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}>💾 Save Project</button>
-        <button onClick={saveCurrentToLibrary} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}>⭐ Save In App</button>
+        <button className="liquid-action-chip" onClick={async () => { await saveProjectWithShare({ history, hIndex, state: s }); }} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}><SvgAction icon="package" label="Save Project" tone={accent} /></button>
+        <button className="liquid-action-chip" onClick={saveCurrentToLibrary} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}><SvgAction icon="check" label="Save In App" tone={accent} /></button>
         <button onClick={() => {
           const input = document.createElement("input");
           input.type = "file";
@@ -4052,7 +4384,7 @@ export default function LuminaryPanels() {
             }).catch(() => alert("Failed to load project"));
           };
           input.click();
-        }} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}>📂 Load Project</button>
+        }} style={{ ...outlineBtn, flex:"1 1 120px", color:accent }}><SvgAction icon="package" label="Load Project" tone={accent} /></button>
       </div>
       <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12 }}>
         {(projectLibrary.length === 0) ? (
@@ -4161,7 +4493,7 @@ export default function LuminaryPanels() {
         {UI_COLOR_PRESETS.map((preset, idx) => (
           <button
             key={preset.id}
-            onClick={() => { mediumHaptic(settings.hapticFeedback); setSettings(prev => ({ ...prev, uiPreset: preset.id, uiAccent: preset.uiAccent, uiBg: preset.uiBg, uiText: preset.uiText })); }}
+            onClick={() => applyUiPreset(preset)}
             style={{
               ...outlineBtn,
               padding: 0, minHeight: 0, fontSize:11,
@@ -4190,8 +4522,11 @@ export default function LuminaryPanels() {
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Customization</p>
-      <FRow label="Accent Color" textDim={textDim}>
-        <ColorField value={settings.uiAccent || "#4fb3d9"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} textPrimary={textPrimary} />
+      <FRow label="Primary Accent" textDim={textDim}>
+        <ColorField value={settings.uiAccent || "#7cffda"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} textPrimary={textPrimary} />
+      </FRow>
+      <FRow label="Secondary Accent" textDim={textDim}>
+        <ColorField value={settings.uiAccent2 || "#9a86ff"} onChange={v => setSettings(prev => ({ ...prev, uiAccent2: v }))} textPrimary={textPrimary} />
       </FRow>
       <FRow label="Background Color" textDim={textDim}>
         <ColorField value={typeof settings.uiBg === "string" && settings.uiBg.startsWith("#") ? settings.uiBg : "#0a0e27"} onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))} textPrimary={textPrimary} />
@@ -4199,7 +4534,7 @@ export default function LuminaryPanels() {
       <FRow label="Text Color" textDim={textDim}>
         <ColorField value={settings.uiText || "#f0f9ff"} onChange={v => setSettings(prev => ({ ...prev, uiText: v }))} textPrimary={textPrimary} />
       </FRow>
-      <button onClick={() => setSettings(prev => ({ ...prev, uiPreset: "aurora", uiAccent: "#7cffda", uiBg: "linear-gradient(155deg,#060b1f 0%,#10204f 34%,#3f1778 68%,#0f6a62 100%)", uiText: "#efffff" }))} style={{ ...outlineBtn, color:accent, marginTop:8 }}>↺ Reset UI Colors</button>
+      <button className="liquid-action-chip" onClick={() => applyUiPreset(UI_COLOR_PRESETS[0])} style={{ ...outlineBtn, color:accent, marginTop:8 }}><SvgAction icon="reset" label="Reset UI Colors" tone={accent} /></button>
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>App Assets Hub</p>
@@ -4247,7 +4582,7 @@ export default function LuminaryPanels() {
         display:"flex",
         alignItems:"center",
         justifyContent:"center",
-        overflow:"hidden",
+        overflow:"visible",
         padding:`${prevPadding}px 0`,
         borderRadius: prevBorderRadius,
         background: prevCheckerboard
@@ -4258,11 +4593,12 @@ export default function LuminaryPanels() {
         {prevGlow && (
           <div style={{
             position:"absolute",
-            inset: 0,
-            background: `radial-gradient(ellipse 80% 80% at center, ${accent}${Math.round(prevGlowIntensity).toString(16).padStart(2,"0")}, transparent 70%)`,
+            inset: `-${Math.max(16, prevGlowIntensity)}px`,
+            background: `radial-gradient(ellipse 72% 70% at 50% 50%, ${hexToRgba(accent, Math.min(0.52, prevGlowIntensity / 100))}, transparent 68%), radial-gradient(ellipse 58% 58% at 50% 48%, ${hexToRgba(accent2, Math.min(0.38, prevGlowIntensity / 130))}, transparent 72%)`,
             pointerEvents:"none",
-            filter: "blur(12px)",
-            opacity: 0.85,
+            filter: `blur(${Math.max(14, prevGlowIntensity * 0.72)}px) saturate(1.25)`,
+            opacity: 0.95,
+            zIndex: 0,
           }} />
         )}
 
@@ -4277,7 +4613,7 @@ export default function LuminaryPanels() {
           cursor: editMode ? (dragData.current ? "grabbing" : "grab") : "default",
           touchAction: editMode ? "none" : "auto",
           border: prevBorderVisible ? `1.5px solid ${accent}50` : "none",
-          boxShadow: `0 ${Math.round(prevShadowIntensity * 0.54)}px ${prevShadowIntensity + 20}px rgba(0,0,0,0.82), 0 0 0 1px ${accent}26, inset 0 -28px 45px rgba(4,8,18,0.55), 0 10px 34px ${accent}20`,
+          boxShadow: `${prevGlow ? `0 0 ${Math.round(prevGlowIntensity * 2.6)}px ${hexToRgba(accent, Math.min(0.48, prevGlowIntensity / 120))}, 0 0 ${Math.round(prevGlowIntensity * 3.7)}px ${hexToRgba(accent2, Math.min(0.30, prevGlowIntensity / 160))}, ` : ""}0 ${Math.round(prevShadowIntensity * 0.54)}px ${prevShadowIntensity + 20}px rgba(0,0,0,0.82), 0 0 0 1px ${accent}30, inset 0 -28px 45px rgba(4,8,18,0.55), 0 10px 34px ${accent}20`,
           background: "linear-gradient(160deg, rgba(5,8,16,0.86), rgba(2,3,9,0.92))",
           position: "relative",
           zIndex: 1,
@@ -4329,7 +4665,7 @@ export default function LuminaryPanels() {
   );
 
   const quickLayoutBlock = (
-    <div style={{ width: "100%", border: `1px solid ${cardBorder}`, borderRadius: 14, padding: "10px 12px", background: controlBg }}>
+    <div className="liquid-surface" style={{ width: "100%", border: `1px solid ${cardBorder}`, borderRadius: 22, padding: "12px 14px", background: controlBg, backdropFilter:`blur(${Math.max(14, uiBlurPx)}px) saturate(1.45)`, WebkitBackdropFilter:`blur(${Math.max(14, uiBlurPx)}px) saturate(1.45)`, boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10)" }}>
       <p style={{ fontSize: 11, color: textDim, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 700 }}>Quick Layout & Imports</p>
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", justifyContent:"center", marginBottom: 8 }}>
         {[
@@ -4363,9 +4699,9 @@ export default function LuminaryPanels() {
         ))}
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-        <button onClick={() => avFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🖼 Avatar Import</button>
-        <button onClick={() => bgFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🌄 Background Import</button>
-        <button onClick={() => borderFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}>🧿 Border Overlay</button>
+        <button className="liquid-action-chip" onClick={() => avFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}><SvgAction icon="avatar" label="Avatar Import" tone={accent} /></button>
+        <button className="liquid-action-chip" onClick={() => bgFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}><SvgAction icon="background" label="Background Import" tone={accent} /></button>
+        <button className="liquid-action-chip" onClick={() => borderFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}><SvgAction icon="border" label="Border Overlay" tone={accent} /></button>
       </div>
     </div>
   );
@@ -4378,6 +4714,7 @@ export default function LuminaryPanels() {
     <div style={{ width:"100%", overflowX:"hidden" }}>
       {!appReady && (
         <div
+          className="premium-loader-bg"
           style={{
             position:"fixed",
             inset:0,
@@ -4385,17 +4722,32 @@ export default function LuminaryPanels() {
             display:"flex",
             alignItems:"center",
             justifyContent:"center",
-            background:"radial-gradient(circle at 30% 20%, #2f1f67 0%, #0a0e27 55%, #05070f 100%)",
-            color:"#f8f4ff",
-            transition:"opacity 340ms ease",
+            background:"radial-gradient(circle at 50% -10%, rgba(255,255,255,0.10), transparent 32%), radial-gradient(circle at 20% 22%, rgba(124,255,218,0.24), transparent 34%), radial-gradient(circle at 80% 18%, rgba(154,134,255,0.22), transparent 35%), linear-gradient(155deg,#050812 0%,#0b1936 44%,#25114e 76%,#041f22 100%)",
+            color:"#f8fffd",
+            transition:"opacity 420ms var(--ease-ios)",
           }}
         >
-          <div style={{ width:"min(360px, 90vw)", textAlign:"center", padding:"22px 18px", borderRadius:24, border:"1px solid rgba(255,255,255,0.18)", background:"rgba(255,255,255,0.07)", backdropFilter:"blur(20px)", animation:"fadeIn 460ms var(--ease-ios)" }}>
-            <div style={{ fontSize:40, marginBottom:6, animation:"pulse 1000ms ease-in-out infinite" }}>✨</div>
-            <div style={{ fontWeight:700, marginBottom:10 }}>Loading Luminary Panels</div>
-            <div style={{ height:8, background:"rgba(255,255,255,0.18)", borderRadius:999, overflow:"hidden" }}>
-              <div style={{ width: `${loadingProgress}%`, transition:"width 200ms ease-out", height:"100%", background:"linear-gradient(90deg,#67e8f9,#a78bfa,#f472b6)" }} />
+          <div
+            className="premium-loader-card"
+            style={{
+              width:"min(388px, 90vw)",
+              textAlign:"center",
+              padding:"34px 26px 26px",
+              borderRadius:34,
+              border:"1px solid rgba(255,255,255,0.22)",
+              background:"linear-gradient(145deg, rgba(255,255,255,0.17), rgba(255,255,255,0.055))",
+              backdropFilter:"blur(34px) saturate(1.8)",
+              WebkitBackdropFilter:"blur(34px) saturate(1.8)",
+              animation:"glassReveal 560ms var(--ease-glass)",
+            }}
+          >
+            <div className="liquid-loader-orb" />
+            <div style={{ fontSize:11, fontWeight:800, letterSpacing:1.6, textTransform:"uppercase", color:"rgba(248,255,253,0.62)", marginBottom:8 }}>Luminary Panels</div>
+            <div style={{ fontWeight:800, fontSize:24, letterSpacing:-0.8, marginBottom:16 }}>Preparing Liquid Glass</div>
+            <div className="loader-progress" style={{ height:9, background:"rgba(255,255,255,0.14)", borderRadius:999, overflow:"hidden", border:"1px solid rgba(255,255,255,0.14)" }}>
+              <div style={{ width: `${loadingProgress}%`, transition:"width 320ms var(--ease-ios)", height:"100%", borderRadius:999, background:"linear-gradient(90deg,#7cffda,#8ad9ff,#9a86ff)", boxShadow:"0 0 24px rgba(124,255,218,0.42)" }} />
             </div>
+            <div style={{ marginTop:12, fontSize:12, color:"rgba(248,255,253,0.58)", fontWeight:600 }}>{loadingProgress}%</div>
           </div>
         </div>
       )}
@@ -4420,6 +4772,32 @@ export default function LuminaryPanels() {
         r.readAsDataURL(f); e.target.value = "";
       }} />
       <input ref={borderFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleCustomBorderFileChange} />
+      
+      {/* Asset Hub File Inputs (library only, don't affect pill) */}
+      <input ref={hubAvFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+        const f = e.target.files?.[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => registerImportedAsset("avatar", ev.target.result, f.name || "Avatar");
+        r.readAsDataURL(f); e.target.value = "";
+      }} />
+      <input ref={hubBgFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+        const f = e.target.files?.[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => registerImportedAsset("background", ev.target.result, f.name || "Background");
+        r.readAsDataURL(f); e.target.value = "";
+      }} />
+      <input ref={hubOverlayFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+        const f = e.target.files?.[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => registerImportedAsset("overlay", ev.target.result, f.name || "Overlay");
+        r.readAsDataURL(f); e.target.value = "";
+      }} />
+      <input ref={hubBorderFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
+        const f = e.target.files?.[0]; if (!f) return;
+        const r = new FileReader();
+        r.onload = ev => registerImportedAsset("border", ev.target.result, f.name || "Border");
+        r.readAsDataURL(f); e.target.value = "";
+      }} />
       <style dangerouslySetInnerHTML={{ __html: `
         *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
         * { -webkit-tap-highlight-color: transparent; }
@@ -4437,36 +4815,6 @@ export default function LuminaryPanels() {
           border-radius:5px;
         }
         input,select,button { border-radius: 16px; }
-        .liquid-water {
-          position: relative;
-          overflow: hidden;
-        }
-        .liquid-water::after {
-          content: "";
-          position: absolute;
-          inset: -35% -20%;
-          background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.20), transparent 42%),
-                      radial-gradient(circle at 70% 60%, rgba(255,255,255,0.12), transparent 48%);
-          animation: waterFloat 9s ease-in-out infinite alternate;
-          pointer-events: none;
-          mix-blend-mode: screen;
-        }
-        @keyframes waterFloat {
-          0% { transform: translate3d(-6%, -2%, 0) scale(1); opacity: .5; }
-          100% { transform: translate3d(6%, 4%, 0) scale(1.08); opacity: .82; }
-        }
-
-        button {
-          transition: transform 180ms var(--ease-spring),
-                      filter 200ms var(--ease-ios),
-                      background 200ms var(--ease-ios),
-                      border-color 200ms var(--ease-ios);
-        }
-        button:active {
-          transform: scale(0.96);
-          filter: brightness(1.08);
-        }
-
         input[type=checkbox] {
           width:16px;
           height:16px;
@@ -4499,6 +4847,7 @@ export default function LuminaryPanels() {
       `}} />
 
       <div
+        className="theme-liquid-transition"
         style={{
         minHeight:"100dvh",
         color:textPrimary,
@@ -4506,9 +4855,10 @@ export default function LuminaryPanels() {
         background:pageBg,
         paddingBottom: vp.isMobile ? 90 : 0,
         paddingTop:0,
-        opacity: appReady ? 1 : 0.45,
-        transform: `translateY(${appReady ? 0 : 8}px)`,
-        transition:"opacity 420ms ease, transform 420ms ease",
+        opacity: appReady ? 1 : 0,
+        transform: `translateY(${appReady ? 0 : 10}px) scale(${appReady ? 1 : 0.992})`,
+        filter: appReady ? "none" : "blur(8px)",
+        transition:"opacity 560ms var(--ease-ios), transform 560ms var(--ease-ios), filter 560ms var(--ease-ios)",
       }}>
         {/* Header */}
         <header
@@ -4566,6 +4916,7 @@ export default function LuminaryPanels() {
 
               <div style={{display:"flex", alignItems:"center", gap: vp.isMobile ? 4 : 6}}>
                 {[
+                  { id:"assets-hub", icon:"assets", title:"Asset Hub", onClick: () => setAssetHubOpen(!assetHubOpen), accent: assetHubOpen },
                   { id:"save",     icon:"download", title:"Save PNG",   onClick: exportPNG,  accent: true  },
                   { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true  },
                   { id:"settings", icon:ICONS.settings, title:"Settings", onClick:() => { settingsOpen ? closeSettings() : openSettings(); }, ref: settingsBtnRef },
@@ -4647,50 +4998,40 @@ export default function LuminaryPanels() {
                   ))}
                 </div>
 
-                <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
-                  {[
-                    { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo },
-                    { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo },
-                    { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset },
-                  ].map((btn) => (
-                    <button key={btn.id} className="btn-bouncy" onClick={btn.onClick}
-                      title={btn.title}
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 12,
-                        border: `1px solid ${cardBorder}`,
-                        background: controlBg,
-                        display:"inline-flex",
-                        alignItems:"center",
-                        justifyContent:"center",
-                        color: textPrimary,
-                        flexShrink: 0,
-                        cursor: "pointer",
-                        transition: "transform 180ms var(--ease-spring), background 200ms ease",
-                      }}
-                    >
-                      <UiIcon name={btn.icon} size={15} color={textPrimary} />
-                    </button>
-                  ))}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, flexWrap:"wrap" }}>
+                  <span style={{
+                    display:"inline-flex",
+                    alignItems:"center",
+                    gap:6,
+                    padding:"7px 11px",
+                    borderRadius:999,
+                    border:`1px solid ${cardBorder}`,
+                    background: controlBg,
+                    color:textDim,
+                    fontSize:11,
+                    fontWeight:700,
+                    letterSpacing:0.2,
+                  }}>
+                    120Hz glass motion · auto save {settings.autoSave ? "on" : "off"}
+                  </span>
                   <button className="btn-bouncy" onClick={() => setAdvancedSettingsModalOpen(true)}
                     title="Advanced Settings"
                     style={{
-                      padding:"7px 12px",
+                      padding:"8px 13px",
                       borderRadius:999,
                       fontSize:11,
-                      fontWeight: 600,
+                      fontWeight: 700,
                       border: `1px solid ${cardBorder}`,
-                      background: controlBg,
+                      background: `linear-gradient(135deg, ${accent}22, ${accent2}16)`,
                       color: textPrimary,
                       cursor: "pointer",
-                      transition: "transform 180ms var(--ease-spring), background 200ms ease",
                       display:"inline-flex",
                       alignItems:"center",
                       gap: 6,
+                      boxShadow:`0 10px 28px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.14)`,
                     }}
                   >
-                    <UiIcon name="settings" size={13} color={textPrimary} /> Advanced
+                    <UiIcon name="settings" size={13} color={accent} /> Advanced
                   </button>
                 </div>
 
@@ -4746,7 +5087,7 @@ export default function LuminaryPanels() {
               background: previewContainerBg,
             }}
           >
-            <div style={{
+            <div className="liquid-surface" style={{
               background: previewContainerBg,
               borderRadius: prevBorderRadius,
               padding: `${prevPadding}px ${prevPadding}px ${prevPadding + 4}px`,
@@ -4755,7 +5096,7 @@ export default function LuminaryPanels() {
               alignItems:"center",
               gap:12,
               border: prevBorderVisible ? `1px solid ${cardBorder}` : "none",
-              boxShadow: `${cardShadow}, 0 ${Math.round(prevShadowIntensity * 0.43)}px ${prevShadowIntensity + 4}px rgba(0,0,0,0.52), 0 0 0 1px ${accent}12`,
+              boxShadow: `${cardShadow}, ${prevGlow ? `0 0 ${Math.round(prevGlowIntensity * 2.1)}px ${hexToRgba(accent, Math.min(0.32, prevGlowIntensity / 150))}, ` : ""}0 ${Math.round(prevShadowIntensity * 0.43)}px ${prevShadowIntensity + 4}px rgba(0,0,0,0.52), 0 0 0 1px ${accent}12`,
               transition:`background ${uiTransition}, border-color ${uiTransition}, box-shadow ${uiTransition}`,
               position:"relative",
               overflow:"hidden",
@@ -4790,37 +5131,35 @@ export default function LuminaryPanels() {
           )}
         </div>
 
-        {/* Mobile bottom nav — Premium V4 pill style */}
+        {/* Mobile bottom nav — LIQUID GLASS iOS STYLE */}
         {vp.isMobile && (
-          <nav className="liquid-water" style={{
+          <nav className="liquid-surface" style={{
             position:"fixed",
-            bottom:10,
-            left:10,
-            right:10,
-            background: isDark
-              ? (settings.hardBlurUI ? `rgba(10,14,24,${Math.max(0.54, glassTint / 255)})` : "rgba(8,10,22,0.82)")
-              : (settings.hardBlurUI ? `rgba(248,252,255,${Math.max(0.6, glassTint / 255)})` : "rgba(248,252,255,0.90)"),
-            ...liquidGlassStyle,
+            bottom:`calc(10px + env(safe-area-inset-bottom))`,
+            left:12,
+            right:12,
+            background: isDark 
+              ? "linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.065))" 
+              : "linear-gradient(145deg, rgba(255,255,255,0.78), rgba(255,255,255,0.48))",
             border:`1px solid ${cardBorder}`,
             display:"flex",
             flexDirection:"row",
-            padding:"6px 8px",
-            paddingBottom:`calc(6px + env(safe-area-inset-bottom))`,
-            gap:3,
-            zIndex:2100,
-            borderRadius:32,
-            boxShadow:`0 16px 56px rgba(0,0,0,0.38), 0 0 0 0.5px rgba(255,255,255,0.07) inset, 0 -2px 12px rgba(0,0,0,0.18)`,
-            animation: settings.performanceMode ? "none" : "navSlideUp 380ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms both",
-            opacity: sliderPreviewFocus ? Math.max(0.6, Math.min(1, (settings.sliderFocusNavOpacity ?? 100) / 100)) : 1,
-            transition: "transform 320ms var(--ease-spring), box-shadow 260ms var(--ease-ios), opacity 220ms ease",
-            transform: sheetOpen ? "translateY(-2px) scale(1.01)" : "translateY(0) scale(1)",
+            padding:"8px",
+            gap:6,
+            zIndex:9999,
+            borderRadius:30,
+            boxShadow:`0 18px 58px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.24)`,
+            animation: settings.performanceMode ? "none" : "navSlideUp 420ms var(--ease-glass) 80ms both",
+            backdropFilter:`blur(${Math.max(22, glassBlur)}px) saturate(${glassSaturation})`,
+            WebkitBackdropFilter:`blur(${Math.max(22, glassBlur)}px) saturate(${glassSaturation})`,
+            fontFamily: APPLE_FONTS,
           }}>
             {[
               { id:"assets", icon:ICONS.assets, label:"Assets" },
               { id:"layout", icon:ICONS.layout, label:"Layout" },
               { id:"avatar", icon:ICONS.avatar, label:"Avatar" },
               { id:"text",   icon:ICONS.text,   label:"Text"   },
-            ].map((t) => {
+            ].map((t, idx) => {
               const isActive = mobileTab === t.id && sheetOpen;
               return (
                 <button
@@ -4842,8 +5181,8 @@ export default function LuminaryPanels() {
                     justifyContent:"center",
                     gap:4,
                     cursor:"pointer",
-                    boxShadow: isActive ? `0 6px 20px ${accent}55` : "none",
-                    transition:"transform 170ms ease, background 190ms ease, box-shadow 190ms ease, color 190ms ease",
+                    boxShadow: isActive ? `0 10px 26px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.22)` : "inset 0 1px 0 rgba(255,255,255,0.04)",
+                    transition:`transform 220ms var(--ease-glass), background ${uiTransition}, box-shadow ${uiTransition}, color ${uiTransition}`,
                     animation: "none",
                     transform: isActive ? "scale(1.04)" : "scale(1)",
                     willChange:"transform",
@@ -4868,6 +5207,7 @@ export default function LuminaryPanels() {
                     fontWeight: isActive ? 800 : 500,
                     letterSpacing: isActive ? 0.4 : 0,
                     transition:"font-weight 200ms ease, letter-spacing 200ms ease",
+                    fontFamily:"'Sora', sans-serif",
                   }}>{t.label}</span>
                 </button>
               );
@@ -4876,39 +5216,41 @@ export default function LuminaryPanels() {
         )}
       </div>
 
-      {/* Tab panel sheet overlay — same genie mechanic as settings */}
+      {/* Tab panel sheet overlay — NAVBAR VISIBLE ABOVE */}
       {vp.isMobile && sheetOpen && (
         <div
           style={{
             position:"fixed",
             inset:0,
-            background:"rgba(0,0,0,0.45)",
+            background:isDark ? "rgba(0,0,0,0.42)" : "rgba(235,243,255,0.48)",
             zIndex:2000,
             display:"flex",
             alignItems:"flex-end",
             justifyContent:"center",
-            backdropFilter:"blur(2px)",
-            WebkitBackdropFilter:"blur(2px)",
+            backdropFilter:"blur(3px)",
+            WebkitBackdropFilter:"blur(3px)",
+            animation: "fadeIn 240ms ease-out",
           }}
           onClick={() => setSheetOpen(false)}
         >
           <div
             style={{
               width:"100%",
-              maxHeight:"68dvh",
+              maxHeight:"calc(100vh - 110px)",  // Leave space for navbar
               overflowY:"auto",
-              borderRadius:"28px 28px 0 0",
-              background: isDark ? "rgba(10,12,24,0.97)" : "rgba(255,255,255,0.97)",
-              backdropFilter:`blur(${uiBlurPx}px) saturate(1.3)`,
-              WebkitBackdropFilter:`blur(${uiBlurPx}px) saturate(1.3)`,
+              borderRadius:"32px 32px 0 0",
+              background: isDark 
+                ? "linear-gradient(155deg, rgba(18,22,38,0.86), rgba(8,12,24,0.78))"
+                : "linear-gradient(155deg, rgba(255,255,255,0.82), rgba(240,248,255,0.70))",
+              backdropFilter:`blur(${Math.max(24, uiBlurPx + 8)}px) saturate(1.8)`,
+              WebkitBackdropFilter:`blur(${Math.max(24, uiBlurPx + 8)}px) saturate(1.8)`,
               border:`1px solid ${cardBorder}`,
               borderBottom:"none",
-              boxShadow:"0 -20px 80px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.08) inset",
+              boxShadow:"0 -22px 80px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.18)",
               display:"flex",
               flexDirection:"column",
-              marginBottom:"calc(84px + env(safe-area-inset-bottom))",
-              animation:"toolSlideUp 400ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-              willChange:"transform, opacity",
+              marginBottom:"calc(100px + env(safe-area-inset-bottom))",  // Space for navbar
+              animation:"toolSlideUp 420ms cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -4943,7 +5285,8 @@ export default function LuminaryPanels() {
                   fontSize:17,
                   fontWeight:700,
                   color:textPrimary,
-                  textTransform:"capitalize",
+                  fontFamily:"'Sora', sans-serif",
+                  letterSpacing:"0.5px",
                 }}>
                   {mobileTab === "assets" ? "Assets & Overlays"
                     : mobileTab === "layout" ? "Layout & Style"
@@ -4985,7 +5328,6 @@ export default function LuminaryPanels() {
                 WebkitOverflowScrolling:"touch",
                 overscrollBehavior:"contain",
                 animation: settings.performanceMode ? "none" : `tabSlideSmooth 240ms var(--ease-ios)`,
-                "--slide-from": `${swipeDir * 18}px`,
               }}
             >
               {mobileTab === "assets" && (
@@ -5011,26 +5353,402 @@ export default function LuminaryPanels() {
 
       {assetHubOpen && (
         <div
-          style={{ position:"fixed", inset:0, zIndex:2190, background:isDark ? "rgba(4,8,16,0.78)" : "rgba(238,245,255,0.84)", display:"flex", flexDirection:"column" }}
-          onClick={() => setAssetHubOpen(false)}
+          style={{
+            position:"fixed",
+            inset:0,
+            zIndex:2190,
+            background:isDark ? "rgba(4,8,16,0.74)" : "rgba(238,245,255,0.72)",
+            display:"flex",
+            flexDirection:"column",
+            backdropFilter: "blur(18px) saturate(1.45)",
+            WebkitBackdropFilter: "blur(18px) saturate(1.45)",
+          }}
+          onClick={() => { setAssetHubOpen(false); setAssetActionId(null); }}
         >
           <div
             className="liquid-water"
-            style={{ width:"100%", height:"100%", overflowY:"auto", borderRadius:0, background:isDark ? "rgba(10,14,24,0.95)" : "rgba(248,252,255,0.94)", ...liquidGlassStyle, border:`1px solid ${cardBorder}`, boxShadow:"0 26px 70px rgba(0,0,0,0.35)", padding:16 }}
+            style={{
+              width:"100%",
+              height:"100%",
+              display:"flex",
+              flexDirection:"column",
+              overflowY:"auto",
+              borderRadius:0,
+              background:isDark ? "linear-gradient(145deg, rgba(10,14,24,0.72), rgba(6,8,16,0.52))" : "linear-gradient(145deg, rgba(255,255,255,0.64), rgba(246,251,255,0.42))",
+              ...liquidGlassStyle,
+              border:`1px solid ${cardBorder}`,
+              boxShadow:"0 26px 90px rgba(0,0,0,0.42)",
+              animation: "fadeInSmooth 180ms ease-out",
+              fontFamily: APPLE_FONTS,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ position:"sticky", top:0, zIndex:2, display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:10, padding:"8px 4px 12px", backdropFilter:"blur(16px)" }}>
-              <h3 style={{ margin:0, color:textPrimary, fontSize:18, display:"inline-flex", alignItems:"center", gap:8 }}><UiIcon name="assets" size={18} color={accent} /> Assets Hub</h3>
-              <button onClick={() => setAssetHubOpen(false)} style={{ ...outlineBtn, width:"auto", minWidth:64, padding:"8px 12px", minHeight:38 }}>Close</button>
+            <div style={{
+              position:"sticky",
+              top:0,
+              zIndex:4,
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"space-between",
+              gap:12,
+              padding:"calc(max(env(safe-area-inset-top), 12px)) 18px 14px",
+              borderBottom:`1px solid ${cardBorder}`,
+              background: isDark ? "rgba(10,12,24,0.58)" : "rgba(255,255,255,0.58)",
+              backdropFilter:`blur(${Math.max(18, uiBlurPx + 4)}px) saturate(1.55)`,
+              WebkitBackdropFilter:`blur(${Math.max(18, uiBlurPx + 4)}px) saturate(1.55)`,
+            }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
+                <div style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 17,
+                  background: `linear-gradient(135deg, ${accent}, ${accent2})`,
+                  display:"flex",
+                  alignItems:"center",
+                  justifyContent:"center",
+                  boxShadow: `0 10px 26px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.32)`,
+                }}>
+                  <UiIcon name="assets" size={23} color="#fff" stroke={2.2} />
+                </div>
+                <div style={{ minWidth:0 }}>
+                  <h2 style={{ margin:0, fontSize:21, fontWeight:800, color:textPrimary, letterSpacing:-0.6 }}>Asset Hub</h2>
+                  <p className="premium-body-copy" style={{ margin:"4px 0 0", fontSize:12, color:textDim, fontWeight:600 }}>Tap to apply. Hold a tile for role actions.</p>
+                </div>
+              </div>
+              <button
+                className="liquid-action-chip"
+                onClick={() => { setAssetHubOpen(false); setAssetActionId(null); }}
+                style={{
+                  width:42,
+                  height:42,
+                  borderRadius:14,
+                  border:`1px solid ${cardBorder}`,
+                  background:controlBg,
+                  color:textPrimary,
+                  cursor:"pointer",
+                  display:"flex",
+                  alignItems:"center",
+                  justifyContent:"center",
+                  flexShrink:0,
+                }}
+              ><UiIcon name="close" size={18} color={textPrimary} /></button>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:8, marginBottom:12 }}>
-              <button onClick={() => avFileRef.current?.click()} style={outlineBtn}>🖼 Import Avatar PNG/JPG</button>
-              <button onClick={() => bgFileRef.current?.click()} style={outlineBtn}>🌄 Import Background PNG/JPG</button>
-              <button onClick={() => fileLoaderRef.current?.click()} style={outlineBtn}>➕ Import Overlay PNG/JPG</button>
-              <button onClick={() => borderFileRef.current?.click()} style={outlineBtn}>🧵 Import Border PNG/JPG</button>
-            </div>
-            <div style={{ marginBottom:12 }}>
-              {panelAssetManager}
+
+            <div style={{
+              flex:1,
+              overflowY:"auto",
+              padding: vp.isMobile ? "18px 14px 110px" : "24px 22px",
+              display:"grid",
+              gridTemplateColumns: vp.isMobile ? "1fr" : "minmax(280px, 360px) 1fr",
+              gap:18,
+              alignItems:"start",
+            }}>
+              <section className="liquid-surface" style={{
+                border:`1px solid ${cardBorder}`,
+                borderRadius:26,
+                background:cardBg,
+                padding:16,
+                boxShadow:cardShadow,
+              }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:14 }}>
+                  <h3 style={{ margin:0, fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>Import</h3>
+                  <span style={{ fontSize:11, color:textDim, fontWeight:700 }}>{assetItems.length} saved</span>
+                </div>
+
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:10, marginBottom:16 }}>
+                  {[
+                    { id:"avatar", label:"Avatar", icon:"avatar", desc:"Profile source", onClick: () => hubAvFileRef.current?.click() },
+                    { id:"background", label:"Background", icon:"background", desc:"Canvas scene", onClick: () => hubBgFileRef.current?.click() },
+                    { id:"overlay", label:"Overlay", icon:"overlay", desc:"Image layer", onClick: () => hubOverlayFileRef.current?.click() },
+                    { id:"border", label:"Border", icon:"border", desc:"Frame art", onClick: () => hubBorderFileRef.current?.click() },
+                  ].map((item, idx) => (
+                    <button
+                      key={item.id}
+                      className="morph-tile"
+                      onClick={item.onClick}
+                      style={{
+                        padding:"14px 12px",
+                        minHeight:96,
+                        borderRadius:20,
+                        border:`1px solid ${cardBorder}`,
+                        background:controlBg,
+                        color:textPrimary,
+                        cursor:"pointer",
+                        display:"flex",
+                        flexDirection:"column",
+                        alignItems:"flex-start",
+                        justifyContent:"space-between",
+                        gap:10,
+                        boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10)",
+                        animation: settings.performanceMode ? "none" : `fadeIn 220ms var(--ease-ios) ${idx * 24}ms backwards`,
+                      }}
+                    >
+                      <span style={{
+                        width:36,
+                        height:36,
+                        borderRadius:14,
+                        display:"inline-flex",
+                        alignItems:"center",
+                        justifyContent:"center",
+                        background:`linear-gradient(135deg, ${accent}30, ${accent2}18)`,
+                        boxShadow:`inset 0 1px 0 rgba(255,255,255,0.18)`,
+                      }}><UiIcon name={item.icon} size={18} color={accent} /></span>
+                      <span style={{ textAlign:"left" }}>
+                        <span style={{ display:"block", fontSize:13, fontWeight:800 }}>{item.label}</span>
+                        <span className="premium-body-copy" style={{ display:"block", fontSize:11, color:textDim, marginTop:2 }}>{item.desc}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <h3 style={{ margin:"2px 0 10px", fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>Generate</h3>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:10 }}>
+                  {[
+                    { kind:"overlay", type:"liquid-orb", label:"Liquid Orb", icon:"sparkles" },
+                    { kind:"overlay", type:"glass-ring", label:"Glass Ring", icon:"overlay" },
+                    { kind:"overlay", type:"lens-flare", label:"Lens Flare", icon:"wand" },
+                    { kind:"border", type:"glass-frame", label:"Glass Frame", icon:"border" },
+                    { kind:"border", type:"corner-ribbon", label:"Corner Ribbon", icon:"border" },
+                    { kind:"texture", type:"film-grain", label:"Film Grain", icon:"texture" },
+                  ].map((item, idx) => (
+                    <button
+                      key={item.type}
+                      className="liquid-action-chip"
+                      onClick={() => addGeneratedAsset(item.kind, item.type, item.label)}
+                      style={{
+                        padding:"11px 10px",
+                        borderRadius:16,
+                        border:`1px solid ${cardBorder}`,
+                        background:`linear-gradient(135deg, ${accent}18, ${accent2}10)`,
+                        color:textPrimary,
+                        cursor:"pointer",
+                        display:"inline-flex",
+                        alignItems:"center",
+                        gap:8,
+                        fontSize:12,
+                        fontWeight:750,
+                        justifyContent:"flex-start",
+                      }}
+                    >
+                      <UiIcon name={item.icon} size={15} color={accent} />
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="liquid-surface" style={{ marginTop:16, border:`1px solid ${cardBorder}`, borderRadius:22, background:`linear-gradient(145deg, ${accent}12, ${accent2}08)`, padding:14, boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:10 }}>
+                    <div>
+                      <h3 style={{ margin:0, fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>AI Border Studio</h3>
+                      <p className="premium-body-copy" style={{ margin:"4px 0 0", fontSize:11.5, color:textDim }}>Default Local Lite is free and auto-builds a border that matches the avatar palette.</p>
+                    </div>
+                    <span style={{ fontSize:10.5, color:textDim, fontWeight:800, padding:"6px 8px", borderRadius:999, border:`1px solid ${cardBorder}`, background:controlBg }}>{aiBorderConfig.provider === "custom-api" ? "Custom API" : "Local Lite"}</span>
+                  </div>
+
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+                    {[
+                      { id:"local-lite", label:"Local Lite" },
+                      { id:"custom-api", label:"Your API" },
+                    ].map(item => {
+                      const active = aiBorderConfig.provider === item.id;
+                      return (
+                        <button key={item.id} className="liquid-action-chip" onClick={() => setAiBorderConfig(prev => ({ ...prev, provider: item.id }))} style={{ border:`1px solid ${active ? accent : cardBorder}`, background: active ? `linear-gradient(135deg, ${accent}26, ${accent2}14)` : controlBg, color:textPrimary, borderRadius:14, padding:"10px 12px", fontSize:12, fontWeight:800, cursor:"pointer" }}>{item.label}</button>
+                      );
+                    })}
+                  </div>
+
+                  <textarea
+                    value={aiBorderPrompt}
+                    onChange={(e) => setAiBorderPrompt(e.target.value)}
+                    placeholder="Modify the border: e.g. soft liquid glass, luxe gold edges, minimal tech halo"
+                    style={{ ...inputSt, minHeight:88, resize:"vertical", marginBottom:10 }}
+                  />
+
+                  {aiBorderConfig.provider === "custom-api" && (
+                    <div style={{ display:"grid", gap:8, marginBottom:10 }}>
+                      <input value={aiBorderConfig.endpoint} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, endpoint: e.target.value }))} placeholder="Custom endpoint URL" style={inputSt} />
+                      <input value={aiBorderConfig.model} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, model: e.target.value }))} placeholder="Model name (optional)" style={inputSt} />
+                      <input value={aiBorderConfig.apiKey} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, apiKey: e.target.value }))} placeholder="API key / bearer token" style={inputSt} />
+                      <p className="premium-body-copy" style={{ margin:0, fontSize:11, color:textDim }}>Expected response JSON: <span style={{ fontFamily: APPLE_MONO }}>svg</span>, <span style={{ fontFamily: APPLE_MONO }}>dataUrl</span>, <span style={{ fontFamily: APPLE_MONO }}>image</span>, or <span style={{ fontFamily: APPLE_MONO }}>url</span>.</p>
+                    </div>
+                  )}
+
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+                    <label style={{ display:"grid", gap:6, color:textDim, fontSize:11.5, fontWeight:700 }}>Detail {aiBorderConfig.detail}
+                      <input type="range" min="20" max="100" value={aiBorderConfig.detail} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, detail: Number(e.target.value) }))} />
+                    </label>
+                    <label style={{ display:"grid", gap:6, color:textDim, fontSize:11.5, fontWeight:700 }}>Density {aiBorderConfig.density}
+                      <input type="range" min="20" max="100" value={aiBorderConfig.density} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, density: Number(e.target.value) }))} />
+                    </label>
+                  </div>
+
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+                    <button className="liquid-action-chip" onClick={() => setAiBorderConfig(prev => ({ ...prev, autoGenerateOnAvatar: !prev.autoGenerateOnAvatar }))} style={{ border:`1px solid ${aiBorderConfig.autoGenerateOnAvatar ? accent : cardBorder}`, background: aiBorderConfig.autoGenerateOnAvatar ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:14, padding:"10px 12px", fontSize:11.5, fontWeight:800, cursor:"pointer" }}>Auto-generate on avatar {aiBorderConfig.autoGenerateOnAvatar ? "On" : "Off"}</button>
+                    <button className="liquid-action-chip" onClick={() => setAiBorderConfig(prev => ({ ...prev, autoApplyGeneratedBorder: !prev.autoApplyGeneratedBorder }))} style={{ border:`1px solid ${aiBorderConfig.autoApplyGeneratedBorder ? accent : cardBorder}`, background: aiBorderConfig.autoApplyGeneratedBorder ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:14, padding:"10px 12px", fontSize:11.5, fontWeight:800, cursor:"pointer" }}>Auto-apply border {aiBorderConfig.autoApplyGeneratedBorder ? "On" : "Off"}</button>
+                  </div>
+
+                  <button
+                    className="liquid-action-chip"
+                    onClick={() => generateAiBorderAsset()}
+                    disabled={aiBorderBusy}
+                    style={{ width:"100%", padding:"13px 14px", borderRadius:16, border:`1px solid ${accent}`, background:`linear-gradient(135deg, ${accent}32, ${accent2}16)`, color:textPrimary, cursor:aiBorderBusy ? "wait" : "pointer", fontSize:13, fontWeight:800, display:"inline-flex", alignItems:"center", justifyContent:"center", gap:8, opacity: aiBorderBusy ? 0.72 : 1 }}
+                  >
+                    <UiIcon name="sparkles" size={16} color={textPrimary} />
+                    {aiBorderBusy ? "Generating AI Border…" : "Generate Border From Current Avatar"}
+                  </button>
+
+                  <p className="premium-body-copy" style={{ margin:"10px 0 0", fontSize:11.5, color: aiBorderStatus ? textPrimary : textDim }}>{aiBorderStatus || "All AI border outputs are stored as border assets and can be reapplied anytime."}</p>
+                </div>
+              </section>
+
+              <section className="liquid-surface" style={{
+                border:`1px solid ${cardBorder}`,
+                borderRadius:26,
+                background:cardBg,
+                padding:16,
+                boxShadow:cardShadow,
+                minHeight:360,
+              }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", marginBottom:14 }}>
+                  <h3 style={{ margin:0, fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>Library</h3>
+                  <div style={{ display:"flex", gap:7, overflowX:"auto", paddingBottom:2 }}>
+                    {["all", ...ASSET_KIND_ORDER].map(kind => {
+                      const active = assetKindFilter === kind;
+                      return (
+                        <button
+                          key={kind}
+                          className="liquid-action-chip"
+                          onClick={() => { setAssetKindFilter(kind); setAssetActionId(null); }}
+                          style={{
+                            border:`1px solid ${active ? accent : cardBorder}`,
+                            background: active ? `linear-gradient(135deg, ${accent}30, ${accent2}16)` : controlBg,
+                            color: active ? textPrimary : textDim,
+                            borderRadius:999,
+                            padding:"8px 10px",
+                            fontSize:11,
+                            fontWeight:800,
+                            cursor:"pointer",
+                            display:"inline-flex",
+                            alignItems:"center",
+                            gap:6,
+                            whiteSpace:"nowrap",
+                          }}
+                        >
+                          <UiIcon name={ASSET_KIND_META[kind]?.icon || "assets"} size={13} color={active ? accent : textDim} />
+                          {ASSET_KIND_META[kind]?.label || kind}
+                          <span style={{ opacity:0.62 }}>{assetCounts[kind] || 0}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {filteredAssetItems.length === 0 ? (
+                  <div style={{
+                    minHeight:260,
+                    display:"flex",
+                    alignItems:"center",
+                    justifyContent:"center",
+                    flexDirection:"column",
+                    gap:12,
+                    textAlign:"center",
+                    borderRadius:22,
+                    border:`1px dashed ${cardBorder}`,
+                    background:`linear-gradient(135deg, ${accent}10, transparent)`,
+                    color:textDim,
+                  }}>
+                    <div style={{ width:58, height:58, borderRadius:22, display:"flex", alignItems:"center", justifyContent:"center", background:controlBg }}>
+                      <UiIcon name="package" size={28} color={accent} />
+                    </div>
+                    <p className="premium-body-copy" style={{ margin:0, fontSize:13, maxWidth:260 }}>Import or generate an asset. It will be grouped by type and ready to apply with one tap.</p>
+                  </div>
+                ) : (
+                  <div style={{
+                    display:"grid",
+                    gridTemplateColumns: vp.isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(150px, 1fr))",
+                    gap:12,
+                  }}>
+                    {filteredAssetItems.map((item, idx) => {
+                      const held = assetActionId === item.id;
+                      const kind = normalizeAssetKind(item.kind);
+                      return (
+                        <div
+                          key={item.id}
+                          className={`morph-tile ${held ? "asset-card-held" : ""}`}
+                          onPointerDown={() => beginAssetHold(item)}
+                          onPointerUp={() => endAssetHold(item)}
+                          onPointerCancel={() => window.clearTimeout(assetHoldTimerRef.current)}
+                          onPointerLeave={() => window.clearTimeout(assetHoldTimerRef.current)}
+                          onContextMenu={(e) => { e.preventDefault(); setAssetActionId(item.id); mediumHaptic(settings.hapticFeedback); }}
+                          style={{
+                            borderRadius:22,
+                            border:`1px solid ${held ? accent : cardBorder}`,
+                            background:controlBg,
+                            overflow:"hidden",
+                            aspectRatio:"1 / 1.12",
+                            position:"relative",
+                            cursor:"pointer",
+                            boxShadow: held ? `0 18px 44px ${accent}30, inset 0 1px 0 rgba(255,255,255,0.18)` : "inset 0 1px 0 rgba(255,255,255,0.08)",
+                            animation: settings.performanceMode ? "none" : `fadeIn 180ms var(--ease-ios) ${Math.min(idx, 12) * 18}ms backwards`,
+                          }}
+                        >
+                          <div style={{ height:"70%", position:"relative", overflow:"hidden", background:`linear-gradient(135deg, ${accent}10, ${accent2}08)` }}>
+                            {item.src && <img src={item.src} alt={item.label || "Asset"} style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />}
+                            <span style={{
+                              position:"absolute",
+                              top:8,
+                              left:8,
+                              display:"inline-flex",
+                              alignItems:"center",
+                              gap:5,
+                              padding:"5px 7px",
+                              borderRadius:999,
+                              background:"rgba(0,0,0,0.42)",
+                              color:"#fff",
+                              fontSize:10,
+                              fontWeight:800,
+                              backdropFilter:"blur(10px)",
+                              WebkitBackdropFilter:"blur(10px)",
+                            }}><UiIcon name={ASSET_KIND_META[kind]?.icon || "assets"} size={11} color="#fff" />{ASSET_KIND_META[kind]?.label || "Asset"}</span>
+                          </div>
+                          <div style={{ padding:"10px 10px 12px", minHeight:0 }}>
+                            <div style={{ color:textPrimary, fontSize:12, fontWeight:800, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.label || "Asset"}</div>
+                            <div style={{ color:textDim, fontSize:10.5, marginTop:3 }}>{item.savedAt ? new Date(item.savedAt).toLocaleDateString() : "Saved"}</div>
+                          </div>
+                          {held && (
+                            <div style={{
+                              position:"absolute",
+                              inset:8,
+                              borderRadius:18,
+                              background:isDark ? "rgba(7,10,18,0.78)" : "rgba(255,255,255,0.76)",
+                              border:`1px solid ${accent}66`,
+                              backdropFilter:"blur(20px) saturate(1.45)",
+                              WebkitBackdropFilter:"blur(20px) saturate(1.45)",
+                              display:"grid",
+                              gridTemplateColumns:"1fr 1fr",
+                              gap:7,
+                              padding:8,
+                              animation:"morphPillIn 180ms var(--ease-glass)",
+                            }} onPointerDown={e => e.stopPropagation()} onPointerUp={e => e.stopPropagation()}>
+                              {[
+                                { label:"Apply", icon:"apply", action: () => applyAssetFromLibrary(item) },
+                                { label:"Avatar", icon:"avatar", action: () => applyAssetFromLibrary({ ...item, kind:"avatar" }) },
+                                { label:"Back", icon:"background", action: () => applyAssetFromLibrary({ ...item, kind:"background" }) },
+                                { label:"Frame", icon:"border", action: () => applyAssetFromLibrary({ ...item, kind:"border" }) },
+                              ].map(a => (
+                                <button key={a.label} className="liquid-action-chip" onClick={(e) => { e.stopPropagation(); a.action(); setAssetActionId(null); }} style={{ border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, borderRadius:12, fontSize:10.5, fontWeight:800, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4 }}>
+                                  <UiIcon name={a.icon} size={14} color={accent} />{a.label}
+                                </button>
+                              ))}
+                              <button className="liquid-action-chip" onClick={(e) => { e.stopPropagation(); setAssetLibrary(prev => ({ ...prev, recent: (prev.recent || []).filter(x => x.id !== item.id) })); setAssetActionId(null); }} style={{ gridColumn:"1 / -1", border:`1px solid rgba(255,95,95,0.42)`, background:"rgba(255,95,95,0.10)", color:"#ff7373", borderRadius:12, fontSize:11, fontWeight:800, cursor:"pointer", display:"inline-flex", alignItems:"center", justifyContent:"center", gap:6 }}><UiIcon name="trash" size={13} color="#ff7373" />Remove</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
             </div>
           </div>
         </div>
@@ -5344,7 +6062,7 @@ export default function LuminaryPanels() {
           WebkitBackdropFilter:"blur(12px) saturate(1.3)",
         animation: "toastPop 480ms var(--ease-spring)",
         }}>
-          ✅ {saveNotice}
+          {saveNotice}
         </div>
       )}
     </div>
@@ -5412,27 +6130,29 @@ function DimensionInput({ value, min, max, onConfirm, accent, textPrimary, contr
 
 function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, accent }) {
   return (
-    <div style={{
+    <div className="liquid-surface" style={{
       background: cardBg,
-      borderRadius: 22,
-      padding: "16px 18px 18px",
+      borderRadius: 26,
+      padding: "17px 18px 18px",
       border: `1px solid ${cardBorder}`,
       boxShadow: cardShadow || "none",
-      animation: "cardFloat 480ms var(--ease-spring)",
-      transition: "border-color 220ms var(--ease-ios), box-shadow 280ms var(--ease-ios), background 220ms var(--ease-ios)",
+      animation: "cardFloat 520ms var(--ease-glass)",
+      transition: "border-color 260ms var(--ease-ios), box-shadow 320ms var(--ease-ios), background 260ms var(--ease-ios), transform 260ms var(--ease-ios)",
       position: "relative",
       overflow: "hidden",
+      backdropFilter: "blur(26px) saturate(1.65)",
+      WebkitBackdropFilter: "blur(26px) saturate(1.65)",
     }}>
       <div style={{
         position: "absolute",
-        top: 0, left: "22%", right: "22%",
+        top: 0, left: "14%", right: "14%",
         height: 1,
-        background: `linear-gradient(90deg, transparent, ${accent || textDim}40, transparent)`,
+        background: `linear-gradient(90deg, transparent, ${accent || textDim}66, rgba(255,255,255,0.55), transparent)`,
         pointerEvents: "none",
       }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 14 }}>
-        <div style={{ width: 5, height: 5, borderRadius: "50%", background: accent || textDim, opacity: 0.65, flexShrink: 0 }} />
-        <p style={{ fontSize: 10.5, fontWeight: 700, color: textDim, textTransform: "uppercase", letterSpacing: 1.1, margin: 0 }}>{label}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 15 }}>
+        <div style={{ width: 7, height: 7, borderRadius: "50%", background: accent || textDim, boxShadow: `0 0 16px ${accent || textDim}99`, opacity: 0.9, flexShrink: 0 }} />
+        <p style={{ fontSize: 10.5, fontWeight: 800, color: textDim, textTransform: "uppercase", letterSpacing: 1.15, margin: 0 }}>{label}</p>
       </div>
       {children}
     </div>
