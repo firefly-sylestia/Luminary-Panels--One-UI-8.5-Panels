@@ -448,6 +448,28 @@ async function requestRemoteAiBorder({ endpoint, apiKey, model, prompt, palette,
   return data?.svg || data?.dataUrl || data?.image || data?.url || null;
 }
 
+async function toPngDataUrl(src, size = 768) {
+  if (!src) return null;
+  if (typeof src === "string" && src.startsWith("data:image/png")) return src;
+  const image = await decodeImageOrFallback(src, null);
+  if (!image) return src;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d", { alpha: true });
+  if (!ctx) return src;
+  ctx.clearRect(0, 0, size, size);
+  const sourceW = image.naturalWidth || image.width || size;
+  const sourceH = image.naturalHeight || image.height || size;
+  const ratio = Math.min(size / sourceW, size / sourceH);
+  const drawW = sourceW * ratio;
+  const drawH = sourceH * ratio;
+  const dx = (size - drawW) / 2;
+  const dy = (size - drawH) / 2;
+  ctx.drawImage(image, dx, dy, drawW, drawH);
+  return canvas.toDataURL("image/png");
+}
+
 
 const ICONS = {
   undo: "undo",
@@ -1934,6 +1956,7 @@ function UiIcon({ name, size = 16, color = "currentColor", stroke = 2 }) {
     avatar: <><circle cx="12" cy="8" r="3.2"/><path d="M4.5 19.5a7.5 7.5 0 0 1 15 0"/></>,
     text: <><path d="M4 6h16M12 6v12M8 18h8"/></>,
     geometry: <><path d="M4 20 20 4M6 6h6v6M18 18h-6v-6"/></>,
+    github: <><path d="M12 3.5a8.5 8.5 0 0 0-2.7 16.6c.4.1.5-.2.5-.4v-1.5c-2.1.5-2.6-.9-2.6-.9-.3-.8-.9-1-1-1-.8-.5.1-.5.1-.5.9.1 1.4.9 1.4.9.8 1.3 2.1 1 2.6.8.1-.6.3-1 .6-1.2-1.7-.2-3.5-.8-3.5-3.8 0-.8.3-1.4.8-1.9-.1-.2-.3-1 .1-2.1 0 0 .7-.2 2.2.8a7.4 7.4 0 0 1 4 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.5.8 1.1.8 1.9 0 3-1.8 3.6-3.6 3.8.3.2.6.7.6 1.5v2.2c0 .2.1.5.5.4A8.5 8.5 0 0 0 12 3.5Z"/></>,
     rocket: <><path d="M14 4c3 0 6 3 6 6-2 1-4 1-6 0-1-2-1-4 0-6Z"/><path d="M10 14 4 20m6-6 4 4"/><path d="M7 17l-3 3M9 9l6 6"/></>,
     palette: <><path d="M12 3a9 9 0 1 0 0 18h1.1a2.4 2.4 0 0 0 .3-4.8H12a2 2 0 0 1 0-4h5a4 4 0 0 0 0-8h-5Z"/><circle cx="7.5" cy="10" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="14" cy="7" r="1"/></>,
     sparkles: <><path d="M12 3 13.8 8.2 19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m5 3 .8 2.2L8 6l-2.2.8L5 9l-.8-2.2L2 6l2.2-.8L5 3Zm14 10 .8 2.2L22 16l-2.2.8L19 19l-.8-2.2L16 16l2.2-.8L19 13Z"/></>,
@@ -2279,21 +2302,25 @@ export default function LuminaryPanels() {
       const res = await fetch(`${RELEASE_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error("manifest unavailable");
       const data = await res.json();
-      const latestVersion = data?.version || null;
-      const downloadUrl = data?.downloadUrl || null;
-      const hasUpdate = latestVersion ? versionCompare(latestVersion, __APP_VERSION__) > 0 : false;
+      let latestVersion = data?.version || null;
+      let downloadUrl = data?.downloadUrl || null;
       let downloadCount = Number.isFinite(data?.downloadCount) ? data.downloadCount : null;
-      if (downloadCount == null) {
-        try {
-          const gh = await fetch("https://api.github.com/repos/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels/releases/latest", { cache: "no-store" });
-          if (gh.ok) {
-            const rel = await gh.json();
+      let ghTagVersion = null;
+      try {
+        const gh = await fetch("https://api.github.com/repos/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels/releases/latest", { cache: "no-store" });
+        if (gh.ok) {
+          const rel = await gh.json();
+          ghTagVersion = String(rel?.tag_name || "").replace(/^v/i, "") || null;
+          downloadUrl = downloadUrl || rel?.html_url || rel?.assets?.[0]?.browser_download_url || null;
+          if (downloadCount == null) {
             downloadCount = Array.isArray(rel?.assets)
               ? rel.assets.reduce((sum, item) => sum + (Number(item?.download_count) || 0), 0)
               : null;
           }
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
+      latestVersion = latestVersion || ghTagVersion;
+      const hasUpdate = latestVersion ? versionCompare(latestVersion, __APP_VERSION__) > 0 : false;
       setReleaseInfo({ latestVersion, downloadUrl, hasUpdate, checkedAt: Date.now(), downloadCount });
     } catch (_) {
       setReleaseInfo(prev => ({ ...prev, checkedAt: Date.now() }));
@@ -3461,7 +3488,7 @@ export default function LuminaryPanels() {
   const tabSliderClass = (tab) => (isTabSlidersVisible(tab) ? "" : "sliders-hidden");
   const assetItems = useMemo(() => sortAssetItems(assetLibrary.recent || []), [assetLibrary.recent]);
   const filteredAssetItems = useMemo(() => assetKindFilter === "all" ? assetItems : assetItems.filter(item => normalizeAssetKind(item.kind) === assetKindFilter), [assetItems, assetKindFilter]);
-  const visibleAssetItems = useMemo(() => filteredAssetItems.slice(0, settings.performanceMode ? 40 : 96), [filteredAssetItems, settings.performanceMode]);
+  const visibleAssetItems = useMemo(() => filteredAssetItems.slice(0, settings.performanceMode ? 28 : (vp.isMobile ? 56 : 96)), [filteredAssetItems, settings.performanceMode, vp.isMobile]);
   const hiddenAssetCount = Math.max(0, filteredAssetItems.length - visibleAssetItems.length);
   const assetCounts = useMemo(() => assetItems.reduce((acc, item) => {
     const k = normalizeAssetKind(item.kind);
@@ -3484,7 +3511,7 @@ export default function LuminaryPanels() {
       return null;
     }
     setAiBorderBusy(true);
-    setAiBorderStatus(aiBorderConfig.provider === "custom-api" ? "Generating border with your API…" : "Generating border with Local Lite…");
+    setAiBorderStatus(aiBorderConfig.provider === "custom-api" ? "Generating border with your API…" : "Generating border with Local Lite AI renderer…");
     try {
       const palette = await extractPaletteFromImageSrc(sourceImage);
       const promptBase = String(promptOverride || aiBorderPrompt || "").trim();
@@ -3520,7 +3547,8 @@ export default function LuminaryPanels() {
           seedLabel: `AI Border · ${finalPrompt.slice(0, 34) || "Auto"}`,
         });
       }
-      const item = registerImportedAsset("border", generatedSrc, `AI Border ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+      const finalBorderSrc = await toPngDataUrl(generatedSrc, 768);
+      const item = registerImportedAsset("border", finalBorderSrc, `AI Border ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
       if (item) {
         setAssetHubOpen(true);
         setAssetKindFilter("border");
@@ -3529,7 +3557,7 @@ export default function LuminaryPanels() {
         if (aiBorderConfig.autoApplyGeneratedBorder) {
           pushState({
             borderStyleId: "custom-image",
-            customBorderSrc: generatedSrc,
+            customBorderSrc: finalBorderSrc,
             customBorderScale: s.customBorderScale ?? 124,
             customBorderOpacity: s.customBorderOpacity ?? 100,
             customBorderRotation: s.customBorderRotation ?? 0,
@@ -4426,7 +4454,7 @@ export default function LuminaryPanels() {
         fontSize:13,
         fontWeight:600,
         boxShadow:`0 8px 20px ${accent}22`,
-      }}> GitHub · firefly-sylestia</a>
+      }}><UiIcon name="github" size={16} color={textPrimary} /> GitHub · firefly-sylestia</a>
 
       <button className="liquid-action-chip" onClick={() => { microHaptic(settings.hapticFeedback); setAdvancedSettingsModalOpen(true); setAdvancedSettingsTab("Animation & Performance"); }} style={{ ...outlineBtn, color:accent, marginBottom:16 }}><SvgAction icon="settings" label="Open Animation & Performance Settings" tone={accent} /></button>
 
@@ -5532,7 +5560,7 @@ export default function LuminaryPanels() {
                   <span style={{ fontSize:11, color:textDim, fontWeight:700 }}>{assetItems.length} saved</span>
                 </div>
 
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:10, marginBottom:16 }}>
+                <div style={{ display:"grid", gridTemplateColumns: vp.isMobile ? "1fr" : "repeat(2, minmax(0,1fr))", gap:10, marginBottom:16 }}>
                   {[
                     { id:"avatar", label:"Avatar", icon:"avatar", desc:"Profile source", onClick: () => hubAvFileRef.current?.click() },
                     { id:"background", label:"Background", icon:"background", desc:"Canvas scene", onClick: () => hubBgFileRef.current?.click() },
@@ -5579,7 +5607,7 @@ export default function LuminaryPanels() {
                 </div>
 
                 <h3 style={{ margin:"2px 0 10px", fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>Generate</h3>
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(2, minmax(0,1fr))", gap:10 }}>
+                <div style={{ display:"grid", gridTemplateColumns: vp.isMobile ? "1fr" : "repeat(2, minmax(0,1fr))", gap:10 }}>
                   {[
                     { kind:"overlay", type:"liquid-orb", label:"Liquid Orb", icon:"sparkles" },
                     { kind:"overlay", type:"glass-ring", label:"Glass Ring", icon:"overlay" },
