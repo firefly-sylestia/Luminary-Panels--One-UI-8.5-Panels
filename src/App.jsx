@@ -700,35 +700,56 @@ function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePrese
 }
 
 // Pollinations.ai — free, no auth required, returns a PNG URL directly.
-// Has a hard 45s timeout so a stalled image request can never lock the UI.
+// Has a hard 60s timeout so a stalled image request can never lock the UI.
+//
+// IMPORTANT: We download the image bytes via fetch() → Blob → FileReader
+// instead of using `new Image()` + `canvas.toDataURL()`. Reason:
+//   1. Pollinations 302-redirects to a CDN. In Android WebView (Capacitor)
+//      the redirected response is often missing the CORS header, which
+//      taints the canvas → toDataURL() throws SecurityError → border
+//      silently falls back to procedural SVG. Bytes-via-fetch bypasses
+//      the canvas entirely so Capacitor APKs get the same PNG as the web.
+//   2. We get the original PNG bytes without a re-encode pass, which is
+//      slightly faster and a tiny bit higher quality.
 async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), abortSignal = null) {
   const enc = encodeURIComponent(finalPrompt);
-  // Bumped 768→1024 for noticeably crisper detail. Pollinations supports up
-  // to 1024 reliably on the free tier.
   const url = `https://image.pollinations.ai/prompt/${enc}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
-  return new Promise((resolve) => {
-    let settled = false;
-    const finish = (val) => { if (settled) return; settled = true; clearTimeout(timer); resolve(val); };
-    const timer = setTimeout(() => finish(null), 60000); // hard cap (1024 is slower)
-    if (abortSignal) {
-      abortSignal.addEventListener("abort", () => finish(null), { once: true });
-    }
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
+
+  // Build a controller we can abort on timeout OR external abortSignal.
+  const controller = (typeof AbortController !== "undefined") ? new AbortController() : null;
+  const timer = setTimeout(() => { try { controller?.abort(); } catch (_) {} }, 60000);
+  if (abortSignal) {
+    abortSignal.addEventListener("abort", () => { try { controller?.abort(); } catch (_) {} }, { once: true });
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      // No `mode: "cors"` so the browser/WebView is permissive on redirects.
+      // We never read the bytes via canvas, so a missing CORS header on the
+      // CDN redirect target is fine — Capacitor WebView still delivers the body.
+      cache: "no-store",
+      signal: controller?.signal,
+      // Force the response to be treated as binary.
+      headers: { Accept: "image/*" },
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    // Convert Blob → data URL (FileReader works inside Capacitor's WebView).
+    const dataUrl = await new Promise((resolve) => {
       try {
-        const canvas = document.createElement("canvas");
-        canvas.width = 1024; canvas.height = 1024;
-        const ctx = canvas.getContext("2d");
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, 0, 0, 1024, 1024);
-        finish(canvas.toDataURL("image/png"));
-      } catch (_) { finish(null); }
-    };
-    img.onerror = () => finish(null);
-    img.src = url;
-  });
+        const fr = new FileReader();
+        fr.onload  = () => resolve(typeof fr.result === "string" ? fr.result : null);
+        fr.onerror = () => resolve(null);
+        fr.readAsDataURL(blob);
+      } catch (_) { resolve(null); }
+    });
+    return dataUrl;
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Google Gemini image generation (gemini-2.5-flash-image / nano-banana family).
@@ -1177,7 +1198,9 @@ const ICONS = {
 };
 
 // ── Global Style Enhancement — 120fps GPU-Accelerated ────────────────────────
-const styleEnhance = document.createElement('style');
+// Guard for SSR/prerender: Next.js evaluates client modules on the server.
+const styleEnhance = (typeof document !== "undefined") ? document.createElement('style') : null;
+if (styleEnhance) {
 styleEnhance.id = 'luminary-enhance-style';
 styleEnhance.textContent = `
   *, *::before, *::after {
@@ -1606,6 +1629,237 @@ styleEnhance.textContent = `
 `;
 if (typeof document !== "undefined" && document.head && !document.getElementById('luminary-enhance-style')) {
   document.head.appendChild(styleEnhance);
+}
+} // end if (styleEnhance)
+
+// ── Premium animation layer (anime.js + GPU-friendly CSS) ────────────────────
+// Adds spring/elastic easings, stagger entrances, shimmer skeletons, scale+ripple
+// micro-interactions, and Android-specific perf overrides (reduced backdrop-blur
+// + forced GPU compositing) so the Capacitor APK matches web fluidity.
+const stylePremium = (typeof document !== "undefined") ? document.createElement("style") : null;
+if (stylePremium) {
+  stylePremium.id = "luminary-premium-anim";
+  stylePremium.textContent = `
+  :root {
+    --spring-out:    cubic-bezier(.22,1.4,.36,1);     /* iOS-like overshoot */
+    --spring-in:     cubic-bezier(.5,-0.18,.7,.4);
+    --ease-emphasis: cubic-bezier(.2,.8,.2,1);
+    --ease-snap:     cubic-bezier(.32,.72,0,1);
+  }
+
+  /* Force the compositor to handle these surfaces (massive Android win). */
+  .settings-panel,
+  .asset-hub-panel,
+  .asset-hub-optimized,
+  .onboarding-sheet,
+  .liquid-action-chip,
+  .morph-tile,
+  .btn-bouncy {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Tactile press micro-interactions (scale + soft ripple). The :active state
+     piggybacks on existing classes so no JSX has to change. */
+  .liquid-action-chip,
+  .btn-bouncy,
+  .morph-tile {
+    transition:
+      transform 220ms var(--spring-out),
+      box-shadow 220ms var(--ease-emphasis),
+      filter 200ms var(--ease-emphasis);
+    will-change: transform;
+  }
+  .liquid-action-chip:active,
+  .btn-bouncy:active {
+    transform: scale(.955) translate3d(0,1px,0);
+    transition-duration: 90ms;
+  }
+  .morph-tile:hover { filter: saturate(1.06) brightness(1.03); }
+
+  /* Ripple pseudo-element for premium tactile feedback. */
+  .liquid-action-chip,
+  .btn-bouncy {
+    position: relative;
+    overflow: hidden;
+  }
+  .liquid-action-chip::before,
+  .btn-bouncy::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(circle at var(--rx,50%) var(--ry,50%), rgba(255,255,255,.32), transparent 55%);
+    opacity: 0;
+    transform: scale(.4);
+    pointer-events: none;
+    transition: opacity 260ms var(--ease-emphasis), transform 420ms var(--spring-out);
+  }
+  .liquid-action-chip:active::before,
+  .btn-bouncy:active::before {
+    opacity: 1;
+    transform: scale(1);
+    transition-duration: 90ms, 0ms;
+  }
+
+  /* Settings + Asset Hub: spring entrance with blur dissolve. */
+  @keyframes premiumPanelIn {
+    0%   { opacity: 0; transform: translate3d(0,28px,0) scale(.97); filter: blur(8px); }
+    60%  { opacity: 1;                                              filter: blur(0);   }
+    100% { opacity: 1; transform: translate3d(0,0,0)  scale(1);     filter: blur(0);   }
+  }
+  @keyframes premiumPanelOut {
+    0%   { opacity: 1; transform: translate3d(0,0,0)  scale(1);     filter: blur(0);   }
+    100% { opacity: 0; transform: translate3d(0,18px,0) scale(.985);filter: blur(6px); }
+  }
+  .settings-panel,
+  .asset-hub-panel { animation: premiumPanelIn 360ms var(--spring-out) both; }
+
+  /* Stagger entrance for list items inside panels. Targets direct children
+     of common containers — no JSX changes required. The nth-child delays
+     create the cascade. */
+  @keyframes premiumStaggerIn {
+    0%   { opacity: 0; transform: translate3d(0,10px,0); }
+    100% { opacity: 1; transform: translate3d(0,0,0);    }
+  }
+  .settings-panel > *,
+  .asset-hub-panel .asset-grid > *,
+  .asset-hub-optimized > * {
+    animation: premiumStaggerIn 420ms var(--ease-emphasis) both;
+  }
+  .settings-panel > *:nth-child(1)  { animation-delay: 40ms; }
+  .settings-panel > *:nth-child(2)  { animation-delay: 80ms; }
+  .settings-panel > *:nth-child(3)  { animation-delay: 120ms; }
+  .settings-panel > *:nth-child(4)  { animation-delay: 160ms; }
+  .settings-panel > *:nth-child(5)  { animation-delay: 200ms; }
+  .settings-panel > *:nth-child(6)  { animation-delay: 240ms; }
+  .settings-panel > *:nth-child(n+7){ animation-delay: 280ms; }
+
+  /* Smooth value-change indicator for sliders / counters: parents tag with
+     [data-morph-value] and the number inside can use the .v0-num-morph class. */
+  .v0-num-morph {
+    display: inline-block;
+    transition: transform 260ms var(--spring-out), color 200ms var(--ease-emphasis);
+    will-change: transform;
+  }
+  .v0-num-morph[data-pulse="1"] { transform: scale(1.18); }
+
+  /* Skeleton / shimmer loader (used during AI border generation). */
+  @keyframes v0Shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  .v0-skeleton {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(90deg,
+        rgba(255,255,255,0.04) 0%,
+        rgba(255,255,255,0.18) 50%,
+        rgba(255,255,255,0.04) 100%);
+    background-size: 200% 100%;
+    animation: v0Shimmer 1400ms linear infinite;
+    border-radius: 12px;
+  }
+
+  /* Focus ring polish (keyboard-only, no jitter on tap). */
+  .liquid-action-chip:focus-visible,
+  .btn-bouncy:focus-visible,
+  .morph-tile:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+    transition: outline-offset 160ms var(--ease-emphasis);
+  }
+
+  /* ── Android perf overrides ─────────────────────────────────────────────── */
+  /* WebView's Skia-on-GL pipeline chokes on multiple stacked backdrop-filter
+     surfaces. We swap them for cheaper opaque/translucent fills only on
+     Android. Browsers stay untouched. */
+  html[data-platform="android"] * {
+    /* Disable expensive backdrop-filter globally on Android; replace with
+       the surface's own background color (which already has alpha). */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  html[data-platform="android"] .settings-panel,
+  html[data-platform="android"] .asset-hub-panel,
+  html[data-platform="android"] .onboarding-sheet {
+    /* Cheaper, jitter-free shadow on Android. */
+    box-shadow: 0 14px 40px rgba(0,0,0,.45) !important;
+  }
+  html[data-platform="android"] .settings-panel > *,
+  html[data-platform="android"] .asset-hub-panel .asset-grid > * {
+    /* Skip the cascade entrance on Android — single fade is far smoother. */
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  html[data-platform="android"] .settings-panel,
+  html[data-platform="android"] .asset-hub-panel {
+    animation-duration: 240ms !important;
+    animation-timing-function: var(--ease-snap) !important;
+  }
+  html[data-platform="android"] .liquid-action-chip::before,
+  html[data-platform="android"] .btn-bouncy::before {
+    /* Ripple gradient is fine on Android, but we shorten it. */
+    transition-duration: 200ms !important;
+  }
+
+  /* Honor reduced-motion: kill premium animations entirely. */
+  @media (prefers-reduced-motion: reduce) {
+    .settings-panel, .asset-hub-panel,
+    .settings-panel > *, .asset-hub-panel .asset-grid > *,
+    .liquid-action-chip::before, .btn-bouncy::before {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+  `;
+  if (document.head && !document.getElementById('luminary-premium-anim')) {
+    document.head.appendChild(stylePremium);
+  }
+}
+
+// ── Platform detection (Android Capacitor APK gets perf-tuned CSS) ───────────
+if (typeof window !== "undefined" && typeof document !== "undefined") {
+  try {
+    const ua = (navigator.userAgent || "").toLowerCase();
+    const isCapacitor = !!(window.Capacitor || /capacitor/i.test(ua));
+    const isAndroid = /android/.test(ua);
+    const platform = (isAndroid || isCapacitor) ? "android" : "web";
+    document.documentElement.setAttribute("data-platform", platform);
+  } catch (_) {}
+}
+
+// ── Anime.js loader (lazy-imported on first use) ─────────────────────────────
+// We load anime.js dynamically so the initial bundle stays small and the
+// import never blocks first paint. Callers await getAnime() before tweening.
+let __animeModulePromise = null;
+function getAnime() {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (!__animeModulePromise) {
+    __animeModulePromise = import("animejs")
+      .then((m) => m.default || m)
+      .catch(() => null);
+  }
+  return __animeModulePromise;
+}
+
+// Ripple position tracker — sets CSS vars so the ::before gradient origins at
+// the touch/click point. Single delegated listener; zero per-button overhead.
+if (typeof document !== "undefined") {
+  const trackRipple = (e) => {
+    const t = e.target?.closest?.(".liquid-action-chip, .btn-bouncy");
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    const cx = (e.clientX ?? (e.touches?.[0]?.clientX)) ?? (r.left + r.width / 2);
+    const cy = (e.clientY ?? (e.touches?.[0]?.clientY)) ?? (r.top + r.height / 2);
+    t.style.setProperty("--rx", `${((cx - r.left) / r.width) * 100}%`);
+    t.style.setProperty("--ry", `${((cy - r.top) / r.height) * 100}%`);
+  };
+  document.addEventListener("pointerdown", trackRipple, { passive: true, capture: true });
 }
 
 // ── Haptic feedback helper ───────────────────────────────────────────────────
