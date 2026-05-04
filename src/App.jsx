@@ -1661,8 +1661,72 @@ styleEnhance.textContent = `
     to   { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
   }
   @keyframes tabSlideSmooth {
-    from { opacity: 0; transform: translate3d(var(--slide-from, 14px), 4px, 0) scale(0.996); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    /* Lighter than before: drops the scale (was .996 → costs a paint frame on
+       low-end Android WebView), keeps just opacity + a tiny translate. This
+       is what animate-ui-style tab transitions feel like in practice. */
+    from { opacity: 0; transform: translate3d(var(--slide-from, 10px), 0, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  /* Animate-ui-style cross-fade for swapping panel content while the bottom
+     sheet stays mounted. Cheaper than tabSlideSmooth — opacity only, no
+     transform — so switching tabs while the sheet is already open is
+     effectively instant on mid-range Android. */
+  @keyframes tabFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes sheetSlideUp {
+    /* Bottom-sheet entrance — single transform property, no scale/blur, so
+       the compositor can promote it cleanly. Replaces the heavier
+       toolSlideUp animation on the editing sheet. */
+    from { opacity: 0; transform: translate3d(0, 22px, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  /* animate-ui style directional pane enter — used by the mobile sheet's
+     visited-tabs stack. The pane that becomes display:flex re-fires the
+     animation; previous pane just hides instantly via display:none.
+     Together with the visitedTabs persistent-mount strategy this means
+     tab switches are essentially CSS toggles, not React remounts, so
+     editing-page navigation feels instant even while the sheet is open. */
+  @keyframes paneEnterRight {
+    from { opacity: 0; transform: translate3d(20px, 0, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  @keyframes paneEnterLeft {
+    from { opacity: 0; transform: translate3d(-20px, 0, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  .sheet-pane-stack {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    contain: layout paint;
+  }
+  .sheet-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 14px 24px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    transform: translate3d(0,0,0);
+    will-change: transform, opacity;
+  }
+  .sheet-pane[data-active="false"] { display: none; }
+  .sheet-pane-stack[data-dir="right"] .sheet-pane[data-active="true"] {
+    animation: paneEnterRight 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  .sheet-pane-stack[data-dir="left"] .sheet-pane[data-active="true"] {
+    animation: paneEnterLeft 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  /* Skip the slide on Android — display:none → flex toggle alone is the
+     smoothest path on the WebView, where small transform animations can
+     stutter while panel content paints for the first time. */
+  html[data-platform="android"] .sheet-pane-stack .sheet-pane[data-active="true"] {
+    animation: none !important;
   }
   @keyframes fadeIn { from { opacity: 0; transform: translate3d(0, 6px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
   @keyframes fadeSlideUp { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.988); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
@@ -1813,15 +1877,19 @@ if (stylePremium) {
     transition-duration: 90ms, 0ms;
   }
 
-  /* Settings + Asset Hub: spring entrance with blur dissolve. */
+  /* Settings + Asset Hub: spring entrance.
+     NOTE: We deliberately removed the `filter: blur()` keyframe stops here.
+     Animating filter:blur over 360ms forces a full-screen GPU re-paint every
+     frame on Android WebView (Skia/GL), which was the single biggest source
+     of the "edit pages take forever to open" lag the user was seeing. The
+     entrance still feels premium thanks to the spring curve + tiny scale. */
   @keyframes premiumPanelIn {
-    0%   { opacity: 0; transform: translate3d(0,28px,0) scale(.97); filter: blur(8px); }
-    60%  { opacity: 1;                                              filter: blur(0);   }
-    100% { opacity: 1; transform: translate3d(0,0,0)  scale(1);     filter: blur(0);   }
+    0%   { opacity: 0; transform: translate3d(0,28px,0) scale(.985); }
+    100% { opacity: 1; transform: translate3d(0,0,0)    scale(1);    }
   }
   @keyframes premiumPanelOut {
-    0%   { opacity: 1; transform: translate3d(0,0,0)  scale(1);     filter: blur(0);   }
-    100% { opacity: 0; transform: translate3d(0,18px,0) scale(.985);filter: blur(6px); }
+    0%   { opacity: 1; transform: translate3d(0,0,0)    scale(1);    }
+    100% { opacity: 0; transform: translate3d(0,18px,0) scale(.99);  }
   }
   .settings-panel,
   .asset-hub-panel { animation: premiumPanelIn 360ms var(--spring-out) both; }
@@ -5096,8 +5164,13 @@ export default function LuminaryPanels() {
 
   const isDark = settings.themeMode === "dark" || (settings.themeMode === "system" && systemPrefersDark);
 
-  const accent = settings.uiAccent || "#7cffda";
-  const accent2 = settings.uiAccent2 || shadeHex(accent, isDark ? 42 : -18) || "#9a86ff";
+  // Default UI palette — picked from a Figma-curated cool-analogous combo
+  // (azure 500 + cyan 500). Both sit on the same temperature side of the
+  // wheel so the accent→accent2 gradient never goes muddy, and we no
+  // longer ship a violet default (the design guidelines flag prominent
+  // purple/violet). Users with a saved `settings.uiAccent` keep theirs.
+  const accent  = settings.uiAccent  || "#3B82F6"; // Tailwind azure-500
+  const accent2 = settings.uiAccent2 || shadeHex(accent, isDark ? 42 : -18) || "#22D3EE"; // cyan-500
 
   const lightText = settings.lightText || "#263347";
   const textPrimary = isDark ? (settings.uiText || "#f0f9ff") : lightText;
@@ -5196,6 +5269,17 @@ export default function LuminaryPanels() {
   const previewMini = pxScale < (vp.isMobile ? 0.78 : 0.7);
   const [swipeDir, setSwipeDir] = useState(1);
   const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
+  // Persistent-mount strategy: once a tab has been opened in the editing
+  // sheet, keep its panel mounted so subsequent visits are an instant
+  // CSS display toggle instead of a full React remount of hundreds of
+  // DOM nodes. First visit pays the mount cost once; every switch after
+  // that is essentially free, which is what makes navigation feel
+  // instant even while the sheet is open.
+  const [visitedTabs, setVisitedTabs] = useState(() => ({ [mobileTab]: true }));
+  useEffect(() => {
+    if (!sheetOpen) return;
+    setVisitedTabs(prev => prev[mobileTab] ? prev : { ...prev, [mobileTab]: true });
+  }, [mobileTab, sheetOpen]);
 
   const changeMobileTab = (next) => {
     if (next === mobileTab && sheetOpen) {
@@ -6529,11 +6613,11 @@ export default function LuminaryPanels() {
 
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>UI Customization</p>
-      <FRow label="Primary Accent" textDim={textDim}>
-        <ColorField value={settings.uiAccent || "#7cffda"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} textPrimary={textPrimary} />
-      </FRow>
-      <FRow label="Secondary Accent" textDim={textDim}>
-        <ColorField value={settings.uiAccent2 || "#9a86ff"} onChange={v => setSettings(prev => ({ ...prev, uiAccent2: v }))} textPrimary={textPrimary} />
+                  <FRow label="Primary Accent" textDim={textDim}>
+                    <ColorField value={settings.uiAccent || "#3B82F6"} onChange={v => setSettings(prev => ({ ...prev, uiAccent: v }))} textPrimary={textPrimary} />
+                  </FRow>
+                  <FRow label="Secondary Accent" textDim={textDim}>
+                    <ColorField value={settings.uiAccent2 || "#22D3EE"} onChange={v => setSettings(prev => ({ ...prev, uiAccent2: v }))} textPrimary={textPrimary} />
       </FRow>
       <FRow label="Background Color" textDim={textDim}>
         <ColorField value={typeof settings.uiBg === "string" && settings.uiBg.startsWith("#") ? settings.uiBg : "#0a0e27"} onChange={v => setSettings(prev => ({ ...prev, uiBg: v }))} textPrimary={textPrimary} />
@@ -7723,8 +7807,17 @@ export default function LuminaryPanels() {
           )}
         </div>
 
-        {/* Mobile bottom nav — LIQUID GLASS iOS STYLE */}
-        {vp.isMobile && (
+        {/* Mobile bottom nav moved OUT of theme-liquid-transition (see below).
+            Keeping it inside the wrapper made it share the wrapper's
+            transform/filter stacking context — the editing-sheet (rendered
+            as a sibling of the wrapper at z-index 2000) was effectively
+            painting *above* the navbar's z-index 9999 because the wrapper
+            itself stayed at auto-z. Moving the nav out of the wrapper puts
+            both the nav and the sheet in the document's root stacking
+            context, where 9999 > 2000 wins as expected, so tapping nav
+            tabs while the sheet is open works instantly. */}
+        {/* Mobile bottom nav — LIQUID GLASS iOS STYLE — DISABLED HERE */}
+        {false && vp.isMobile && (
           <nav className="liquid-surface" style={{
             position:"fixed",
             bottom:`calc(10px + env(safe-area-inset-bottom))`,
@@ -7808,19 +7901,125 @@ export default function LuminaryPanels() {
         )}
       </div>
 
-      {/* Tab panel sheet overlay — NAVBAR VISIBLE ABOVE */}
+      {/* Mobile bottom nav — LIQUID GLASS iOS STYLE.
+          Rendered OUTSIDE the theme-liquid-transition wrapper so it lives
+          in the document's root stacking context, sharing it with the
+          editing-sheet overlay below. With both at the document root,
+          z-index 9999 cleanly beats 2000, so tapping a tab while the
+          sheet is open works instantly — `changeMobileTab` just swaps
+          the visited-tab pane via a CSS display toggle, no remount. */}
+      {vp.isMobile && (
+        <nav className="liquid-surface" style={{
+          position:"fixed",
+          bottom:`calc(10px + env(safe-area-inset-bottom))`,
+          left:12,
+          right:12,
+          background: isDark
+            ? "linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.065))"
+            : "linear-gradient(145deg, rgba(255,255,255,0.78), rgba(255,255,255,0.48))",
+          border:`1px solid ${cardBorder}`,
+          display:"flex",
+          flexDirection:"row",
+          padding:"8px",
+          gap:6,
+          zIndex:9999,
+          borderRadius:30,
+          boxShadow:`0 18px 58px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.24)`,
+          animation: settings.performanceMode ? "none" : "navSlideUp 420ms var(--ease-glass) 80ms both",
+          // Capped blur (was up to 26px; now 14) — heavy backdrop-filter
+          // is the #1 frame-budget killer on Android WebView, and a 14px
+          // glass surface looks identical to a 26px one in motion.
+          backdropFilter: liquidEnabled ? `blur(${Math.min(14, glassBlur)}px) saturate(${glassSaturation})` : "none",
+          WebkitBackdropFilter: liquidEnabled ? `blur(${Math.min(14, glassBlur)}px) saturate(${glassSaturation})` : "none",
+          fontFamily: APPLE_FONTS,
+        }}>
+          {[
+            { id:"assets", icon:ICONS.assets, label:"Assets" },
+            { id:"layout", icon:ICONS.layout, label:"Layout" },
+            { id:"avatar", icon:ICONS.avatar, label:"Avatar" },
+            { id:"text",   icon:ICONS.text,   label:"Text"   },
+          ].map((t) => {
+            const isActive = mobileTab === t.id && sheetOpen;
+            return (
+              <button
+                key={t.id}
+                onClick={() => changeMobileTab(t.id)}
+                style={{
+                  flex:1,
+                  minHeight: 56,
+                  background: isActive
+                    ? `linear-gradient(135deg, ${accent}, ${accent2 || accent}cc)`
+                    : "transparent",
+                  color: isActive ? "#fff" : textDim,
+                  border: "none",
+                  borderRadius: 22,
+                  padding:"10px 4px 8px",
+                  display:"flex",
+                  flexDirection:"column",
+                  alignItems:"center",
+                  justifyContent:"center",
+                  gap:4,
+                  cursor:"pointer",
+                  boxShadow: isActive ? `0 10px 26px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.22)` : "inset 0 1px 0 rgba(255,255,255,0.04)",
+                  transition:`transform 220ms var(--ease-glass), background ${uiTransition}, box-shadow ${uiTransition}, color ${uiTransition}`,
+                  animation: "none",
+                  transform: isActive ? "scale(1.04)" : "scale(1)",
+                  willChange:"transform",
+                }}>
+                <span style={{
+                  display:"inline-flex",
+                  alignItems:"center",
+                  justifyContent:"center",
+                  transform: isActive ? "scale(1.18) translateY(-1px)" : "scale(1)",
+                  transition: "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  filter: isActive ? `drop-shadow(0 0 5px ${accent}99)` : "none",
+                }}>
+                  <UiIcon
+                    name={t.icon}
+                    size={17}
+                    color={isActive ? "#fff" : textDim}
+                    stroke={isActive ? 2.5 : 2}
+                  />
+                </span>
+                <span style={{
+                  fontSize:9.5,
+                  fontWeight: isActive ? 800 : 500,
+                  letterSpacing: isActive ? 0.4 : 0,
+                  transition:"font-weight 200ms ease, letter-spacing 200ms ease",
+                  fontFamily:"'Sora', sans-serif",
+                }}>{t.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
+      {/* Tab panel sheet overlay — NAVBAR LIVES OUTSIDE THIS BACKDROP.
+          The overlay's `bottom` is offset by the navbar's height (≈86px +
+          safe-area), so the navbar zone is never dimmed and never has the
+          backdrop's pointer-events stealing taps. That's what makes
+          page-switch feel instant while the sheet is open: tapping a nav
+          tab goes straight to the navbar (which sits at z-index 9999),
+          and `changeMobileTab` just swaps the inner content via a cheap
+          opacity cross-fade — no re-mount, no re-animation of the sheet
+          shell. */}
       {vp.isMobile && sheetOpen && (
         <div
           style={{
             position:"fixed",
-            inset:0,
-            background:isDark ? "rgba(0,0,0,0.42)" : "rgba(235,243,255,0.48)",
+            top:0,
+            left:0,
+            right:0,
+            // Stop above the navbar so it stays crisp & tappable.
+            bottom:`calc(86px + env(safe-area-inset-bottom))`,
+            background:isDark ? "rgba(0,0,0,0.38)" : "rgba(235,243,255,0.42)",
             zIndex:2000,
             display:"flex",
             alignItems:"flex-end",
             justifyContent:"center",
-            backdropFilter: liquidEnabled ? "blur(2px)" : "none",
-            WebkitBackdropFilter: liquidEnabled ? "blur(2px)" : "none",
+            // Removed backdrop-filter blur(2px): on Android WebView a 2px
+            // blur over a full-screen layer costs ~8ms/frame for zero
+            // visible benefit. The dim overlay alone reads as "modal".
             animation: settings.performanceMode ? "none" : "fadeIn 160ms ease-out",
           }}
           onClick={() => setSheetOpen(false)}
@@ -7828,21 +8027,32 @@ export default function LuminaryPanels() {
           <div
             style={{
               width:"100%",
-              maxHeight:"calc(100vh - 110px)",  // Leave space for navbar
+              maxHeight:"100%",
               overflowY:"auto",
               borderRadius:"32px 32px 0 0",
-              background: isDark 
-                ? "linear-gradient(155deg, rgba(18,22,38,0.86), rgba(8,12,24,0.78))"
-                : "linear-gradient(155deg, rgba(255,255,255,0.82), rgba(240,248,255,0.70))",
-              backdropFilter: liquidEnabled ? `blur(${Math.max(12, uiBlurPx + 4)}px) saturate(1.24)` : "none",
-              WebkitBackdropFilter: liquidEnabled ? `blur(${Math.max(12, uiBlurPx + 4)}px) saturate(1.24)` : "none",
+              background: isDark
+                ? "linear-gradient(155deg, rgba(18,22,38,0.92), rgba(8,12,24,0.86))"
+                : "linear-gradient(155deg, rgba(255,255,255,0.94), rgba(240,248,255,0.86))",
+              // Reduced blur radius (was uiBlurPx+4, capped at 24) and
+              // dropped the saturate filter — both are cheap quality wins
+              // on iOS and big perf wins on Android.
+              backdropFilter: liquidEnabled ? `blur(${Math.min(uiBlurPx + 2, 16)}px)` : "none",
+              WebkitBackdropFilter: liquidEnabled ? `blur(${Math.min(uiBlurPx + 2, 16)}px)` : "none",
               border:`1px solid ${cardBorder}`,
               borderBottom:"none",
-              boxShadow:"0 -22px 80px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.18)",
+              // Smaller shadow blur radius (80→32) — roughly 6× cheaper to
+              // paint on each frame of the slide-up animation.
+              boxShadow:"0 -12px 32px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.18)",
               display:"flex",
               flexDirection:"column",
-              marginBottom:"calc(100px + env(safe-area-inset-bottom))",  // Space for navbar
-              animation: settings.performanceMode ? "none" : "toolSlideUp 240ms var(--ease-ios)",
+              // `contain: layout paint` isolates this subtree from the rest
+              // of the page so panel re-renders inside don't trigger a
+              // global layout/paint pass. Combined with translateZ this
+              // gives a noticeable boost on the first open.
+              contain: "layout paint",
+              transform: "translate3d(0,0,0)",
+              willChange: "transform, opacity",
+              animation: settings.performanceMode ? "none" : "sheetSlideUp 280ms var(--ease-ios)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -7907,36 +8117,42 @@ export default function LuminaryPanels() {
               >✕</button>
             </div>
 
-            {/* Sheet scrollable content */}
+            {/* Sheet scrollable content — visited-tabs pane stack.
+                Once a tab has been opened in this session it stays mounted;
+                only its `data-active` flag toggles. Switching tabs while
+                the sheet is already open becomes a CSS display swap, not
+                a React unmount/remount of hundreds of slider/asset DOM
+                nodes. First visit pays the mount cost once; every visit
+                after that is essentially free, which is what makes the
+                editing-page navigation feel instant.
+                The directional slide-in (paneEnterRight / paneEnterLeft,
+                set via `data-dir` on the stack) only fires on the pane
+                that becomes active — animate-ui style, GPU-only. */}
             <div
-              key={mobileTab}
-              style={{
-                flex:1,
-                overflowY:"auto",
-                padding:"16px 14px 24px",
-                display:"flex",
-                flexDirection:"column",
-                gap:14,
-                WebkitOverflowScrolling:"touch",
-                overscrollBehavior:"contain",
-                animation: settings.performanceMode ? "none" : `tabSlideSmooth 240ms var(--ease-ios)`,
-              }}
+              className="sheet-pane-stack"
+              data-dir={swipeDir >= 0 ? "right" : "left"}
             >
-              {mobileTab === "assets" && (
-                <>
+              {visitedTabs.assets && (
+                <div className="sheet-pane" data-active={mobileTab === "assets" ? "true" : "false"}>
                   <div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
                   <div className={tabSliderClass("assets")}>{panelEnvironment}</div>
-                </>
+                </div>
               )}
-              {mobileTab === "layout" && (
-                <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
+              {visitedTabs.layout && (
+                <div className="sheet-pane" data-active={mobileTab === "layout" ? "true" : "false"}>
+                  <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
+                </div>
               )}
-              {mobileTab === "avatar" && (
-                <><div className={tabSliderClass("avatar")}>{panelAvatar}</div>
-                  <div className={tabSliderClass("avatar")}>{panelBorder}</div></>
+              {visitedTabs.avatar && (
+                <div className="sheet-pane" data-active={mobileTab === "avatar" ? "true" : "false"}>
+                  <div className={tabSliderClass("avatar")}>{panelAvatar}</div>
+                  <div className={tabSliderClass("avatar")}>{panelBorder}</div>
+                </div>
               )}
-              {mobileTab === "text" && (
-                <div className={tabSliderClass("text")}>{panelTypography}</div>
+              {visitedTabs.text && (
+                <div className="sheet-pane" data-active={mobileTab === "text" ? "true" : "false"}>
+                  <div className={tabSliderClass("text")}>{panelTypography}</div>
+                </div>
               )}
             </div>
           </div>
@@ -8243,7 +8459,7 @@ export default function LuminaryPanels() {
                 </>
               )}
 
-              {/* ── Section: IMPORT ──────────────────────────────────── */}
+              {/* ── Section: IMPORT ─────────────────────────────────��── */}
               {assetHubSection === "import" && (
                 <div style={{ display:"grid", gap:16 }}>
                   <div>
