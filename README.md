@@ -68,3 +68,13 @@ Luminary Panels is built on three core ideas:
 - **Aesthetic consistency**
 
 Every element is designed to feel smooth, modern, and visually balanced.
+
+## Dual APK builds
+
+Use `./build-dual-apks.sh` to produce both variants:
+- `web` APK: original JSX/Capacitor runtime (`BridgeMainActivity`)
+- `native` APK: native Kotlin/XML runtime (`MainActivity`)
+
+Gradle tasks:
+- `:app:assembleWebRelease`
+- `:app:assembleNativeRelease`
