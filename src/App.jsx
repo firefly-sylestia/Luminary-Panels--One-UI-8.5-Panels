@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 // ── Premium Animation Library Setup ────────────────────────────────────────
@@ -642,6 +644,9 @@ function createAiBorderSvg({ palette, prompt = "", detail = 72, density = 58, se
 // Other providers (gemini, openai, custom) require user-supplied keys.
 
 const AI_BORDER_STYLE_PRESETS = [
+  // "custom" lets the user write their own style. The prompt builder skips all
+  // style hints and uses ONLY the user's own description.
+  { id: "custom",     label: "Custom",      prompt: "" },
   { id: "cute",       label: "Cute",        prompt: "cute kawaii pastel, soft rounded shapes, charming, adorable" },
   { id: "kawaii",     label: "Kawaii",      prompt: "kawaii anime aesthetic, pastel colors, hearts and stars, sparkles" },
   { id: "fantasy",    label: "Fantasy",     prompt: "fantasy magical, ornate scrollwork, glowing runes, elegant" },
@@ -671,9 +676,12 @@ const AI_BORDER_PROVIDERS = [
 ];
 
 function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePreset = "circle", palette = {} }) {
-  const stylePart = AI_BORDER_STYLE_PRESETS.find(s => s.id === stylePreset)?.prompt || "";
+  // When the user picks "custom", the user's prompt IS the style — skip the
+  // style preset entirely and let their description drive the look.
+  const isCustom = stylePreset === "custom";
+  const stylePart = isCustom ? "" : (AI_BORDER_STYLE_PRESETS.find(s => s.id === stylePreset)?.prompt || "");
   const shapePart = AI_BORDER_SHAPE_PRESETS.find(s => s.id === shapePreset)?.prompt || "";
-  const colorPart = palette?.primary && palette?.secondary
+  const colorPart = !isCustom && palette?.primary && palette?.secondary
     ? `palette: primary ${palette.primary}, secondary ${palette.secondary}`
     : "";
   const userPart = String(userPrompt || "").trim();
@@ -681,9 +689,9 @@ function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePrese
     "Decorative avatar border / frame ONLY.",
     "Transparent PNG background. Empty transparent center where the avatar goes.",
     "No avatar, no face, no person, no full picture, no backdrop, no scenery.",
-    "Symmetrical, polished, high-resolution, suitable for a profile picture frame.",
+    "Symmetrical, polished, ultra-high-resolution, intricate detail, sharp clean edges, premium quality, suitable for a profile picture frame.",
     "Important: do NOT use green, lime, chroma green, or screen-key green anywhere.",
-    "Background must be pure transparent. If transparency is unsupported, use white only.",
+    "Background must be pure transparent. If transparency is unsupported, use pure white only.",
     stylePart,
     shapePart,
     userPart,
@@ -695,11 +703,13 @@ function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePrese
 // Has a hard 45s timeout so a stalled image request can never lock the UI.
 async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), abortSignal = null) {
   const enc = encodeURIComponent(finalPrompt);
-  const url = `https://image.pollinations.ai/prompt/${enc}?width=768&height=768&nologo=true&enhance=true&seed=${seed}`;
+  // Bumped 768→1024 for noticeably crisper detail. Pollinations supports up
+  // to 1024 reliably on the free tier.
+  const url = `https://image.pollinations.ai/prompt/${enc}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
   return new Promise((resolve) => {
     let settled = false;
     const finish = (val) => { if (settled) return; settled = true; clearTimeout(timer); resolve(val); };
-    const timer = setTimeout(() => finish(null), 45000); // hard cap
+    const timer = setTimeout(() => finish(null), 60000); // hard cap (1024 is slower)
     if (abortSignal) {
       abortSignal.addEventListener("abort", () => finish(null), { once: true });
     }
@@ -708,9 +718,11 @@ async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), a
     img.onload = () => {
       try {
         const canvas = document.createElement("canvas");
-        canvas.width = 768; canvas.height = 768;
+        canvas.width = 1024; canvas.height = 1024;
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, 768, 768);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, 1024, 1024);
         finish(canvas.toDataURL("image/png"));
       } catch (_) { finish(null); }
     };
@@ -965,7 +977,7 @@ function decodeImage(src) {
   });
 }
 
-async function toPngDataUrl(src, size = 768) {
+async function toPngDataUrl(src, size = 1024) {
   if (!src) return null;
   const image = await decodeImage(src);
   if (!image) return src;
@@ -974,6 +986,8 @@ async function toPngDataUrl(src, size = 768) {
   canvas.height = size;
   const ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) return src;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.clearRect(0, 0, size, size);
   const sourceW = image.naturalWidth || image.width || size;
   const sourceH = image.naturalHeight || image.height || size;
@@ -998,7 +1012,7 @@ function _rgbDistance(a, b) {
 }
 
 async function removeBorderBackground(src, {
-  size = 768,
+  size = 1024,
   tolerance = 36,         // 0..255, higher = more aggressive removal
   feather = 14,           // soft alpha falloff in distance units
   punchCenter = true,
@@ -1013,6 +1027,8 @@ async function removeBorderBackground(src, {
   canvas.height = size;
   const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: true });
   if (!ctx) return src;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
   // Fit-cover draw
   const sw = image.naturalWidth || image.width || size;
@@ -1066,28 +1082,29 @@ async function removeBorderBackground(src, {
     Math.round(best.b / best.count),
   ];
 
-  // 3) Heuristic: if the dominant edge color is highly saturated/dark/colorful,
-  //    the model probably DID intend it as content (e.g. a vivid red frame).
-  //    Only chroma-key when it looks like a flat backdrop: low saturation OR
-  //    very light OR ANY shade of green (we never want green in a border).
+  // 3) Heuristic: only chroma-key when the dominant edge color clearly looks
+  //    like a flat backdrop the model fell back to. Highly saturated colors
+  //    are most likely intentional border content (e.g. a vivid red frame).
   const [kr, kg, kb] = keyColor;
   const maxC = Math.max(kr, kg, kb), minC = Math.min(kr, kg, kb);
   const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
   const lightness = (maxC + minC) / 2 / 255;
-  // Aggressive green detection: any pixel where green dominates noticeably.
-  const isAnyGreen = kg > kr + 8 && kg > kb + 8;
+  // Green-backdrop detection covers chroma green AND pale "default" green models
+  // sometimes return when transparency fails: green-dominant + reasonably light.
+  const isGreenBackdrop = kg > kr + 12 && kg > kb + 12 && lightness > 0.40;
   const looksLikeBackdrop =
-    sat < 0.22 ||           // near-grayscale
-    lightness > 0.82 ||     // near-white
-    lightness < 0.10 ||     // near-black
-    isAnyGreen;             // any green dominance
+    sat < 0.18 ||           // near-grayscale (white/gray/black)
+    lightness > 0.86 ||     // near-white
+    lightness < 0.08 ||     // near-black
+    isGreenBackdrop;        // chroma/pale green only
   if (!looksLikeBackdrop) {
-    // Even when we skip the full chroma-key, still nuke pure-green pixels.
+    // Even when we skip full chroma-key, still nuke ONLY pure chroma-green.
+    let touched = false;
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i], g = data[i + 1], b = data[i + 2];
-      if (g > r + 14 && g > b + 14 && g > 70) data[i + 3] = 0;
+      if (g > 150 && g - r > 70 && g - b > 70) { data[i + 3] = 0; touched = true; }
     }
-    ctx.putImageData(imageData, 0, 0);
+    if (touched) ctx.putImageData(imageData, 0, 0);
     // Skip chroma-key but still optionally punch the center hole.
     if (punchCenter) {
       const cx = size / 2, cy = size / 2;
@@ -1105,14 +1122,16 @@ async function removeBorderBackground(src, {
     return canvas.toDataURL("image/png");
   }
 
-  // 4) Apply alpha based on distance from key color, AND always nuke any
-  //    pixel that is dominantly green (catches every shade of chroma green).
+  // 4) Apply alpha based on distance from key color. Only chroma-key pure
+  //    chroma-green pixels (very saturated bright green) — never touch pixels
+  //    that just happen to be green-ish (mint, sage, teal can be valid border
+  //    colors). Soft falloff prevents razor-cut edges.
   const tol = tolerance;
   const fade = Math.max(1, feather);
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i], g = data[i + 1], b = data[i + 2];
-    // Universal green killer — runs regardless of edge color.
-    if (g > r + 14 && g > b + 14 && g > 70) {
+    // Narrow chroma-green killer: only kill ultra-saturated bright greens.
+    if (g > 150 && g - r > 70 && g - b > 70) {
       data[i + 3] = 0;
       continue;
     }
@@ -1605,14 +1624,26 @@ function mediumHaptic(enabled = true) {
 }
 
 // ── Viewport Hook ─────────────────────────────────────────────────────────────
+// SSR-safe: when window is undefined (server render or static prerender), we
+// fall back to a sensible desktop default. The first useEffect tick on the
+// client will immediately replace it with the real viewport dimensions.
 function useViewport() {
+  const hasWindow = typeof window !== "undefined";
   const [vp, setVp] = useState({
-    w: window.innerWidth,
-    h: window.innerHeight,
-    dpr: window.devicePixelRatio || 1,
+    w: hasWindow ? window.innerWidth : 1440,
+    h: hasWindow ? window.innerHeight : 900,
+    dpr: hasWindow ? (window.devicePixelRatio || 1) : 1,
   });
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Force-sync on mount in case the SSR fallback was wrong.
+    setVp(prev => ({
+      ...prev,
+      w: window.innerWidth,
+      h: window.innerHeight,
+      dpr: window.devicePixelRatio || 1,
+    }));
     const update = () => setVp(prev => ({
       ...prev,
       w: window.innerWidth,
@@ -1625,7 +1656,16 @@ function useViewport() {
 
   return {
     ...vp,
-    isMobile: vp.w < 850,
+    // The desktop two-column layout had layout bugs that caused blank pages
+    // on tablet/desktop widths (panels collapsed because of fixed-position
+    // preview reserving 640px and minWidth:0 flex children). The tab-based
+    // "mobile" layout works perfectly at every size, so we use it everywhere.
+    // The center column expands gracefully on wider screens.
+    isMobile: true,
+    // isTabletOrLarger is the new flag for size-aware tweaks (wider preview,
+    // bigger paddings, etc.) without falling back to the broken desktop grid.
+    isTabletOrLarger: vp.w >= 850,
+    isWide: vp.w >= 1180,
     safeDpr: Math.min(vp.dpr, 3),
   };
 }
@@ -1805,7 +1845,7 @@ function loadProjectFromLum(file) {
     reader.readAsText(file);
   });
 }
-// ── Border Engine ─────────────────────────────────────────────────────────────
+// ── Border Engine ──────────────────────────────────────────────���──────────────
 function drawDynamicBorder(ctx, cx, cy, baseR, styleId, color, thickness, gap, p1, p2, emojisStr) {
   if (styleId === "none" || thickness <= 0) return;
   ctx.save();
@@ -2116,7 +2156,7 @@ const getLayoutDefaults = (layoutName, theme = "glass") => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CropModal
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────���────────────────────────
 function CropModal({ src, onConfirm, onCancel, theme, cropTarget = "avatar" }) {
   const [imgDisplay, setImgDisplay] = useState({ w: 0, h: 0 });
   const [imgNatural, setImgNatural] = useState({ w: 0, h: 0 });
@@ -3333,6 +3373,7 @@ export default function LuminaryPanels() {
   const [aiBorderPrompt, setAiBorderPrompt] = useState("");
   const [aiBorderBusy, setAiBorderBusy] = useState(false);
   const [aiBorderStatus, setAiBorderStatus] = useState("");
+  const [aiBorderProgress, setAiBorderProgress] = useState(0); // 0..1 fractional progress
   const [aiBorderVariations, setAiBorderVariations] = useState([]); // recent generations for "regenerate / pick"
   const aiBorderAbortRef = useRef({ aborted: false, controller: null });
   // Onboarding / first-run tutorial state
@@ -3994,6 +4035,19 @@ export default function LuminaryPanels() {
       });
     }
     setSaveNotice(`${ASSET_KIND_META[normalizeAssetKind(item.kind)]?.label || "Asset"} applied`);
+    // After applying anything from the Asset Hub, dismiss the hub and scroll
+    // the live preview into view so the user immediately sees their change.
+    setAssetHubOpen(false);
+    requestAnimationFrame(() => {
+      try {
+        const node = previewDockRef.current;
+        if (node?.scrollIntoView) {
+          node.scrollIntoView({ behavior: "smooth", block: "start" });
+        } else if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      } catch (_) {}
+    });
   }, [settings.hapticFeedback, pushState, s.overlays, s.pillW, s.pillH]);
 
   const handleAvatarFileChange = (e) => {
@@ -4417,21 +4471,19 @@ export default function LuminaryPanels() {
       ctx.restore();
 
       if (s.borderStyleId === "custom-image" && customBorderImg) {
+        // Custom AI/uploaded border: draw the full PNG (it already has a
+        // transparent center). Don't clip to a thin ring — that's what was
+        // making the border invisible. We render on top of avatar here and
+        // again later (after overlays) so it stays on top of EVERYTHING.
+        // Stored on a stash for re-draw after overlay pass.
+        // (Inline draw kept too in case overlays are empty.)
         const scale = Math.max(40, Math.min(260, s.customBorderScale ?? 125));
-        const baseSize = geo.avR * 2 * (scale / 100);
-        const ringSize = baseSize + (s.avBorderGap || 0) * 2;
-        const ringThickness = Math.max(2, s.avBorderWidth || 3);
-        const outerR = ringSize / 2;
-        const innerR = Math.max(0, outerR - ringThickness);
+        const frameSize = geo.avR * 2 * (scale / 100) + (s.avBorderGap || 0) * 2;
         ctx.save();
-        ctx.beginPath();
-        ctx.arc(avCX, avCY, outerR, 0, Math.PI * 2);
-        ctx.arc(avCX, avCY, innerR, 0, Math.PI * 2, true);
-        ctx.clip("evenodd");
         ctx.globalAlpha = Math.max(0, Math.min(1, (s.customBorderOpacity ?? 100) / 100));
         ctx.translate(avCX, avCY);
         ctx.rotate(((s.customBorderRotation || 0) * Math.PI) / 180);
-        ctx.drawImage(customBorderImg, -ringSize / 2, -ringSize / 2, ringSize, ringSize);
+        ctx.drawImage(customBorderImg, -frameSize / 2, -frameSize / 2, frameSize, frameSize);
         ctx.restore();
       } else {
         drawDynamicBorder(ctx, avCX, avCY, geo.avR, s.borderStyleId, s.avBorderClr, s.avBorderWidth, s.avBorderGap, s.avBorderParam1, s.avBorderParam2, s.avBorderEmojis);
@@ -4527,6 +4579,22 @@ export default function LuminaryPanels() {
       }
     }
     ctx.restore();
+
+    // Re-draw the custom border ON TOP of overlays/stickers/glow so the AI
+    // border frame is always visible above everything else inside the pill.
+    if (s.showAvatar && s.borderStyleId === "custom-image" && customBorderImg) {
+      const scale = Math.max(40, Math.min(260, s.customBorderScale ?? 125));
+      const frameSize = geo.avR * 2 * (scale / 100) + (s.avBorderGap || 0) * 2;
+      ctx.save();
+      // Clip to the pill so the border can't bleed past the pill edges.
+      roundedRectPath(ctx, 0, 0, W, H, geo.pillR);
+      ctx.clip();
+      ctx.globalAlpha = Math.max(0, Math.min(1, (s.customBorderOpacity ?? 100) / 100));
+      ctx.translate(avCX, avCY);
+      ctx.rotate(((s.customBorderRotation || 0) * Math.PI) / 180);
+      ctx.drawImage(customBorderImg, -frameSize / 2, -frameSize / 2, frameSize, frameSize);
+      ctx.restore();
+    }
   }, [s, bgImg, avImg, customBorderImg, fontsOk, loadedImages, editMode, getBaseGeometry, pillStyle, settings.performanceMode]);
 
   useEffect(() => {
@@ -4847,19 +4915,44 @@ export default function LuminaryPanels() {
   }, [assetHubOpen]);
 
   // First-run tutorial: open onboarding if user hasn't completed it yet.
+  // Runs strictly client-side (after dynamic import + hydration).
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    let parsed = null;
     try {
-      const raw = localStorage.getItem(APP_ONBOARDING_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (!parsed?.completed) {
-        const t = setTimeout(() => setOnboardingOpen(true), 600);
-        return () => clearTimeout(t);
-      }
+      const raw = window.localStorage.getItem(APP_ONBOARDING_KEY);
+      parsed = raw ? JSON.parse(raw) : null;
     } catch (_) {
-      const t = setTimeout(() => setOnboardingOpen(true), 600);
+      parsed = null;
+    }
+    if (!parsed?.completed) {
+      const t = setTimeout(() => setOnboardingOpen(true), 700);
       return () => clearTimeout(t);
     }
   }, []);
+
+  // ── Mobile swipe-back / hardware-back overlay handling ─────────────────────
+  // When any overlay (asset hub, settings, onboarding) is open, we push a
+  // dummy history entry. If the user swipes back / hits the back button, the
+  // popstate handler closes the topmost overlay instead of exiting the app.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const overlayOpen = assetHubOpen || settingsOpen || onboardingOpen || sheetOpen;
+    if (!overlayOpen) return;
+    // Push a dummy entry the first time an overlay opens this session.
+    try { window.history.pushState({ luminaryOverlay: Date.now() }, ""); } catch (_) {}
+    const onPop = () => {
+      // Close in priority order (topmost first).
+      if (onboardingOpen) { setOnboardingOpen(false); return; }
+      if (settingsOpen)   { closeSettings?.(); return; }
+      if (assetHubOpen)   { setAssetHubOpen(false); return; }
+      if (sheetOpen)      { setSheetOpen(false); return; }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+    };
+  }, [assetHubOpen, settingsOpen, onboardingOpen, sheetOpen, closeSettings]);
 
   const completeOnboarding = useCallback((skipped = false) => {
     try {
@@ -4890,9 +4983,18 @@ export default function LuminaryPanels() {
     // Reset abort flag for this run; previous run is gone.
     aiBorderAbortRef.current = { aborted: false, controller: typeof AbortController !== "undefined" ? new AbortController() : null };
     setAiBorderBusy(true);
+    setAiBorderProgress(0.04);
     setAiBorderStatus("Preparing prompt...");
     const variationCount = Math.max(1, Math.min(4, aiBorderConfig.variations || 1));
     const generatedItems = [];
+    // Each variation is split into 3 phases for progress: request, fallback/normalize, post-process.
+    const totalPhases = variationCount * 3;
+    let phasesDone = 0;
+    const advance = (extraStatus) => {
+      phasesDone += 1;
+      setAiBorderProgress(Math.min(0.97, 0.04 + (phasesDone / totalPhases) * 0.92));
+      if (extraStatus) setAiBorderStatus(extraStatus);
+    };
     try {
       // Pick reference image based on user choice
       const refSource = aiBorderConfig.referenceSource || "avatar";
@@ -4928,6 +5030,7 @@ export default function LuminaryPanels() {
           setAiBorderStatus(`${providerLabel} unavailable: ${provErr.message}. Using procedural fallback...`);
         }
         if (aiBorderAbortRef.current?.aborted) break;
+        advance(); // phase 1 done: provider returned (or failed)
         // Procedural fallback if provider returned nothing
         if (!generatedSrc) {
           generatedSrc = await generateAiBorderFallback({
@@ -4943,15 +5046,16 @@ export default function LuminaryPanels() {
             density: aiBorderConfig.density,
           });
         }
-        // Normalize to PNG data URL
-        let finalBorderSrc = await toPngDataUrl(generatedSrc, 768);
+        // Normalize to PNG data URL at high resolution (1024) for sharper output.
+        let finalBorderSrc = await toPngDataUrl(generatedSrc, 1024);
+        advance("Cleaning up edges..."); // phase 2 done: normalized
         // Auto background removal: detects + chroma-keys flat backdrops the
         // model returned (default green / white / gray) and ALSO punches the
         // center hole in one pass when transparentCenter is on.
         if (aiBorderConfig.removeBackground !== false) {
           setAiBorderStatus("Cleaning background...");
           finalBorderSrc = await removeBorderBackground(finalBorderSrc, {
-            size: 768,
+            size: 1024,
             tolerance: aiBorderConfig.bgRemoveTolerance ?? 36,
             feather: 16,
             punchCenter: aiBorderConfig.transparentCenter !== false,
@@ -4959,12 +5063,13 @@ export default function LuminaryPanels() {
             centerFeather: 0.14,
           });
         } else if (aiBorderConfig.transparentCenter !== false) {
-          finalBorderSrc = await makeBorderTransparentCenter(finalBorderSrc, { size: 768, innerRatio: 0.46, feather: 0.14 });
+          finalBorderSrc = await makeBorderTransparentCenter(finalBorderSrc, { size: 1024, innerRatio: 0.46, feather: 0.14 });
         }
         const stylePresetMeta = AI_BORDER_STYLE_PRESETS.find(s => s.id === aiBorderConfig.stylePreset);
         const labelStyle = stylePresetMeta?.label || "AI";
         const item = registerImportedAsset("border", finalBorderSrc, `${labelStyle} Border ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${variationCount > 1 ? ` v${v + 1}` : ""}`, { aiGenerated: true });
         if (item) generatedItems.push({ ...item, src: finalBorderSrc });
+        advance(); // phase 3 done: post-processed + saved
       }
 
       if (generatedItems.length > 0) {
@@ -4995,7 +5100,10 @@ export default function LuminaryPanels() {
       console.error("AI border generation error:", err);
       return null;
     } finally {
+      setAiBorderProgress(1);
       setAiBorderBusy(false);
+      // Hide the progress bar a moment after completion.
+      setTimeout(() => setAiBorderProgress(0), 800);
     }
   }, [accent, accent2, aiBorderConfig, aiBorderPrompt, avRawSrc, bgRawSrc, pushState, registerImportedAsset, s.customBorderOpacity, s.customBorderRotation, s.customBorderScale]);
   const applyUiPreset = useCallback((preset) => {
@@ -6106,7 +6214,7 @@ export default function LuminaryPanels() {
     </Card>
   );
 
-  // ── Preview customization values ───────────────���──────────────────────────
+  // ── Preview customization values ───────────────���──────────────────────��───
   const prevBorderRadius = settings.previewBorderRadius ?? 24;
   const prevPadding = settings.previewPadding ?? 16;
   const prevGlowIntensity = settings.previewGlowIntensity ?? 28;
@@ -6415,6 +6523,12 @@ export default function LuminaryPanels() {
             transform: translateY(0);
             opacity: 1;
           }
+        }
+
+        /* AI border generation progress shimmer */
+        @keyframes aiProgressShimmer {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
 
         /* Premium Button Animations */
@@ -7170,11 +7284,12 @@ export default function LuminaryPanels() {
         <div style={{
           display:"flex",
           flexWrap:"wrap",
-          justifyContent:"flex-start",
+          justifyContent:"center",
           gap:20,
           padding:"20px 14px",
-          paddingRight: vp.isMobile ? "14px" : "calc(14px + 640px)",
-          maxWidth: "100%",
+          // Cap content width on wide screens so the mobile-style layout is
+          // centered and pleasant on desktop instead of stretching edge-to-edge.
+          maxWidth: vp.isWide ? 760 : "100%",
           margin:"0 auto",
           transition:`padding ${uiTransition}, gap ${uiTransition}, opacity ${uiTransition}` ,
           opacity: sliderPreviewFocus ? Math.max(0, Math.min(1, (settings.sliderFocusUiOpacity ?? 0) / 100)) : 1
@@ -7192,19 +7307,21 @@ export default function LuminaryPanels() {
             ref={previewDockRef}
             style={{
               flex:"none",
-              width: vp.isMobile ? "calc(100% - 28px)" : 580,
+              // On wide screens, cap preview at 720px and center it.
+              width: vp.isWide ? "min(720px, calc(100% - 28px))" : "calc(100% - 28px)",
               height: "auto",
               display:"flex",
               flexDirection:"column",
               gap:14,
               minWidth:0,
               position:"fixed",
-              left: vp.isMobile ? 14 : "auto",
-              right: vp.isMobile ? 14 : 20,
+              left: vp.isWide ? "50%" : 14,
+              right: vp.isWide ? "auto" : 14,
+              marginLeft: vp.isWide ? "min(-360px, calc(-50% + 14px))" : 0,
               top: sliderPreviewFocus ? 8 : headerHeight + 8,
               transform: sliderPreviewFocus ? `scale(${Math.max(1, (settings.sliderFocusPreviewZoom ?? 100) / 100)})` : "scale(1)",
-              maxWidth: vp.isMobile ? "calc(100% - 28px)" : 580,
-              zIndex: vp.isMobile ? 95 : 40,
+              maxWidth: vp.isWide ? 720 : "calc(100% - 28px)",
+              zIndex: 95,
               overflowY: "visible",
               alignSelf:"flex-start",
               transition:`top 300ms var(--ease-ios), left 300ms var(--ease-ios), right 300ms var(--ease-ios)`,
@@ -7920,13 +8037,29 @@ export default function LuminaryPanels() {
 
                   {/* Prompt */}
                   <div>
-                    <h3 style={{ margin:"0 0 8px", fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Extra Prompt (optional)</h3>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8, gap:8, flexWrap:"wrap" }}>
+                      <h3 style={{ margin:0, fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>
+                        {aiBorderConfig.stylePreset === "custom" ? "Your Style Prompt" : "Extra Prompt (optional)"}
+                      </h3>
+                      {aiBorderConfig.stylePreset === "custom" && (
+                        <span style={{ fontSize:10, fontWeight:800, padding:"3px 8px", borderRadius:999, background:`linear-gradient(135deg, ${accent}, ${accent2})`, color:"#fff", letterSpacing:0.4 }}>
+                          CUSTOM MODE
+                        </span>
+                      )}
+                    </div>
                     <textarea
                       value={aiBorderPrompt}
                       onChange={(e) => setAiBorderPrompt(e.target.value)}
-                      placeholder="e.g. soft pink hearts, sparkles, gold accents..."
-                      style={{ ...inputSt, minHeight: vp.isMobile ? 60 : 72, resize:"vertical" }}
+                      placeholder={aiBorderConfig.stylePreset === "custom"
+                        ? "Describe your border style in your own words. e.g. 'minimalist geometric border with thin gold lines, art deco style, black and gold colors'"
+                        : "e.g. soft pink hearts, sparkles, gold accents..."}
+                      style={{ ...inputSt, minHeight: vp.isMobile ? 76 : 96, resize:"vertical" }}
                     />
+                    {aiBorderConfig.stylePreset === "custom" && (
+                      <p style={{ margin:"6px 2px 0", fontSize:11, color:textDim, fontWeight:600, lineHeight:1.45 }}>
+                        Custom mode uses ONLY your description as the style. Style presets are skipped.
+                      </p>
+                    )}
                   </div>
 
                   {/* Variations */}
@@ -8073,8 +8206,54 @@ export default function LuminaryPanels() {
                     }}
                   >
                     <UiIcon name="sparkles" size={15} color={aiBorderBusy ? textDim : "#fff"} />
-                    {aiBorderBusy ? "Generating…" : `Generate ${aiBorderConfig.variations || 1} Border${(aiBorderConfig.variations || 1) > 1 ? "s" : ""}`}
+                    {aiBorderBusy
+                      ? `Generating… ${Math.round((aiBorderProgress || 0) * 100)}%`
+                      : `Generate ${aiBorderConfig.variations || 1} Border${(aiBorderConfig.variations || 1) > 1 ? "s" : ""}`}
                   </button>
+
+                  {/* Animated progress bar — visible whenever generation is active or just finished */}
+                  {(aiBorderBusy || aiBorderProgress > 0) && (
+                    <div
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round((aiBorderProgress || 0) * 100)}
+                      style={{
+                        position: "relative",
+                        height: 8,
+                        borderRadius: 999,
+                        background: controlBg,
+                        border: `1px solid ${cardBorder}`,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: `${Math.max(4, Math.round((aiBorderProgress || 0) * 100))}%`,
+                          background: `linear-gradient(90deg, ${accent}, ${accent2})`,
+                          borderRadius: 999,
+                          transition: "width 320ms cubic-bezier(.2,.7,.2,1)",
+                          boxShadow: `0 0 12px ${accent}66`,
+                        }}
+                      />
+                      {/* Indeterminate shimmer overlay while busy */}
+                      {aiBorderBusy && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.32) 50%, transparent 100%)`,
+                            animation: "aiProgressShimmer 1.6s linear infinite",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
 
                   {aiBorderBusy && (
                     <div style={{ display:"flex", justifyContent:"center" }}>
@@ -8459,11 +8638,45 @@ export default function LuminaryPanels() {
           {saveNotice}
         </div>
       )}
+
+      {/* First-run onboarding tutorial */}
+      <FirstRunOnboarding
+        open={onboardingOpen}
+        step={onboardingStep}
+        setStep={setOnboardingStep}
+        onClose={() => setOnboardingOpen(false)}
+        onComplete={() => completeOnboarding(false)}
+        onSkip={() => completeOnboarding(true)}
+        onUploadAvatar={() => { try { hubAvFileRef.current?.click(); } catch (_) {} }}
+        onOpenStyle={() => {
+          if (vp.isMobile) setMobileTab?.("design");
+          if (settingsOpen) closeSettings?.();
+        }}
+        onOpenAssetHub={() => {
+          setAssetHubOpen(true);
+          setAssetHubSection("library");
+          setAssetHubTab("border");
+        }}
+        onOpenAiSettings={() => {
+          setAssetHubOpen(true);
+          setAssetHubSection("ai");
+          setAssetHubTab("ai-border");
+        }}
+        onOpenExport={() => {
+          if (settingsOpen) closeSettings?.();
+          if (vp.isMobile) setMobileTab?.("export");
+        }}
+        performanceMode={!!settings.performanceMode}
+        accentColor={accent}
+        accentColor2={accent2}
+        isDark={isDark}
+        isMobile={vp.isMobile}
+      />
     </div>
   );
 }
 
-// ── Sub-components ────────────────────────────────────��───────────────────────
+// ── Sub-components ────────────────��───────────────────��───────────────────────
 function DimensionInput({ value, min, max, onConfirm, accent, textPrimary, controlBg, cardBorder }) {
   const [draft, setDraft] = useState(value.toString());
 
@@ -8880,39 +9093,6 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary =
         </div>
       )}
 
-      {/* First-run onboarding tutorial */}
-      <FirstRunOnboarding
-        open={onboardingOpen}
-        step={onboardingStep}
-        setStep={setOnboardingStep}
-        onClose={() => setOnboardingOpen(false)}
-        onComplete={() => completeOnboarding(false)}
-        onSkip={() => completeOnboarding(true)}
-        onUploadAvatar={() => { try { hubAvFileRef.current?.click(); } catch (_) {} }}
-        onOpenStyle={() => {
-          if (vp.isMobile) setMobileTab?.("design");
-          if (settingsOpen) closeSettings?.();
-        }}
-        onOpenAssetHub={() => {
-          setAssetHubOpen(true);
-          setAssetHubSection("library");
-          setAssetHubTab("border");
-        }}
-        onOpenAiSettings={() => {
-          setAssetHubOpen(true);
-          setAssetHubSection("ai");
-          setAssetHubTab("ai-border");
-        }}
-        onOpenExport={() => {
-          if (settingsOpen) closeSettings?.();
-          if (vp.isMobile) setMobileTab?.("export");
-        }}
-        performanceMode={!!performanceMode}
-        accentColor={accent}
-        accentColor2={accent2}
-        isDark={isDark}
-        isMobile={vp.isMobile}
-      />
     </div>
   );
 }
