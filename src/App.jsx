@@ -3898,7 +3898,7 @@ export default function LuminaryPanels() {
     });
   }, []);
 
-  // ── Interactive button animations with Anime.js ────────────────────────────
+  // ── Interactive button animations with Anime.js ────────────────���───────────
   useEffect(() => {
     if (!window.anime) return;
     
@@ -4123,9 +4123,14 @@ export default function LuminaryPanels() {
   const [bgImg, setBgImg]               = useState(null);
   const [avImg, setAvImg]               = useState(null);
   const [customBorderImg, setCustomBorderImg] = useState(null);
+  // True while a freshly imported border is being chroma-keyed + center-punched
+  // via donutifyImportedBorder. Used to disable the "Border Overlay" button on
+  // the home-screen quick-actions row so users get visual feedback during the
+  // 200–800ms canvas processing pass and can't double-import.
+  const [borderImportBusy, setBorderImportBusy] = useState(false);
   const [loadedImages, setLoadedImages] = useState({});
 
-  // ── Drag Engine ───────────────────────────────────────────────────────────
+  // ── Drag Engine ─────��─────────────────────────────────────────────────────
   const dragData = useRef(null);
 
   // ── Initialization ────────────────────────────────────────────────────────
@@ -4512,19 +4517,52 @@ export default function LuminaryPanels() {
     mediumHaptic(settings.hapticFeedback);
   };
 
+  // Donut-ifies a freshly imported border image: runs it through the same
+  // chroma-key + center-punch pipeline the AI generator uses, so any solid
+  // backdrop the source image has (white card, screenshot frame, social
+  // template, etc.) is auto-removed and the avatar can show through the
+  // ring center. Falls back to the original data URL on failure so the
+  // import still works if the canvas pipeline can't process the file.
+  const donutifyImportedBorder = useCallback(async (rawDataUrl) => {
+    if (!rawDataUrl) return rawDataUrl;
+    try {
+      const processed = await removeBorderBackground(rawDataUrl, {
+        size: 1024,
+        tolerance: 38,
+        feather: 16,
+        punchCenter: true,
+        innerRatio: 0.46,
+        centerFeather: 0.14,
+      });
+      return processed || rawDataUrl;
+    } catch (_) {
+      return rawDataUrl;
+    }
+  }, []);
+
   const handleCustomBorderFileChange = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const r = new FileReader();
-    r.onload = ev => {
-      registerImportedAsset("border", ev.target.result, f.name || "Border");
+    r.onload = async (ev) => {
+      const raw = ev.target?.result;
+      if (typeof raw !== "string") return;
+      setBorderImportBusy(true);
+      // Run the chroma-key + donut-hole treatment so the imported overlay
+      // behaves like the AI-generated borders: backdrop gone, ring shape,
+      // avatar visible through the center. Original is preserved in the
+      // asset hub via the registry call below (kind:"border-original")
+      // so users can re-pick the un-processed version if they want.
+      const donut = await donutifyImportedBorder(raw);
+      registerImportedAsset("border", donut, f.name || "Border");
       pushState({
         borderStyleId: "custom-image",
-        customBorderSrc: ev.target.result,
+        customBorderSrc: donut,
         customBorderScale: s.customBorderScale ?? 125,
         customBorderOpacity: s.customBorderOpacity ?? 100,
         customBorderRotation: s.customBorderRotation ?? 0,
       });
+      setBorderImportBusy(false);
     };
     r.readAsDataURL(f);
     e.target.value = "";
@@ -6802,7 +6840,68 @@ export default function LuminaryPanels() {
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
         <button className="liquid-action-chip" onClick={() => avFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}><SvgAction icon="avatar" label="Avatar Import" tone={accent} /></button>
         <button className="liquid-action-chip" onClick={() => bgFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}><SvgAction icon="background" label="Background Import" tone={accent} /></button>
-        <button className="liquid-action-chip" onClick={() => borderFileRef.current?.click()} style={{ ...outlineBtn, flex: "none", minWidth: 130 }}><SvgAction icon="border" label="Border Overlay" tone={accent} /></button>
+        <button
+          className="liquid-action-chip"
+          onClick={() => borderFileRef.current?.click()}
+          disabled={borderImportBusy}
+          style={{ ...outlineBtn, flex: "none", minWidth: 130, opacity: borderImportBusy ? 0.6 : 1, cursor: borderImportBusy ? "wait" : "pointer" }}
+        >
+          <SvgAction icon="border" label={borderImportBusy ? "Processing…" : "Border Overlay"} tone={accent} />
+        </button>
+        {/* Home-screen AI border quick action.
+            Runs the same generateAiBorderAsset() that the editing-sheet
+            "Generate Border" button uses, so users can spin up an AI
+            border without ever opening the Avatar tab. While generating,
+            the button shows live progress text from aiBorderStatus and
+            disables itself; tapping again while busy is a no-op. */}
+        <button
+          className="liquid-action-chip"
+          onClick={() => {
+            if (aiBorderBusy) return;
+            microHaptic(settings.hapticFeedback);
+            generateAiBorderAsset();
+          }}
+          disabled={aiBorderBusy}
+          style={{
+            ...outlineBtn,
+            flex: "none",
+            minWidth: 130,
+            // Subtle accent gradient so the AI action stands out from the
+            // plain Import buttons without screaming. Switches to a busy
+            // tint with a wait cursor while generation is in flight.
+            background: aiBorderBusy
+              ? controlBg
+              : `linear-gradient(135deg, ${accent}22, ${accent2}1a)`,
+            borderColor: aiBorderBusy ? cardBorder : `${accent}66`,
+            cursor: aiBorderBusy ? "wait" : "pointer",
+            position: "relative",
+            overflow: "hidden",
+          }}
+          title={aiBorderBusy ? aiBorderStatus || "Generating…" : "Generate AI Border"}
+        >
+          <SvgAction
+            icon="sparkles"
+            label={aiBorderBusy
+              ? `AI · ${Math.round((aiBorderProgress || 0) * 100)}%`
+              : "AI Border"}
+            tone={accent}
+          />
+          {aiBorderBusy && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: 0,
+                bottom: 0,
+                height: 2,
+                width: `${Math.max(4, Math.round((aiBorderProgress || 0) * 100))}%`,
+                background: `linear-gradient(90deg, ${accent}, ${accent2})`,
+                transition: "width 220ms var(--ease-ios)",
+                borderRadius: 999,
+              }}
+            />
+          )}
+        </button>
       </div>
     </div>
   );
@@ -6896,7 +6995,19 @@ export default function LuminaryPanels() {
       <input ref={hubBorderFileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={e => {
         const f = e.target.files?.[0]; if (!f) return;
         const r = new FileReader();
-        r.onload = ev => registerImportedAsset("border", ev.target.result, f.name || "Border");
+        // Same donut treatment as handleCustomBorderFileChange — the hub
+        // import goes straight into the asset library so it MUST be
+        // pre-processed; otherwise the un-processed original would sit
+        // in the library and the donut step would never run when the
+        // user later picks it via applyAssetFromLibrary.
+        r.onload = async (ev) => {
+          const raw = ev.target?.result;
+          if (typeof raw !== "string") return;
+          setBorderImportBusy(true);
+          const donut = await donutifyImportedBorder(raw);
+          registerImportedAsset("border", donut, f.name || "Border");
+          setBorderImportBusy(false);
+        };
         r.readAsDataURL(f); e.target.value = "";
       }} />
       <style dangerouslySetInnerHTML={{ __html: `
