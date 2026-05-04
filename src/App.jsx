@@ -1,7 +1,215 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
+// ── Premium Animation Library Setup ────────────────────────────────────────
+const loadAnimeJs = () => {
+  if (window.anime) return Promise.resolve();
+  return fetch('https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js')
+    .then(r => r.text())
+    .then(code => {
+      eval(code);
+      return window.anime;
+    })
+    .catch(() => null);
+};
+
+// Premium animation helpers
+const premiumAnimate = {
+  // Staggered animation
+  stagger: (elements, animation, staggerDelay = 50) => {
+    if (!window.anime) return;
+    window.anime.stagger(elements, {
+      delay: staggerDelay,
+      ...animation
+    });
+  },
+  
+  // Timeline animation
+  timeline: () => window.anime?.timeline?.(),
+  
+  // Number morphing (for counters, values)
+  morphNumber: (target, start, end, duration = 600, callback) => {
+    if (!window.anime) {
+      callback?.(end);
+      return;
+    }
+    window.anime({
+      targets: target,
+      value: [start, end],
+      round: 1,
+      duration,
+      easing: 'easeOutElastic(1, 0.6)',
+      update: (anim) => {
+        callback?.(Math.round(anim.progress * (end - start) + start));
+      }
+    });
+  },
+  
+  // Floating animation
+  float: (element, distance = 12, duration = 3000) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      translateY: [-distance, distance],
+      duration,
+      direction: 'alternate',
+      easing: 'easeInOutSine',
+      loop: true
+    });
+  },
+  
+  // Pulse animation
+  pulse: (element, scale = 1.05, duration = 1500) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      scale: [1, scale, 1],
+      duration,
+      easing: 'easeInOutQuad',
+      loop: true
+    });
+  },
+  
+  // Rotation animation
+  rotate: (element, duration = 4000) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      rotate: 360,
+      duration,
+      easing: 'linear',
+      loop: true
+    });
+  },
+  
+  // Glow animation
+  glow: (element, intensity = 1) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      boxShadow: [
+        `0 0 8px rgba(124,255,218,0)`,
+        `0 0 24px rgba(124,255,218,${0.6 * intensity})`,
+        `0 0 8px rgba(124,255,218,0)`
+      ],
+      duration: 2000,
+      easing: 'easeInOutQuad',
+      loop: true
+    });
+  },
+
+  // Advanced: Morphing shape (design spells inspired)
+  morph: (element, scale1 = 1, scale2 = 1.15, duration = 2000) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      scale: [scale1, scale2, scale1],
+      borderRadius: ['0%', '50%', '0%'],
+      duration,
+      easing: 'easeInOutQuad',
+      loop: true
+    });
+  },
+
+  // Advanced: Fluid blob animation
+  blob: (element, duration = 4000) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      borderRadius: [
+        '40% 60% 70% 30% / 40% 50% 60% 50%',
+        '30% 70% 70% 30% / 30% 30% 70% 70%',
+        '70% 30% 46% 70% / 30% 30% 60% 70%',
+        '40% 60% 70% 30% / 40% 50% 60% 50%'
+      ],
+      duration,
+      easing: 'easeInOutQuad',
+      loop: true
+    });
+  },
+
+  // Advanced: Parallax scroll
+  parallax: (element, speed = 0.5) => {
+    window.addEventListener('scroll', () => {
+      if (!window.anime) return;
+      const scrollY = window.scrollY;
+      window.anime.set(element, { translateY: scrollY * speed });
+    });
+  },
+
+  // Advanced: Cursor tracking (design spells inspired)
+  trackCursor: (element) => {
+    if (!window.anime) return;
+    document.addEventListener('mousemove', (e) => {
+      const x = e.clientX;
+      const y = e.clientY;
+      const rect = element?.getBoundingClientRect?.();
+      if (!rect) return;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const distX = (x - centerX) * 0.2;
+      const distY = (y - centerY) * 0.2;
+      window.anime.set(element, {
+        translateX: distX,
+        translateY: distY
+      });
+    });
+  },
+
+  // Advanced: Color shift animation
+  colorShift: (element, colors = [], duration = 3000) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      backgroundColor: colors.length > 0 ? colors : ['#7cffda', '#9a86ff', '#7cffda'],
+      duration,
+      easing: 'easeInOutQuad',
+      loop: true
+    });
+  },
+
+  // Advanced: Staggered wave effect
+  wave: (elements, duration = 2000, offset = 30) => {
+    if (!window.anime) return;
+    Array.from(elements).forEach((el, idx) => {
+      window.anime({
+        targets: el,
+        translateY: [-8, 8, -8],
+        duration,
+        delay: idx * offset,
+        direction: 'alternate',
+        easing: 'easeInOutSine',
+        loop: true
+      });
+    });
+  },
+
+  // Advanced: Bounce entrance
+  bounceIn: (element, duration = 600) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      scale: [0.3, 1],
+      opacity: [0, 1],
+      duration,
+      easing: 'easeOutElastic(1, 0.8)'
+    });
+  },
+
+  // Advanced: Smooth appear
+  smoothAppear: (element, duration = 800) => {
+    if (!window.anime) return;
+    window.anime({
+      targets: element,
+      opacity: [0, 1],
+      scale: [0.95, 1],
+      duration,
+      easing: 'easeOutQuad'
+    });
+  }
+};
+
 // ── Constants ────────────────────────────────────────────────────────────────
-const __APP_VERSION__ = "2.4.1-performance-pass";
+const __APP_VERSION__ = "2.4.1-premium-animations";
 
 const COMBINED_FONT_URL =
   "https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=JetBrains+Mono:wght@500;600&family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
@@ -427,25 +635,306 @@ function createAiBorderSvg({ palette, prompt = "", detail = 72, density = 58, se
   </svg>`);
 }
 
-async function requestRemoteAiBorder({ endpoint, apiKey, model, prompt, palette, imageSrc }) {
-  if (!endpoint) return null;
+// ── AI Border Provider Adapters ───────────────────────────────────────────
+// All keys live ONLY in localStorage (user-supplied). Never hardcoded.
+// "pollinations" is free and key-less and is the safe default.
+// Other providers (gemini, openai, custom) require user-supplied keys.
+
+const AI_BORDER_STYLE_PRESETS = [
+  { id: "cute",       label: "Cute",        prompt: "cute kawaii pastel, soft rounded shapes, charming, adorable" },
+  { id: "kawaii",     label: "Kawaii",      prompt: "kawaii anime aesthetic, pastel colors, hearts and stars, sparkles" },
+  { id: "fantasy",    label: "Fantasy",     prompt: "fantasy magical, ornate scrollwork, glowing runes, elegant" },
+  { id: "neon",       label: "Neon Glow",   prompt: "neon glow, vibrant rim light, cyberpunk aesthetic, bright halo" },
+  { id: "floral",     label: "Floral",      prompt: "floral wreath, botanical leaves and flowers, watercolor petals" },
+  { id: "stars",      label: "Stars",       prompt: "constellation of stars, twinkling sparkles, celestial, galaxy" },
+  { id: "hearts",     label: "Hearts",      prompt: "ring of hearts, romantic, soft pink and red, valentine theme" },
+  { id: "gaming",     label: "Gaming",      prompt: "gaming hud frame, RGB accents, futuristic tech border, esports" },
+  { id: "royal",      label: "Royal",       prompt: "royal crown ornament, gold leaf filigree, luxury baroque, regal" },
+  { id: "pastel",     label: "Soft Pastel", prompt: "soft pastel gradient, dreamy clouds, gentle airy aesthetic" },
+];
+
+const AI_BORDER_SHAPE_PRESETS = [
+  { id: "circle",  label: "Circle",   prompt: "perfectly circular avatar border, round frame, donut ring shape" },
+  { id: "rounded", label: "Rounded",  prompt: "rounded square frame with soft corners, profile card style" },
+  { id: "square",  label: "Square",   prompt: "square decorative frame, sharp clean edges" },
+  { id: "badge",   label: "Badge",    prompt: "profile badge frame with a small banner, achievement style" },
+];
+
+const AI_BORDER_PROVIDERS = [
+  { id: "pollinations",      label: "Free (Pollinations)", needsKey: false, free: true,  desc: "No API key needed. Free public image model." },
+  { id: "gemini",            label: "Google Gemini",       needsKey: true,  free: false, desc: "Uses your Gemini API key from Google AI Studio." },
+  { id: "openai-compatible", label: "OpenAI-compatible",   needsKey: true,  free: false, desc: "/v1/images/generations contract. Works with OpenAI, OpenRouter, etc." },
+  { id: "custom",            label: "Custom Endpoint",     needsKey: true,  free: false, desc: "Any HTTPS endpoint that returns dataUrl/url/svg/image." },
+  { id: "gateway",           label: "Vercel AI Gateway",   needsKey: false, free: false, desc: "Uses your AI_GATEWAY_API_KEY env on the server (no per-user key)." },
+  { id: "procedural",        label: "Procedural (Offline)", needsKey: false, free: true, desc: "Pure SVG, instant, no network. Good fallback." },
+];
+
+function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePreset = "circle", palette = {} }) {
+  const stylePart = AI_BORDER_STYLE_PRESETS.find(s => s.id === stylePreset)?.prompt || "";
+  const shapePart = AI_BORDER_SHAPE_PRESETS.find(s => s.id === shapePreset)?.prompt || "";
+  const colorPart = palette?.primary && palette?.secondary
+    ? `palette: primary ${palette.primary}, secondary ${palette.secondary}`
+    : "";
+  const userPart = String(userPrompt || "").trim();
+  return [
+    "Decorative avatar border / frame ONLY.",
+    "Transparent PNG background. Empty transparent center where the avatar goes.",
+    "No avatar, no face, no person, no full picture, no backdrop, no scenery.",
+    "Symmetrical, polished, high-resolution, suitable for a profile picture frame.",
+    stylePart,
+    shapePart,
+    userPart,
+    colorPart,
+  ].filter(Boolean).join(". ");
+}
+
+// Pollinations.ai — free, no auth required, returns a PNG URL directly.
+async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now()) {
+  const enc = encodeURIComponent(finalPrompt);
+  const url = `https://image.pollinations.ai/prompt/${enc}?width=768&height=768&nologo=true&enhance=true&seed=${seed}`;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 768; canvas.height = 768;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, 768, 768);
+        resolve(canvas.toDataURL("image/png"));
+      } catch (_) { resolve(null); }
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+// Google Gemini image generation (gemini-2.5-flash-image / nano-banana family).
+// User supplies their own API key (stored only in localStorage).
+async function generateAiBorderViaGemini(finalPrompt, apiKey, modelName) {
+  if (!apiKey) throw new Error("Gemini API key required");
+  const model = modelName || "gemini-2.5-flash-image";
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
+      generationConfig: { responseModalities: ["IMAGE"] },
+    }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Gemini ${res.status}: ${txt.slice(0, 120)}`);
+  }
+  const data = await res.json();
+  const parts = data?.candidates?.[0]?.content?.parts || [];
+  for (const p of parts) {
+    const inline = p?.inlineData || p?.inline_data;
+    if (inline?.data) {
+      const mime = inline.mimeType || inline.mime_type || "image/png";
+      return `data:${mime};base64,${inline.data}`;
+    }
+  }
+  throw new Error("Gemini returned no image data");
+}
+
+// OpenAI-compatible /v1/images/generations
+async function generateAiBorderViaOpenAI(finalPrompt, apiKey, modelName, baseUrl) {
+  if (!apiKey) throw new Error("OpenAI-compatible API key required");
+  const url = (baseUrl && baseUrl.trim()) ? baseUrl.trim().replace(/\/$/, "") + "/v1/images/generations"
+                                            : "https://api.openai.com/v1/images/generations";
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelName || "gpt-image-1",
+      prompt: finalPrompt,
+      size: "1024x1024",
+      n: 1,
+      background: "transparent",
+    }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`OpenAI ${res.status}: ${txt.slice(0, 120)}`);
+  }
+  const data = await res.json();
+  const item = data?.data?.[0] || {};
+  if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;
+  if (item.url) return item.url;
+  throw new Error("OpenAI returned no image");
+}
+
+// Custom endpoint — best-effort: accepts JSON body, returns common image fields.
+async function generateAiBorderViaCustom(finalPrompt, apiKey, modelName, endpoint) {
+  if (!endpoint) throw new Error("Custom endpoint URL required");
   const headers = { "Content-Type": "application/json" };
-  if (apiKey) headers.Authorization = apiKey.startsWith("Bearer ") ? apiKey : `Bearer ${apiKey}`;
+  if (apiKey) {
+    headers.Authorization = apiKey.startsWith("Bearer ") ? apiKey : `Bearer ${apiKey}`;
+  }
   const res = await fetch(endpoint, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      model: model || undefined,
-      mode: "avatar-border",
-      prompt,
-      palette,
-      imageHint: { source: imageSrc ? "provided" : "none" },
-      output: { format: "svg-or-data-url", transparentBackground: true, width: 768, height: 768 },
-    }),
+    body: JSON.stringify({ prompt: finalPrompt, model: modelName || undefined, width: 768, height: 768 }),
   });
-  if (!res.ok) throw new Error(`Remote AI failed (${res.status})`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Custom ${res.status}: ${txt.slice(0, 120)}`);
+  }
+  const data = await res.json().catch(() => ({}));
+  return data?.dataUrl || data?.image || data?.url || data?.svg || null;
+}
+
+// Vercel AI Gateway via a server route (/api/ai-border). Server reads AI_GATEWAY_API_KEY.
+async function generateAiBorderViaGateway(finalPrompt, modelName) {
+  const res = await fetch("/api/ai-border", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: finalPrompt, model: modelName || "google/gemini-2.5-flash-image" }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Gateway ${res.status}: ${txt.slice(0, 120)}`);
+  }
   const data = await res.json();
-  return data?.svg || data?.dataUrl || data?.image || data?.url || null;
+  return data?.dataUrl || data?.url || null;
+}
+
+// Main provider dispatcher.
+async function dispatchAiBorderProvider(finalPrompt, providerCfg, seed) {
+  const { provider, apiKey, model, endpoint } = providerCfg || {};
+  switch (provider) {
+    case "gemini":
+      return generateAiBorderViaGemini(finalPrompt, apiKey, model);
+    case "openai-compatible":
+      return generateAiBorderViaOpenAI(finalPrompt, apiKey, model, endpoint);
+    case "custom":
+      return generateAiBorderViaCustom(finalPrompt, apiKey, model, endpoint);
+    case "gateway":
+      return generateAiBorderViaGateway(finalPrompt, model);
+    case "procedural":
+      return null; // procedural fallback handled by caller
+    case "pollinations":
+    default:
+      return generateAiBorderViaPollinations(finalPrompt, seed);
+  }
+}
+
+async function generateAiBorderFallback({ palette, prompt = "", detail = 72, density = 58 }) {
+  // Enhanced procedural border with better styling
+  const mood = inferAiBorderMood(prompt);
+  const primary = normalizeHex(palette?.primary || "#7cffda");
+  const secondary = normalizeHex(palette?.secondary || "#9a86ff");
+  const neutral = normalizeHex(palette?.neutral || mixHex(primary, secondary, 0.5));
+  const highlight = normalizeHex(palette?.highlight || mixHex(primary, "#ffffff", 0.72));
+  const shadow = normalizeHex(palette?.shadow || mixHex(neutral, "#0b1020", 0.72));
+  
+  const complexity = clampAiValue(detail, 20, 100);
+  const count = Math.round(12 + (complexity / 100) * 16 + (density / 100) * 12);
+  
+  // Generate decorative elements based on mood
+  const elements = [];
+  
+  // Main circular frame
+  elements.push(`
+    <circle cx="384" cy="384" r="340" stroke="${primary}" stroke-width="32" fill="none" opacity="0.85"/>
+    <circle cx="384" cy="384" r="308" stroke="${secondary}" stroke-width="2" fill="none" opacity="0.6"/>
+    <circle cx="384" cy="384" r="350" stroke="${highlight}" stroke-width="12" fill="none" opacity="0.25" filter="url(#glow)"/>
+  `);
+  
+  // Decorative elements around border
+  const petalElements = Array.from({ length: count }, (_, i) => {
+    const angle = (Math.PI * 2 * i) / count;
+    const radius = 330 + Math.sin(angle * 3) * 12;
+    const x = 384 + Math.cos(angle) * radius;
+    const y = 384 + Math.sin(angle) * radius;
+    const size = mood === "minimal" ? 8 : mood === "tech" ? 12 : 14;
+    const rotation = (angle * 180) / Math.PI;
+    
+    if (mood === "tech") {
+      return `<rect x="${x - size/2}" y="${y - size}" width="${size}" height="${size * 1.8}" rx="2" fill="${highlight}" opacity="${0.4 + (i % 3) * 0.15}" transform="rotate(${rotation} ${x} ${y})"/>`;
+    }
+    if (mood === "minimal") {
+      return `<circle cx="${x}" cy="${y}" r="${size * 0.5}" fill="${primary}" opacity="${0.5 + (i % 2) * 0.2}"/>`;
+    }
+    if (mood === "luxe") {
+      return `<path d="M ${x} ${y - size} L ${x + size * 0.8} ${y} L ${x} ${y + size} L ${x - size * 0.8} ${y} Z" fill="${mixHex(primary, '#ffd700', 0.6)}" opacity="${0.6 + (i % 3) * 0.2}"/>`;
+    }
+    // Default soft mood
+    return `<ellipse cx="${x}" cy="${y}" rx="${size}" ry="${size * 1.4}" fill="url(#grad2)" opacity="${0.35 + (i % 4) * 0.15}" transform="rotate(${rotation} ${x} ${y})"/>`;
+  }).join("");
+  
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768" fill="none">
+    <defs>
+      <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${primary}" stop-opacity="0.9"/>
+        <stop offset="100%" stop-color="${secondary}" stop-opacity="0.7"/>
+      </linearGradient>
+      <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${highlight}" stop-opacity="0.85"/>
+        <stop offset="100%" stop-color="${primary}" stop-opacity="0.65"/>
+      </linearGradient>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+        <feMerge>
+          <feMergeNode in="coloredBlur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+      <filter id="softGlow">
+        <feGaussianBlur stdDeviation="3"/>
+      </filter>
+    </defs>
+    ${elements.join("")}
+    ${petalElements}
+    <circle cx="384" cy="384" r="364" stroke="${highlight}" stroke-width="1" fill="none" opacity="0.3"/>
+  </svg>`;
+  
+  return svgDataUrl(svg);
+}
+
+// Punch a soft transparent circle in the middle of a generated border so it's
+// usable as an avatar frame even if the model didn't honor the empty-center hint.
+async function makeBorderTransparentCenter(src, { size = 768, innerRatio = 0.46, feather = 0.12 } = {}) {
+  if (!src) return src;
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.crossOrigin = "anonymous";
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = src;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) return src;
+    // Fit-cover draw
+    const sw = img.naturalWidth || img.width || size;
+    const sh = img.naturalHeight || img.height || size;
+    const ratio = Math.max(size / sw, size / sh);
+    const dw = sw * ratio;
+    const dh = sh * ratio;
+    ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh);
+    // Punch hole using destination-out with a radial fade
+    const cx = size / 2, cy = size / 2;
+    const rInner = (size / 2) * innerRatio;
+    const rOuter = rInner * (1 + feather);
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOuter);
+    grad.addColorStop(0, "rgba(0,0,0,1)");
+    grad.addColorStop(rInner / rOuter, "rgba(0,0,0,1)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rOuter, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    return canvas.toDataURL("image/png");
+  } catch (_) {
+    return src;
+  }
 }
 
 async function toPngDataUrl(src, size = 768) {
@@ -1976,6 +2465,13 @@ function UiIcon({ name, size = 16, color = "currentColor", stroke = 2 }) {
     apply: <><path d="M20 6 9 17l-5-5"/></>,
     face: <><circle cx="12" cy="12" r="8"/><path d="M9 10h.01M15 10h.01M9 15c1.8 1.3 4.2 1.3 6 0"/></>,
     wand: <><path d="m4 20 12-12"/><path d="m14 4 6 6"/><path d="M5 5l1-2 1 2 2 1-2 1-1 2-1-2-2-1 2-1Zm14 9 1-2 1 2 2 1-2 1-1 2-1-2-2-1 2-1Z"/></>,
+    search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></>,
+    star: <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></>,
+    download: <><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></>,
+    share: <><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 11 7.6-4M8.2 13l7.6 4"/></>,
+    move: <><path d="M12 3v18M3 12h18M8 7l4-4 4 4M8 17l4 4 4-4M7 8l-4 4 4 4M17 8l4 4-4 4"/></>,
+    rotate: <><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></>,
+    scale: <><path d="M4 4h6v2H6v4H4V4Zm10 14v-2h4v-4h2v6h-6Z"/><path d="m4 20 6-6m4-4 6-6"/></>,
   };
   return <svg {...common}>{icons[name] || icons.layout}</svg>;
 }
@@ -2099,6 +2595,160 @@ function IOSToggle({ checked, onChange, accent = "#4fb3d9", hapticEnabled = true
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Asset Hub Helpers (top level so they don't reallocate on every render)
+// ─────────────────────────────────────────────────────────────────────────────
+const ASSET_HUB_TABS = [
+  { id: "all",       label: "All",         icon: "assets" },
+  { id: "border",    label: "Borders",     icon: "border" },
+  { id: "ai-border", label: "AI Borders",  icon: "sparkles" },
+  { id: "texture",   label: "Textures",    icon: "texture" },
+  { id: "glow",      label: "Glow",        icon: "wand" },
+  { id: "sticker",   label: "Stickers",    icon: "overlay" },
+  { id: "favorites", label: "Favorites",   icon: "star" },
+];
+
+function getAssetVirtualCategory(item) {
+  // Returns the virtual tab id this asset belongs to.
+  if (!item) return "all";
+  if (item.aiGenerated) return "ai-border";
+  const kind = normalizeAssetKind(item.kind);
+  if (kind === "texture") return "texture";
+  if (kind === "border") return "border";
+  if (kind === "overlay") {
+    const lab = String(item.label || "").toLowerCase();
+    if (item.category === "glow" || /glow|flare|halo|aura|orb|lens/.test(lab)) return "glow";
+    return "sticker";
+  }
+  return kind;
+}
+
+function matchAssetSearch(item, q) {
+  if (!q) return true;
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  return String(item.label || "").toLowerCase().includes(needle)
+      || String(item.kind || "").toLowerCase().includes(needle)
+      || String(item.category || "").toLowerCase().includes(needle);
+}
+
+const AssetTile = React.memo(function AssetTile({
+  item, held, accent, accent2, cardBorder, controlBg, textPrimary, textDim, isDark,
+  liquidEnabled, uiBlurPx, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave,
+  onContextMenu, onApply, onSetAvatar, onSetBackground, onSetBorder, onRemove, onToggleFavorite,
+  hapticEnabled,
+}) {
+  const kind = normalizeAssetKind(item.kind);
+  const isFav = !!item.favorite;
+  return (
+    <div
+      className={`morph-tile ${held ? "asset-card-held" : ""}`}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onPointerLeave={onPointerLeave}
+      onContextMenu={onContextMenu}
+      style={{
+        borderRadius:18,
+        border:`1px solid ${held ? accent : cardBorder}`,
+        background:controlBg,
+        overflow:"hidden",
+        aspectRatio:"1 / 1.18",
+        position:"relative",
+        cursor:"pointer",
+        boxShadow: held ? `0 8px 22px ${accent}24` : "inset 0 1px 0 rgba(255,255,255,0.06)",
+        contentVisibility:"auto",
+        containIntrinsicSize:"160px 188px",
+        animation: "none",
+      }}
+    >
+      <div style={{ height:"68%", position:"relative", overflow:"hidden", background:`linear-gradient(135deg, ${accent}10, ${accent2}08)` }}>
+        {item.src && (
+          <img
+            src={item.src}
+            alt={item.label || "Asset"}
+            loading="lazy"
+            decoding="async"
+            style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }}
+          />
+        )}
+        <span style={{
+          position:"absolute",
+          top:6, left:6,
+          display:"inline-flex",
+          alignItems:"center",
+          gap:4,
+          padding:"3px 6px",
+          borderRadius:999,
+          background:"rgba(0,0,0,0.55)",
+          color:"#fff",
+          fontSize:9.5,
+          fontWeight:800,
+        }}>
+          <UiIcon name={item.aiGenerated ? "sparkles" : (ASSET_KIND_META[kind]?.icon || "assets")} size={10} color="#fff" />
+          {item.aiGenerated ? "AI" : (ASSET_KIND_META[kind]?.label || "Asset")}
+        </span>
+        <button
+          aria-label={isFav ? "Unfavorite" : "Favorite"}
+          onClick={(e) => { e.stopPropagation(); microHaptic(hapticEnabled); onToggleFavorite(item); }}
+          style={{
+            position:"absolute",
+            top:6, right:6,
+            width:26, height:26,
+            borderRadius:999,
+            background: isFav ? `linear-gradient(135deg, ${accent}, ${accent2})` : "rgba(0,0,0,0.45)",
+            border:"none",
+            color:"#fff",
+            display:"inline-flex",
+            alignItems:"center",
+            justifyContent:"center",
+            cursor:"pointer",
+            padding:0,
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill={isFav ? "#fff" : "none"} stroke="#fff" strokeWidth="2" strokeLinejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        </button>
+      </div>
+      <div style={{ padding:"8px 9px 9px", minHeight:0 }}>
+        <div style={{ color:textPrimary, fontSize:11.5, fontWeight:800, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.label || "Asset"}</div>
+        <div style={{ color:textDim, fontSize:10, marginTop:2 }}>{item.savedAt ? new Date(item.savedAt).toLocaleDateString() : "Saved"}</div>
+      </div>
+      {held && (
+        <div style={{
+          position:"absolute",
+          inset:6,
+          borderRadius:14,
+          background:isDark ? "rgba(7,10,18,0.94)" : "rgba(255,255,255,0.94)",
+          border:`1px solid ${accent}66`,
+          backdropFilter: liquidEnabled ? `blur(${Math.max(6, Math.min(20, uiBlurPx))}px)` : "none",
+          WebkitBackdropFilter: liquidEnabled ? `blur(${Math.max(6, Math.min(20, uiBlurPx))}px)` : "none",
+          display:"grid",
+          gridTemplateColumns:"1fr 1fr",
+          gap:5,
+          padding:6,
+          zIndex: 10,
+        }} onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }} onPointerUp={e => { e.stopPropagation(); e.preventDefault(); }}>
+          {[
+            { label:"Apply",  icon:"apply",      action: () => onApply(item) },
+            { label:"Avatar", icon:"avatar",     action: () => onSetAvatar(item) },
+            { label:"Back",   icon:"background", action: () => onSetBackground(item) },
+            { label:"Frame",  icon:"border",     action: () => onSetBorder(item) },
+          ].map(a => (
+            <button key={a.label} className="liquid-action-chip" onClick={(e) => { e.stopPropagation(); a.action(); }} style={{ border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, borderRadius:10, fontSize:10, fontWeight:800, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, padding:"6px 4px" }}>
+              <UiIcon name={a.icon} size={12} color={accent} />{a.label}
+            </button>
+          ))}
+          <button onClick={(e) => { e.stopPropagation(); onRemove(item); }} style={{ gridColumn:"1 / -1", border:`1px solid rgba(255,95,95,0.42)`, background:"rgba(255,95,95,0.10)", color:"#ff7373", borderRadius:10, fontSize:10.5, fontWeight:800, cursor:"pointer", display:"inline-flex", alignItems:"center", justifyContent:"center", gap:5, padding:"6px 8px" }}>
+            <UiIcon name="trash" size={11} color="#ff7373" />Remove
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LuminaryPanels() {
@@ -2158,7 +2808,12 @@ export default function LuminaryPanels() {
   const [assetManagerTab, setAssetManagerTab] = useState("recent");
   const [assetHubOpen, setAssetHubOpen] = useState(false);
   const [assetKindFilter, setAssetKindFilter] = useState("all");
+  const [assetHubTab, setAssetHubTab] = useState("all"); // all | border | ai-border | texture | glow | sticker | favorites
+  const [assetSearch, setAssetSearch] = useState("");
+  const [assetHubSection, setAssetHubSection] = useState("library"); // library | import | ai
   const [assetActionId, setAssetActionId] = useState(null);
+  const [aiProviderSettingsOpen, setAiProviderSettingsOpen] = useState(false);
+  const [selectedOverlayId, setSelectedOverlayId] = useState(null);
   const assetHoldTimerRef = useRef(null);
   const assetHoldActivatedRef = useRef(false);
   const [systemPrefersDark, setSystemPrefersDark] = useState(
@@ -2166,18 +2821,26 @@ export default function LuminaryPanels() {
   );
   const [aiBorderConfig, setAiBorderConfig] = useState(() => {
     const defaults = {
-      provider: "local-lite",
+      provider: "pollinations",
       endpoint: "",
       apiKey: "",
       model: "",
-      autoGenerateOnAvatar: true,
+      autoGenerateOnAvatar: false,
       autoApplyGeneratedBorder: true,
       detail: 72,
       density: 58,
+      stylePreset: "cute",
+      shapePreset: "circle",
+      variations: 1,
+      transparentCenter: true,
+      addAsLayer: true,
     };
     try {
       const raw = localStorage.getItem(AI_BORDER_CONFIG_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
+      // Migrate legacy "local-lite" / "custom-api" provider names
+      if (parsed?.provider === "local-lite") parsed.provider = "pollinations";
+      if (parsed?.provider === "custom-api") parsed.provider = "custom";
       return parsed ? { ...defaults, ...parsed } : defaults;
     } catch (_) {
       return defaults;
@@ -2186,6 +2849,7 @@ export default function LuminaryPanels() {
   const [aiBorderPrompt, setAiBorderPrompt] = useState("");
   const [aiBorderBusy, setAiBorderBusy] = useState(false);
   const [aiBorderStatus, setAiBorderStatus] = useState("");
+  const [aiBorderVariations, setAiBorderVariations] = useState([]); // recent generations for "regenerate / pick"
 
   // ── History ───────────────────────────────────────────────────────────────
   const [history, setHistory] = useState(() => {
@@ -2254,6 +2918,141 @@ export default function LuminaryPanels() {
       return DEFAULT_PRESET_DECOR_EMOJIS;
     }
   });
+
+  // ── Load and Initialize Premium Animations ────────────────────────────────
+  useEffect(() => {
+    loadAnimeJs();
+  }, []);
+
+  // ── Animate floating and pulsing UI elements ────────────────────────────────
+  useEffect(() => {
+    if (!window.anime) return;
+    
+    // Floating animation for icons
+    const floatingIcons = document.querySelectorAll('.float-icon');
+    floatingIcons.forEach((icon, idx) => {
+      window.anime({
+        targets: icon,
+        translateY: [-8, 8],
+        duration: 2500 + idx * 200,
+        direction: 'alternate',
+        easing: 'easeInOutSine',
+        loop: true
+      });
+    });
+  }, []);
+
+  // ── Interactive button animations with Anime.js ────────────────────────────
+  useEffect(() => {
+    if (!window.anime) return;
+    
+    const buttons = document.querySelectorAll('.btn-bouncy, .liquid-action-chip');
+    const attachListeners = (btn) => {
+      const enterHandler = () => {
+        window.anime({
+          targets: btn,
+          scale: 1.08,
+          translateY: -4,
+          duration: 300,
+          easing: 'easeOutElastic(1, 0.6)'
+        });
+      };
+
+      const leaveHandler = () => {
+        window.anime({
+          targets: btn,
+          scale: 1,
+          translateY: 0,
+          duration: 400,
+          easing: 'easeOutElastic(1, 0.5)'
+        });
+      };
+
+      const clickHandler = () => {
+        window.anime({
+          targets: btn,
+          scale: [1.08, 0.95, 1],
+          duration: 300,
+          easing: 'easeOutQuad'
+        });
+      };
+
+      btn.addEventListener('mouseenter', enterHandler);
+      btn.addEventListener('mouseleave', leaveHandler);
+      btn.addEventListener('click', clickHandler);
+
+      return { enterHandler, leaveHandler, clickHandler };
+    };
+
+    const handlers = new Map();
+    buttons.forEach(btn => {
+      handlers.set(btn, attachListeners(btn));
+    });
+
+    return () => {
+      handlers.forEach((handler, btn) => {
+        btn.removeEventListener('mouseenter', handler.enterHandler);
+        btn.removeEventListener('mouseleave', handler.leaveHandler);
+        btn.removeEventListener('click', handler.clickHandler);
+      });
+    };
+  }, []);
+
+  // ── Cursor Tracking & Magnetic Effects (Design Spells) ─────────────────
+  useEffect(() => {
+    if (!window.anime) return;
+    
+    const magneticElements = document.querySelectorAll('.btn-bouncy, .liquid-action-chip, .morph-tile');
+    
+    const handleMagneticHover = (el) => {
+      const magneticHandler = (e) => {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+        
+        if (distance < 60) {
+          const angle = Math.atan2(y - centerY, x - centerX);
+          const pullX = Math.cos(angle) * (1 - distance / 60) * 8;
+          const pullY = Math.sin(angle) * (1 - distance / 60) * 8;
+          
+          window.anime.set(el, {
+            translateX: pullX,
+            translateY: pullY
+          });
+        }
+      };
+
+      const leaveHandler = () => {
+        window.anime({
+          targets: el,
+          translateX: 0,
+          translateY: 0,
+          duration: 300,
+          easing: 'easeOutElastic(1, 0.5)'
+        });
+      };
+
+      el.addEventListener('mousemove', magneticHandler);
+      el.addEventListener('mouseleave', leaveHandler);
+
+      return { magneticHandler, leaveHandler };
+    };
+
+    const magneticHandlers = new Map();
+    magneticElements.forEach(el => {
+      magneticHandlers.set(el, handleMagneticHover(el));
+    });
+
+    return () => {
+      magneticHandlers.forEach((handler, el) => {
+        el.removeEventListener('mousemove', handler.magneticHandler);
+        el.removeEventListener('mouseleave', handler.leaveHandler);
+      });
+    };
+  }, []);
 
   const pushState = (updates) => {
     setHistory(prev => {
@@ -2629,7 +3428,7 @@ export default function LuminaryPanels() {
     });
   }, [s.overlays, loadedImages]);
 
-  const registerImportedAsset = useCallback((kind, src, label = "Imported") => {
+  const registerImportedAsset = useCallback((kind, src, label = "Imported", extra = {}) => {
     if (!src) return null;
     const normalizedKind = normalizeAssetKind(kind);
     const item = {
@@ -2638,6 +3437,9 @@ export default function LuminaryPanels() {
       src,
       label: sanitizeAssetLabel(label || ASSET_KIND_META[normalizedKind]?.label || "Asset"),
       savedAt: Date.now(),
+      aiGenerated: !!extra.aiGenerated,
+      category: extra.category || null,
+      favorite: !!extra.favorite,
     };
     setAssetLibrary(prev => {
       const merged = [item, ...(prev.recent || [])]
@@ -2648,11 +3450,30 @@ export default function LuminaryPanels() {
           kind: normalizeAssetKind(entry.kind),
           label: sanitizeAssetLabel(entry.label || "Asset"),
           savedAt: Number(entry.savedAt || Date.now() - idx),
+          aiGenerated: !!entry.aiGenerated,
+          category: entry.category || null,
+          favorite: !!entry.favorite,
         }));
       return { ...prev, recent: sortAssetItems(merged).slice(0, 120), quickIcons: [] };
     });
-    setAssetKindFilter(normalizedKind);
     return item;
+  }, []);
+
+  const toggleAssetFavorite = useCallback((item) => {
+    if (!item) return;
+    setAssetLibrary(prev => ({
+      ...prev,
+      recent: (prev.recent || []).map(x => x.id === item.id ? { ...x, favorite: !x.favorite } : x),
+    }));
+  }, []);
+
+  const removeAsset = useCallback((item) => {
+    if (!item) return;
+    setAssetLibrary(prev => ({
+      ...prev,
+      recent: (prev.recent || []).filter(x => x.id !== item.id),
+    }));
+    setAssetActionId(null);
   }, []);
 
   const applyAssetFromLibrary = useCallback((item) => {
@@ -3487,18 +4308,59 @@ export default function LuminaryPanels() {
   const isTabSlidersVisible = (tab) => slidersByTab[tab] !== false;
   const tabSliderClass = (tab) => (isTabSlidersVisible(tab) ? "" : "sliders-hidden");
   const assetItems = useMemo(() => sortAssetItems(assetLibrary.recent || []), [assetLibrary.recent]);
-  const filteredAssetItems = useMemo(() => assetKindFilter === "all" ? assetItems : assetItems.filter(item => normalizeAssetKind(item.kind) === assetKindFilter), [assetItems, assetKindFilter]);
-  const visibleAssetItems = useMemo(() => filteredAssetItems.slice(0, settings.performanceMode ? 28 : (vp.isMobile ? 56 : 96)), [filteredAssetItems, settings.performanceMode, vp.isMobile]);
+  const filteredAssetItems = useMemo(() => {
+    let list = assetItems;
+    if (assetHubTab === "favorites") {
+      list = list.filter(item => !!item.favorite);
+    } else if (assetHubTab === "ai-border") {
+      list = list.filter(item => !!item.aiGenerated);
+    } else if (assetHubTab === "glow") {
+      list = list.filter(item => getAssetVirtualCategory(item) === "glow");
+    } else if (assetHubTab === "sticker") {
+      list = list.filter(item => getAssetVirtualCategory(item) === "sticker");
+    } else if (assetHubTab === "border") {
+      list = list.filter(item => normalizeAssetKind(item.kind) === "border" && !item.aiGenerated);
+    } else if (assetHubTab === "texture") {
+      list = list.filter(item => normalizeAssetKind(item.kind) === "texture");
+    } else if (assetHubTab !== "all") {
+      list = list.filter(item => normalizeAssetKind(item.kind) === assetHubTab);
+    }
+    if (assetSearch.trim()) list = list.filter(item => matchAssetSearch(item, assetSearch));
+    return list;
+  }, [assetItems, assetHubTab, assetSearch]);
+  // Mobile shows fewer items first; performance mode is even more aggressive.
+  // Long lists are virtualized via slice + "Load more" button.
+  const [assetVisibleCount, setAssetVisibleCount] = useState(0);
+  const baseVisibleLimit = settings.performanceMode ? 18 : (vp.isMobile ? 36 : 72);
+  const effectiveVisibleLimit = Math.max(baseVisibleLimit, assetVisibleCount || baseVisibleLimit);
+  const visibleAssetItems = useMemo(() => filteredAssetItems.slice(0, effectiveVisibleLimit), [filteredAssetItems, effectiveVisibleLimit]);
   const hiddenAssetCount = Math.max(0, filteredAssetItems.length - visibleAssetItems.length);
-  const assetCounts = useMemo(() => assetItems.reduce((acc, item) => {
-    const k = normalizeAssetKind(item.kind);
-    acc.all = (acc.all || 0) + 1;
-    acc[k] = (acc[k] || 0) + 1;
-    return acc;
-  }, { all: assetItems.length }), [assetItems]);
+  // Reset pagination when tab/search changes
+  useEffect(() => { setAssetVisibleCount(baseVisibleLimit); }, [assetHubTab, assetSearch, baseVisibleLimit]);
+  const assetCounts = useMemo(() => {
+    const counts = { all: assetItems.length, favorites: 0, "ai-border": 0, border: 0, texture: 0, glow: 0, sticker: 0, overlay: 0, avatar: 0, background: 0 };
+    assetItems.forEach(item => {
+      if (item.favorite) counts.favorites += 1;
+      const cat = getAssetVirtualCategory(item);
+      counts[cat] = (counts[cat] || 0) + 1;
+      const k = normalizeAssetKind(item.kind);
+      counts[k] = (counts[k] || 0) + 1;
+    });
+    return counts;
+  }, [assetItems]);
+  // Body scroll lock while Asset Hub is open (prevent page scroll behind it)
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (assetHubOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [assetHubOpen]);
   const addGeneratedAsset = useCallback((kind, type, label) => {
     const src = makeGeneratedAssetSvg(type, accent, accent2);
-    const item = registerImportedAsset(kind, src, label);
+    const isGlow = /(orb|flare|glow|halo|aura|lens)/i.test(type) || /(orb|flare|glow|halo|aura|lens)/i.test(label);
+    const item = registerImportedAsset(kind, src, label, isGlow ? { category: "glow" } : {});
     if (item) {
       setSaveNotice(`${sanitizeAssetLabel(label)} added`);
     }
@@ -3506,67 +4368,87 @@ export default function LuminaryPanels() {
 
   const generateAiBorderAsset = useCallback(async (avatarSrcOverride = null, promptOverride = "") => {
     const sourceImage = avatarSrcOverride || avRawSrc;
-    if (!sourceImage) {
-      setAiBorderStatus("Upload or apply an avatar first.");
-      return null;
-    }
     setAiBorderBusy(true);
-    setAiBorderStatus(aiBorderConfig.provider === "custom-api" ? "Generating border with your API…" : "Generating border with Local Lite AI renderer…");
+    setAiBorderStatus("Preparing prompt...");
+    const variationCount = Math.max(1, Math.min(4, aiBorderConfig.variations || 1));
+    const generatedItems = [];
     try {
-      const palette = await extractPaletteFromImageSrc(sourceImage);
+      let palette = { primary: accent, secondary: accent2, neutral: mixHex(accent, accent2, 0.5), highlight: mixHex(accent, "#ffffff", 0.7), shadow: mixHex(accent, "#0b1020", 0.7) };
+      if (sourceImage) {
+        try { palette = await extractPaletteFromImageSrc(sourceImage); } catch (_) {}
+      }
       const promptBase = String(promptOverride || aiBorderPrompt || "").trim();
-      const finalPrompt = promptBase || "Premium liquid glass avatar border, balanced, elegant, premium, high-end iOS style.";
-      let generatedSrc = null;
-      if (aiBorderConfig.provider === "custom-api" && aiBorderConfig.endpoint) {
+      const finalPrompt = buildAiBorderPrompt({
+        userPrompt: promptBase,
+        stylePreset: aiBorderConfig.stylePreset || "cute",
+        shapePreset: aiBorderConfig.shapePreset || "circle",
+        palette,
+      });
+
+      const providerLabel = AI_BORDER_PROVIDERS.find(p => p.id === aiBorderConfig.provider)?.label || aiBorderConfig.provider;
+
+      for (let v = 0; v < variationCount; v++) {
+        setAiBorderStatus(`Generating with ${providerLabel}${variationCount > 1 ? ` (${v + 1}/${variationCount})` : ""}...`);
+        let generatedSrc = null;
         try {
-          generatedSrc = await requestRemoteAiBorder({
-            endpoint: aiBorderConfig.endpoint,
-            apiKey: aiBorderConfig.apiKey,
-            model: aiBorderConfig.model,
-            prompt: finalPrompt,
-            palette,
-            imageSrc: sourceImage,
-          });
-        } catch (remoteErr) {
-          console.warn(remoteErr);
-          generatedSrc = null;
+          generatedSrc = await dispatchAiBorderProvider(finalPrompt, aiBorderConfig, Date.now() + v * 7919);
+        } catch (provErr) {
+          console.warn("AI provider failed:", provErr);
+          setAiBorderStatus(`${providerLabel} unavailable: ${provErr.message}. Using procedural fallback...`);
         }
+        // Procedural fallback if provider returned nothing
+        if (!generatedSrc) {
+          generatedSrc = await generateAiBorderFallback({
+            palette: {
+              primary: mixHex(palette.primary, accent, 0.32),
+              secondary: mixHex(palette.secondary, accent2, 0.28),
+              neutral: palette.neutral,
+              highlight: palette.highlight,
+              shadow: palette.shadow,
+            },
+            prompt: finalPrompt,
+            detail: aiBorderConfig.detail,
+            density: aiBorderConfig.density,
+          });
+        }
+        // Normalize to PNG data URL
+        let finalBorderSrc = await toPngDataUrl(generatedSrc, 768);
+        // Punch transparent center if requested
+        if (aiBorderConfig.transparentCenter !== false) {
+          finalBorderSrc = await makeBorderTransparentCenter(finalBorderSrc, { size: 768, innerRatio: 0.46, feather: 0.14 });
+        }
+        const stylePresetMeta = AI_BORDER_STYLE_PRESETS.find(s => s.id === aiBorderConfig.stylePreset);
+        const labelStyle = stylePresetMeta?.label || "AI";
+        const item = registerImportedAsset("border", finalBorderSrc, `${labelStyle} Border ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}${variationCount > 1 ? ` v${v + 1}` : ""}`, { aiGenerated: true });
+        if (item) generatedItems.push({ ...item, src: finalBorderSrc });
       }
-      if (!generatedSrc) {
-        generatedSrc = createAiBorderSvg({
-          palette: {
-            primary: mixHex(palette.primary, accent, 0.32),
-            secondary: mixHex(palette.secondary, accent2, 0.28),
-            neutral: palette.neutral,
-            highlight: palette.highlight,
-            shadow: palette.shadow,
-          },
-          prompt: finalPrompt,
-          detail: aiBorderConfig.detail,
-          density: aiBorderConfig.density,
-          seedLabel: `AI Border · ${finalPrompt.slice(0, 34) || "Auto"}`,
-        });
-      }
-      const finalBorderSrc = await toPngDataUrl(generatedSrc, 768);
-      const item = registerImportedAsset("border", finalBorderSrc, `AI Border ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
-      if (item) {
+
+      if (generatedItems.length > 0) {
+        setAiBorderVariations(generatedItems);
         setAssetHubOpen(true);
+        setAssetHubSection("ai");
+        setAssetHubTab("ai-border");
         setAssetKindFilter("border");
-        setSaveNotice("AI border saved to Asset Hub");
-        setAiBorderStatus("AI border generated and saved.");
+        setSaveNotice(generatedItems.length > 1 ? `${generatedItems.length} AI borders generated!` : "AI border created and saved!");
+        setAiBorderStatus(`Generated ${generatedItems.length} border${generatedItems.length > 1 ? "s" : ""}. Tap any to apply.`);
+
         if (aiBorderConfig.autoApplyGeneratedBorder) {
+          const first = generatedItems[0];
           pushState({
             borderStyleId: "custom-image",
-            customBorderSrc: finalBorderSrc,
+            customBorderSrc: first.src,
             customBorderScale: s.customBorderScale ?? 124,
             customBorderOpacity: s.customBorderOpacity ?? 100,
             customBorderRotation: s.customBorderRotation ?? 0,
           });
         }
+        return generatedItems[0];
       }
-      return item;
+      setAiBorderStatus("Generation produced no output. Try a different provider or prompt.");
+      return null;
     } catch (err) {
-      setAiBorderStatus(`AI border failed: ${err.message}`);
+      setAiBorderStatus(`Generation failed: ${err.message}`);
+      console.error("AI border generation error:", err);
       return null;
     } finally {
       setAiBorderBusy(false);
@@ -4947,6 +5829,574 @@ export default function LuminaryPanels() {
             background: none;
           }
         }
+
+        /* Asset Hub Animations */
+        @keyframes assetHubFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        @keyframes assetHubSlideUp {
+          from { 
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to { 
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+
+        /* Premium Button Animations */
+        @keyframes buttonHoverGlow {
+          0% {
+            box-shadow: 0 4px 14px ${accent}44;
+            transform: translateY(0) scale(1);
+          }
+          50% {
+            box-shadow: 0 8px 28px ${accent}66;
+            transform: translateY(-2px) scale(1.02);
+          }
+          100% {
+            box-shadow: 0 4px 14px ${accent}44;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        @keyframes buttonClickPulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(0.95); }
+          100% { transform: scale(1); }
+        }
+
+        /* Floating Elements */
+        @keyframes floatUp {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-12px); }
+        }
+
+        @keyframes floatRotate {
+          0% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-8px) rotate(180deg); }
+          100% { transform: translateY(0) rotate(360deg); }
+        }
+
+        /* Pulsing Elements */
+        @keyframes softPulse {
+          0%, 100% { opacity: 0.7; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        @keyframes intensePulse {
+          0%, 100% { box-shadow: 0 0 0 0 ${accent}66; }
+          50% { box-shadow: 0 0 0 12px ${accent}00; }
+        }
+
+        /* Shimmer Effect */
+        @keyframes shimmer {
+          0% { background-position: -1000px 0; }
+          100% { background-position: 1000px 0; }
+        }
+
+        /* Gradient Shift */
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        /* ─── DESIGN SPELLS INSPIRED ANIMATIONS ─────────────────────────── */
+
+        /* Smooth Morph - Organic Shape Shifting */
+        @keyframes smoothMorph {
+          0% {
+            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+            transform: scale(1) rotate(0deg);
+          }
+          50% {
+            border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+            transform: scale(1.05) rotate(180deg);
+          }
+          100% {
+            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+            transform: scale(1) rotate(360deg);
+          }
+        }
+
+        /* Liquid Blob - Fluid Motion */
+        @keyframes liquidBlob {
+          0% {
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+            transform: translateX(0) translateY(0);
+          }
+          25% {
+            border-radius: 70% 30% 46% 70% / 30% 30% 60% 70%;
+            transform: translateX(10px) translateY(-10px);
+          }
+          50% {
+            border-radius: 70% 30% 66% 33% / 33% 66% 33% 66%;
+            transform: translateX(0) translateY(10px);
+          }
+          75% {
+            border-radius: 33% 67% 67% 33% / 66% 66% 33% 33%;
+            transform: translateX(-10px) translateY(-5px);
+          }
+          100% {
+            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+            transform: translateX(0) translateY(0);
+          }
+        }
+
+        /* Wave Ripple - Design Spells Classic */
+        @keyframes waveRipple {
+          0% {
+            box-shadow: 0 0 0 0 ${accent}88;
+          }
+          50% {
+            box-shadow: 0 0 0 10px ${accent}44;
+          }
+          100% {
+            box-shadow: 0 0 0 30px ${accent}00;
+          }
+        }
+
+        /* Gooey Hover - Elastic Transform */
+        @keyframes gooeyHover {
+          0%, 100% {
+            transform: scale(1) skewX(0deg);
+            border-radius: 50%;
+          }
+          50% {
+            transform: scale(1.1) skewX(5deg);
+            border-radius: 40% 60% 60% 40%;
+          }
+        }
+
+        /* Magnetic Hover - Attraction Effect */
+        @keyframes magneticPull {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+          }
+          50% {
+            transform: translate(0, -8px) scale(1.12);
+          }
+        }
+
+        /* Smooth Reveal - Elegant Entrance */
+        @keyframes smoothReveal {
+          from {
+            opacity: 0;
+            clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
+          }
+          to {
+            opacity: 1;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+          }
+        }
+
+        /* Text Shimmer - Elegant Text Effect */
+        @keyframes textShimmer {
+          0% {
+            background-position: -1000px 0;
+          }
+          100% {
+            background-position: 1000px 0;
+          }
+        }
+
+        /* Gradient Animation - Flowing Colors */
+        @keyframes gradientFlow {
+          0% { background-position: 0% center; }
+          50% { background-position: 100% center; }
+          100% { background-position: 0% center; }
+        }
+
+        /* Smooth Bounce - Elastic Return */
+        @keyframes smoothBounce {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-12px);
+          }
+        }
+
+        /* Glass Glow - Glassmorphism Effect */
+        @keyframes glassGlow {
+          0%, 100% {
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(255, 255, 255, 0.1);
+          }
+          50% {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(255, 255, 255, 0.2);
+          }
+        }
+
+        /* Soft Flicker - Ambient Light */
+        @keyframes softFlicker {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 1; }
+        }
+
+        /* Tilt Hover - 3D Perspective */
+        @keyframes tiltHover {
+          0%, 100% {
+            transform: perspective(1000px) rotateX(0deg) rotateY(0deg);
+          }
+          50% {
+            transform: perspective(1000px) rotateX(5deg) rotateY(5deg);
+          }
+        }
+
+        /* Slide Expand - Growing Motion */
+        @keyframes slideExpand {
+          from {
+            width: 0;
+            opacity: 0;
+          }
+          to {
+            width: 100%;
+            opacity: 1;
+          }
+        }
+
+        /* Fade Blur - Subtle Appearance */
+        @keyframes fadeBlur {
+          from {
+            opacity: 0;
+            filter: blur(10px);
+          }
+          to {
+            opacity: 1;
+            filter: blur(0);
+          }
+        }
+
+        /* Elastic Scale - Bouncy Growth */
+        @keyframes elasticScale {
+          0% {
+            transform: scale(0.5);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(1.1);
+            opacity: 1;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        /* Breathing - Subtle Pulsing Life */
+        @keyframes breathing {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.8;
+          }
+          50% {
+            transform: scale(1.08);
+            opacity: 1;
+          }
+        }
+
+        /* Neon Glow - Electric Effect */
+        @keyframes neonGlow {
+          0%, 100% {
+            filter: drop-shadow(0 0 5px ${accent});
+            text-shadow: 0 0 10px ${accent};
+          }
+          50% {
+            filter: drop-shadow(0 0 20px ${accent});
+            text-shadow: 0 0 30px ${accent};
+          }
+        }
+
+        /* Orbit - Circular Motion */
+        @keyframes orbit {
+          from {
+            transform: rotate(0deg) translateX(30px) rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg) translateX(30px) rotate(-360deg);
+          }
+        }
+
+        /* Elastic Bounce In - Playful Entrance */
+        @keyframes elasticBounceIn {
+          0% {
+            opacity: 0;
+            transform: scale(0.3);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.15);
+          }
+          70% {
+            transform: scale(0.9);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+
+        /* Smooth Expand - Elegant Growth */
+        @keyframes smoothExpand {
+          from {
+            opacity: 0;
+            transform: scale(0.9) translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        /* CSS Class Helpers for Animations */
+        .morph-element {
+          animation: smoothMorph 6s ease-in-out infinite;
+        }
+
+        .blob-element {
+          animation: liquidBlob 8s ease-in-out infinite;
+        }
+
+        .ripple-effect {
+          animation: waveRipple 1.5s ease-out;
+        }
+
+        .gooey-element:hover {
+          animation: gooeyHover 400ms ease-in-out;
+        }
+
+        .magnetic-element:hover {
+          animation: magneticPull 600ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .breathing-element {
+          animation: breathing 3s ease-in-out infinite;
+        }
+
+        .orbit-element {
+          animation: orbit 6s linear infinite;
+        }
+
+        .neon-text {
+          animation: neonGlow 2s ease-in-out infinite;
+        }
+
+        /* Utility Classes */
+        .animate-in {
+          animation: elasticBounceIn 600ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .smooth-in {
+          animation: smoothExpand 800ms ease-out;
+        }
+
+        /* Icon Animations */
+        @keyframes iconSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+
+        @keyframes iconBounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+
+        /* Color Swatch Pop */
+        @keyframes colorSwatchPop {
+          from {
+            opacity: 0;
+            transform: scale(0.8);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        /* Ripple Effect */
+        @keyframes ripple {
+          0% {
+            transform: scale(0);
+            opacity: 0.6;
+          }
+          100% {
+            transform: scale(4);
+            opacity: 0;
+          }
+        }
+
+        /* Slide and Fade */
+        @keyframes slideInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        @keyframes slideInRight {
+          from {
+            opacity: 0;
+            transform: translateX(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+
+        /* Scale and Fade */
+        @keyframes scaleIn {
+          from {
+            opacity: 0;
+            transform: scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        /* Rotate and Scale */
+        @keyframes rotateIn {
+          from {
+            opacity: 0;
+            transform: rotate(-10deg) scale(0.9);
+          }
+          to {
+            opacity: 1;
+            transform: rotate(0deg) scale(1);
+          }
+        }
+
+        /* Morph Shape Animation */
+        @keyframes morphPillIn {
+          from {
+            opacity: 0;
+            transform: scale(0.92) translateY(8px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        @keyframes morphPillOut {
+          from {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+          to {
+            opacity: 0;
+            transform: scale(0.92) translateY(-8px);
+          }
+        }
+
+        /* Glass Reveal */
+        @keyframes glassReveal {
+          from {
+            opacity: 0;
+            transform: scale(0.94) translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        /* Bouncy Slide */
+        @keyframes bouncySlideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-16px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            max-height: 0;
+            transform: translateY(-12px);
+          }
+          to {
+            opacity: 1;
+            max-height: 500px;
+            transform: translateY(0);
+          }
+        }
+
+        /* Modal Content Spring */
+        @keyframes modalContentSpring {
+          from {
+            opacity: 0;
+            transform: scale(0.92) translateY(24px);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        /* Stagger animation helper */
+        .stagger-1 { animation-delay: 0ms; }
+        .stagger-2 { animation-delay: 50ms; }
+        .stagger-3 { animation-delay: 100ms; }
+        .stagger-4 { animation-delay: 150ms; }
+        .stagger-5 { animation-delay: 200ms; }
+
+        /* Premium Button Hover Effects */
+        .btn-bouncy:hover {
+          transform: translateY(-2px) scale(1.02);
+        }
+
+        .btn-bouncy:active {
+          animation: buttonClickPulse 300ms ease-out;
+        }
+
+        /* Premium Card Hover */
+        .morph-tile:hover {
+          transform: translateY(-4px) scale(1.02);
+          box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+        }
+
+        /* Icon Float Animation */
+        .float-icon {
+          animation: floatUp 3s ease-in-out infinite;
+        }
+
+        /* Pulsing Elements */
+        .pulse-soft {
+          animation: softPulse 2s ease-in-out infinite;
+        }
+
+        .pulse-intense {
+          animation: intensePulse 2s ease-out infinite;
+        }
+
+        /* Shimmer Gradient */
+        .shimmer-bg {
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+          background-size: 1000px 100%;
+          animation: shimmer 2s infinite;
+        }
+
+        /* Animated Gradient */
+        .gradient-animated {
+          background-size: 400% 400%;
+          animation: gradientShift 6s ease infinite;
+        }
       `}} />
 
       <div
@@ -5019,17 +6469,19 @@ export default function LuminaryPanels() {
 
               <div style={{display:"flex", alignItems:"center", gap: vp.isMobile ? 4 : 6}}>
                 {[
+                  { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo, disabled: hIndex <= 0 },
+                  { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo, disabled: hIndex >= history.length - 1 },
+                  { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset },
                   { id:"assets-hub", icon:"assets", title:"Asset Hub", onClick: () => setAssetHubOpen(!assetHubOpen), accent: assetHubOpen },
                   { id:"save",     icon:"download", title:"Save PNG",   onClick: exportPNG,  accent: true  },
-                  { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true  },
+                  { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true, hideOnMobile: vp.isMobile && headerExpanded === false },
                   { id:"settings", icon:ICONS.settings, title:"Settings", onClick:() => { settingsOpen ? closeSettings() : openSettings(); }, ref: settingsBtnRef },
-                  { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo, mobile: false, expandedOnly: true  },
-                  { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo, mobile: false, expandedOnly: true  },
-                  { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset, mobile: false, expandedOnly: true },
-                ].filter(btn => !vp.isMobile || btn.mobile !== false).filter(btn => !btn.expandedOnly || headerExpanded).map((btn) => (
-                  <button key={btn.id} className="btn-bouncy" onClick={btn.onClick}
+                ].filter(btn => !btn.hideOnMobile).map((btn) => (
+                  <button key={btn.id} className="btn-bouncy" onClick={btn.disabled ? undefined : btn.onClick}
                     ref={btn.ref || undefined}
                     title={btn.title}
+                    aria-label={btn.title}
+                    disabled={!!btn.disabled}
                     style={{
                       width: vp.isMobile ? 32 : 36,
                       height: vp.isMobile ? 32 : 36,
@@ -5046,7 +6498,8 @@ export default function LuminaryPanels() {
                       fontWeight: btn.label ? 800 : undefined,
                       boxShadow: btn.accent ? `0 4px 14px ${accent}44` : "none",
                       flexShrink: 0,
-                      cursor: "pointer",
+                      cursor: btn.disabled ? "not-allowed" : "pointer",
+                      opacity: btn.disabled ? 0.4 : 1,
                     }}
                   >
                     {btn.icon === "download" && (
@@ -5461,407 +6914,597 @@ export default function LuminaryPanels() {
             position:"fixed",
             inset:0,
             zIndex:2190,
-            background:isDark ? "rgba(5,8,14,0.96)" : "rgba(246,250,255,0.96)",
+            background: settings.performanceMode
+              ? (isDark ? "rgba(0,0,0,0.78)" : "rgba(20,28,40,0.55)")
+              : (isDark ? "rgba(5,8,14,0.78)" : "rgba(20,28,40,0.45)"),
             display:"flex",
-            flexDirection:"column",
-            backdropFilter: liquidEnabled && !settings.performanceMode ? "blur(6px) saturate(1.12)" : "none",
-            WebkitBackdropFilter: liquidEnabled && !settings.performanceMode ? "blur(6px) saturate(1.12)" : "none",
+            flexDirection: vp.isMobile ? "column-reverse" : "column",
+            alignItems: vp.isMobile ? "stretch" : "center",
+            justifyContent: vp.isMobile ? "flex-end" : "center",
+            backdropFilter: settings.performanceMode ? "none" : "blur(4px)",
+            WebkitBackdropFilter: settings.performanceMode ? "none" : "blur(4px)",
+            animation: "assetHubFadeIn 240ms var(--ease-ios)",
           }}
           onClick={() => { setAssetHubOpen(false); setAssetActionId(null); }}
         >
           <div
             className="asset-hub-panel"
             style={{
-              width:"100%",
-              height:"100%",
+              width: vp.isMobile ? "100%" : "min(960px, 96vw)",
+              height: vp.isMobile ? "92dvh" : "min(86vh, 760px)",
+              maxHeight: vp.isMobile ? "92dvh" : "86vh",
               display:"flex",
               flexDirection:"column",
-              overflowY:"auto",
-              borderRadius:0,
-              background:isDark ? mixHex("#080d18", accent, 0.06) : mixHex("#f8fbff", accent, 0.04),
-              backdropFilter:"none",
-              WebkitBackdropFilter:"none",
+              animation: vp.isMobile ? "assetHubSlideUp 320ms var(--ease-spring)" : "modalContentSpring 280ms var(--ease-spring)",
+              overflow: "hidden",
+              borderRadius: vp.isMobile ? "22px 22px 0 0" : 24,
+              // Solid background - no transparency on Asset Hub itself
+              background: isDark ? "#0c1220" : "#f7faff",
               border:`1px solid ${cardBorder}`,
-              boxShadow:settings.performanceMode ? "none" : "0 12px 38px rgba(0,0,0,0.28)",
-              animation: settings.performanceMode ? "none" : "fadeInSmooth 120ms ease-out",
+              boxShadow: vp.isMobile ? "0 -12px 40px rgba(0,0,0,0.42)" : "0 24px 80px rgba(0,0,0,0.55)",
               fontFamily: APPLE_FONTS,
+              paddingBottom: vp.isMobile ? "env(safe-area-inset-bottom)" : 0,
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Drag handle (mobile only) */}
+            {vp.isMobile && (
+              <div style={{ display:"flex", justifyContent:"center", padding:"8px 0 4px", flexShrink:0 }}>
+                <span style={{ width:42, height:5, borderRadius:999, background: isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.22)" }} />
+              </div>
+            )}
+
+            {/* Header */}
             <div style={{
-              position:"sticky",
-              top:0,
-              zIndex:4,
               display:"flex",
               alignItems:"center",
               justifyContent:"space-between",
-              gap:12,
-              padding:"calc(max(env(safe-area-inset-top), 12px)) 18px 14px",
+              gap:10,
+              padding: vp.isMobile ? "6px 14px 10px" : "16px 20px 12px",
               borderBottom:`1px solid ${cardBorder}`,
-              background: isDark ? mixHex("#0b1220", accent, 0.08) : mixHex("#fbfdff", accent, 0.05),
-              backdropFilter:"none",
-              WebkitBackdropFilter:"none",
+              flexShrink:0,
             }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
                 <div style={{
-                  width: 46,
-                  height: 46,
-                  borderRadius: 17,
+                  width: vp.isMobile ? 36 : 40,
+                  height: vp.isMobile ? 36 : 40,
+                  borderRadius: 12,
                   background: `linear-gradient(135deg, ${accent}, ${accent2})`,
                   display:"flex",
                   alignItems:"center",
                   justifyContent:"center",
-                  boxShadow: `0 10px 26px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.32)`,
+                  flexShrink:0,
                 }}>
-                  <UiIcon name="assets" size={23} color="#fff" stroke={2.2} />
+                  <UiIcon name="assets" size={vp.isMobile ? 18 : 20} color="#fff" stroke={2.2} />
                 </div>
                 <div style={{ minWidth:0 }}>
-                  <h2 style={{ margin:0, fontSize:21, fontWeight:800, color:textPrimary, letterSpacing:-0.6 }}>Asset Hub</h2>
-                  <p className="premium-body-copy" style={{ margin:"4px 0 0", fontSize:12, color:textDim, fontWeight:600 }}>Tap to apply. Hold a tile for role actions.</p>
+                  <h2 style={{ margin:0, fontSize: vp.isMobile ? 16 : 18, fontWeight:800, color:textPrimary, letterSpacing:-0.4 }}>Asset Hub</h2>
+                  <p style={{ margin:"2px 0 0", fontSize: vp.isMobile ? 10.5 : 11.5, color:textDim, fontWeight:600 }}>{assetItems.length} saved · tap to apply, hold for actions</p>
                 </div>
               </div>
-              <button
-                className="liquid-action-chip"
-                onClick={() => { setAssetHubOpen(false); setAssetActionId(null); }}
-                style={{
-                  width:42,
-                  height:42,
-                  borderRadius:14,
-                  border:`1px solid ${cardBorder}`,
-                  background:controlBg,
-                  color:textPrimary,
-                  cursor:"pointer",
-                  display:"flex",
-                  alignItems:"center",
-                  justifyContent:"center",
-                  flexShrink:0,
-                }}
-              ><UiIcon name="close" size={18} color={textPrimary} /></button>
+              <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                {/* Restored Undo / Redo / Reset for quick access */}
+                <button
+                  onClick={undo}
+                  disabled={hIndex <= 0}
+                  aria-label="Undo"
+                  title="Undo"
+                  style={{ width:36, height:36, borderRadius:11, border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, cursor: hIndex <= 0 ? "not-allowed" : "pointer", opacity: hIndex <= 0 ? 0.4 : 1, display:"inline-flex", alignItems:"center", justifyContent:"center" }}
+                ><UiIcon name="undo" size={14} color={textPrimary} /></button>
+                <button
+                  onClick={redo}
+                  disabled={hIndex >= history.length - 1}
+                  aria-label="Redo"
+                  title="Redo"
+                  style={{ width:36, height:36, borderRadius:11, border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, cursor: hIndex >= history.length - 1 ? "not-allowed" : "pointer", opacity: hIndex >= history.length - 1 ? 0.4 : 1, display:"inline-flex", alignItems:"center", justifyContent:"center" }}
+                ><UiIcon name="redo" size={14} color={textPrimary} /></button>
+                <button
+                  onClick={reset}
+                  aria-label="Reset"
+                  title="Reset"
+                  style={{ width:36, height:36, borderRadius:11, border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, cursor:"pointer", display:"inline-flex", alignItems:"center", justifyContent:"center" }}
+                ><UiIcon name="reset" size={14} color={textPrimary} /></button>
+                <button
+                  onClick={() => { setAssetHubOpen(false); setAssetActionId(null); }}
+                  aria-label="Close"
+                  title="Close"
+                  style={{ width:36, height:36, borderRadius:11, border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, cursor:"pointer", display:"inline-flex", alignItems:"center", justifyContent:"center", marginLeft:4 }}
+                ><UiIcon name="close" size={15} color={textPrimary} /></button>
+              </div>
             </div>
 
+            {/* Section toggle: Library / Import / AI */}
+            <div style={{ display:"flex", gap:6, padding: vp.isMobile ? "10px 14px" : "12px 20px", borderBottom:`1px solid ${cardBorder}`, flexShrink:0 }}>
+              {[
+                { id:"library", label:"Library", icon:"assets" },
+                { id:"import",  label:"Import",  icon:"upload" },
+                { id:"ai",      label:"AI Border", icon:"sparkles" },
+              ].map(sec => {
+                const active = assetHubSection === sec.id;
+                return (
+                  <button
+                    key={sec.id}
+                    onClick={() => { setAssetHubSection(sec.id); microHaptic(settings.hapticFeedback); }}
+                    style={{
+                      flex:1,
+                      padding: vp.isMobile ? "9px 8px" : "10px 12px",
+                      borderRadius:12,
+                      border:`1px solid ${active ? accent : cardBorder}`,
+                      background: active ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
+                      color: active ? "#fff" : textPrimary,
+                      fontSize: vp.isMobile ? 11.5 : 12.5,
+                      fontWeight:800,
+                      cursor:"pointer",
+                      display:"inline-flex",
+                      alignItems:"center",
+                      justifyContent:"center",
+                      gap:6,
+                    }}
+                  >
+                    <UiIcon name={sec.icon === "upload" ? "background" : sec.icon} size={13} color={active ? "#fff" : accent} />
+                    {sec.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Search bar (only on Library section) */}
+            {assetHubSection === "library" && (
+              <div style={{ padding: vp.isMobile ? "10px 14px 6px" : "12px 20px 8px", flexShrink:0 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:12, border:`1px solid ${cardBorder}`, background:controlBg }}>
+                  <UiIcon name="search" size={14} color={textDim} />
+                  <input
+                    value={assetSearch}
+                    onChange={(e) => setAssetSearch(e.target.value)}
+                    placeholder="Search assets..."
+                    style={{ flex:1, border:"none", outline:"none", background:"transparent", color:textPrimary, fontSize:13, fontWeight:600 }}
+                  />
+                  {assetSearch && (
+                    <button onClick={() => setAssetSearch("")} style={{ border:"none", background:"transparent", color:textDim, cursor:"pointer", padding:0, fontSize:14 }}>×</button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Tabs (only on Library section) */}
+            {assetHubSection === "library" && (
+              <div style={{ display:"flex", gap:6, overflowX:"auto", padding: vp.isMobile ? "4px 14px 10px" : "4px 20px 12px", borderBottom:`1px solid ${cardBorder}`, flexShrink:0, scrollbarWidth:"thin" }}>
+                {ASSET_HUB_TABS.map(tab => {
+                  const active = assetHubTab === tab.id;
+                  const count = assetCounts[tab.id] || 0;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => { setAssetHubTab(tab.id); setAssetActionId(null); microHaptic(settings.hapticFeedback); }}
+                      style={{
+                        border:`1px solid ${active ? accent : cardBorder}`,
+                        background: active ? `linear-gradient(135deg, ${accent}26, ${accent2}14)` : controlBg,
+                        color: active ? textPrimary : textDim,
+                        borderRadius:999,
+                        padding: vp.isMobile ? "7px 10px" : "8px 12px",
+                        fontSize: vp.isMobile ? 11 : 11.5,
+                        fontWeight:800,
+                        cursor:"pointer",
+                        display:"inline-flex",
+                        alignItems:"center",
+                        gap:5,
+                        whiteSpace:"nowrap",
+                        flexShrink:0,
+                      }}
+                    >
+                      <UiIcon name={tab.icon} size={12} color={active ? accent : textDim} />
+                      {tab.label}
+                      <span style={{ opacity:0.6, fontSize:10 }}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Body */}
             <div style={{
               flex:1,
               overflowY:"auto",
-              padding: vp.isMobile ? "18px 14px 110px" : "24px 22px",
-              display:"grid",
-              gridTemplateColumns: vp.isMobile ? "1fr" : "minmax(280px, 360px) 1fr",
-              gap:18,
-              alignItems:"start",
+              WebkitOverflowScrolling: "touch",
+              padding: vp.isMobile ? "12px 14px 20px" : "16px 20px",
             }}>
-              <section className="asset-hub-card" style={{
-                border:`1px solid ${cardBorder}`,
-                borderRadius:26,
-                background:cardBg,
-                padding:16,
-                boxShadow:cardShadow,
-              }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, marginBottom:14 }}>
-                  <h3 style={{ margin:0, fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>Import</h3>
-                  <span style={{ fontSize:11, color:textDim, fontWeight:700 }}>{assetItems.length} saved</span>
-                </div>
-
-                <div style={{ display:"grid", gridTemplateColumns: vp.isMobile ? "1fr" : "repeat(2, minmax(0,1fr))", gap:10, marginBottom:16 }}>
-                  {[
-                    { id:"avatar", label:"Avatar", icon:"avatar", desc:"Profile source", onClick: () => hubAvFileRef.current?.click() },
-                    { id:"background", label:"Background", icon:"background", desc:"Canvas scene", onClick: () => hubBgFileRef.current?.click() },
-                    { id:"overlay", label:"Overlay", icon:"overlay", desc:"Image layer", onClick: () => hubOverlayFileRef.current?.click() },
-                    { id:"border", label:"Border", icon:"border", desc:"Frame art", onClick: () => hubBorderFileRef.current?.click() },
-                  ].map((item, idx) => (
-                    <button
-                      key={item.id}
-                      className="morph-tile"
-                      onClick={item.onClick}
-                      style={{
-                        padding:"14px 12px",
-                        minHeight:96,
-                        borderRadius:20,
-                        border:`1px solid ${cardBorder}`,
-                        background:controlBg,
-                        color:textPrimary,
-                        cursor:"pointer",
-                        display:"flex",
-                        flexDirection:"column",
-                        alignItems:"flex-start",
-                        justifyContent:"space-between",
-                        gap:10,
-                        boxShadow:"inset 0 1px 0 rgba(255,255,255,0.10)",
-                        animation: "none",
-                      }}
-                    >
-                      <span style={{
-                        width:36,
-                        height:36,
-                        borderRadius:14,
-                        display:"inline-flex",
-                        alignItems:"center",
-                        justifyContent:"center",
-                        background:`linear-gradient(135deg, ${accent}30, ${accent2}18)`,
-                        boxShadow:`inset 0 1px 0 rgba(255,255,255,0.18)`,
-                      }}><UiIcon name={item.icon} size={18} color={accent} /></span>
-                      <span style={{ textAlign:"left" }}>
-                        <span style={{ display:"block", fontSize:13, fontWeight:800 }}>{item.label}</span>
-                        <span className="premium-body-copy" style={{ display:"block", fontSize:11, color:textDim, marginTop:2 }}>{item.desc}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                <h3 style={{ margin:"2px 0 10px", fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>Generate</h3>
-                <div style={{ display:"grid", gridTemplateColumns: vp.isMobile ? "1fr" : "repeat(2, minmax(0,1fr))", gap:10 }}>
-                  {[
-                    { kind:"overlay", type:"liquid-orb", label:"Liquid Orb", icon:"sparkles" },
-                    { kind:"overlay", type:"glass-ring", label:"Glass Ring", icon:"overlay" },
-                    { kind:"overlay", type:"lens-flare", label:"Lens Flare", icon:"wand" },
-                    { kind:"border", type:"glass-frame", label:"Glass Frame", icon:"border" },
-                    { kind:"border", type:"corner-ribbon", label:"Corner Ribbon", icon:"border" },
-                    { kind:"texture", type:"film-grain", label:"Film Grain", icon:"texture" },
-                  ].map((item, idx) => (
-                    <button
-                      key={item.type}
-                      className="liquid-action-chip"
-                      onClick={() => addGeneratedAsset(item.kind, item.type, item.label)}
-                      style={{
-                        padding:"11px 10px",
-                        borderRadius:16,
-                        border:`1px solid ${cardBorder}`,
-                        background:`linear-gradient(135deg, ${accent}18, ${accent2}10)`,
-                        color:textPrimary,
-                        cursor:"pointer",
-                        display:"inline-flex",
-                        alignItems:"center",
-                        gap:8,
-                        fontSize:12,
-                        fontWeight:750,
-                        justifyContent:"flex-start",
-                      }}
-                    >
-                      <UiIcon name={item.icon} size={15} color={accent} />
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="liquid-surface" style={{ marginTop:16, border:`1px solid ${cardBorder}`, borderRadius:22, background:`linear-gradient(145deg, ${accent}12, ${accent2}08)`, padding:14, boxShadow:"inset 0 1px 0 rgba(255,255,255,0.1)" }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, marginBottom:10 }}>
-                    <div>
-                      <h3 style={{ margin:0, fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>AI Border Studio</h3>
-                      <p className="premium-body-copy" style={{ margin:"4px 0 0", fontSize:11.5, color:textDim }}>Default Local Lite is free and auto-builds a border that matches the avatar palette.</p>
-                    </div>
-                    <span style={{ fontSize:10.5, color:textDim, fontWeight:800, padding:"6px 8px", borderRadius:999, border:`1px solid ${cardBorder}`, background:controlBg }}>{aiBorderConfig.provider === "custom-api" ? "Custom API" : "Local Lite"}</span>
-                  </div>
-
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
-                    {[
-                      { id:"local-lite", label:"Local Lite" },
-                      { id:"custom-api", label:"Your API" },
-                    ].map(item => {
-                      const active = aiBorderConfig.provider === item.id;
-                      return (
-                        <button key={item.id} className="liquid-action-chip" onClick={() => setAiBorderConfig(prev => ({ ...prev, provider: item.id }))} style={{ border:`1px solid ${active ? accent : cardBorder}`, background: active ? `linear-gradient(135deg, ${accent}26, ${accent2}14)` : controlBg, color:textPrimary, borderRadius:14, padding:"10px 12px", fontSize:12, fontWeight:800, cursor:"pointer" }}>{item.label}</button>
-                      );
-                    })}
-                  </div>
-
-                  <textarea
-                    value={aiBorderPrompt}
-                    onChange={(e) => setAiBorderPrompt(e.target.value)}
-                    placeholder="Modify the border: e.g. soft liquid glass, luxe gold edges, minimal tech halo"
-                    style={{ ...inputSt, minHeight:88, resize:"vertical", marginBottom:10 }}
-                  />
-
-                  {aiBorderConfig.provider === "custom-api" && (
-                    <div style={{ display:"grid", gap:8, marginBottom:10 }}>
-                      <input value={aiBorderConfig.endpoint} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, endpoint: e.target.value }))} placeholder="Custom endpoint URL" style={inputSt} />
-                      <input value={aiBorderConfig.model} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, model: e.target.value }))} placeholder="Model name (optional)" style={inputSt} />
-                      <input value={aiBorderConfig.apiKey} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, apiKey: e.target.value }))} placeholder="API key / bearer token" style={inputSt} />
-                      <p className="premium-body-copy" style={{ margin:0, fontSize:11, color:textDim }}>Expected response JSON: <span style={{ fontFamily: APPLE_MONO }}>svg</span>, <span style={{ fontFamily: APPLE_MONO }}>dataUrl</span>, <span style={{ fontFamily: APPLE_MONO }}>image</span>, or <span style={{ fontFamily: APPLE_MONO }}>url</span>.</p>
-                    </div>
-                  )}
-
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
-                    <label style={{ display:"grid", gap:6, color:textDim, fontSize:11.5, fontWeight:700 }}>Detail {aiBorderConfig.detail}
-                      <input type="range" min="20" max="100" value={aiBorderConfig.detail} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, detail: Number(e.target.value) }))} />
-                    </label>
-                    <label style={{ display:"grid", gap:6, color:textDim, fontSize:11.5, fontWeight:700 }}>Density {aiBorderConfig.density}
-                      <input type="range" min="20" max="100" value={aiBorderConfig.density} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, density: Number(e.target.value) }))} />
-                    </label>
-                  </div>
-
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
-                    <button className="liquid-action-chip" onClick={() => setAiBorderConfig(prev => ({ ...prev, autoGenerateOnAvatar: !prev.autoGenerateOnAvatar }))} style={{ border:`1px solid ${aiBorderConfig.autoGenerateOnAvatar ? accent : cardBorder}`, background: aiBorderConfig.autoGenerateOnAvatar ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:14, padding:"10px 12px", fontSize:11.5, fontWeight:800, cursor:"pointer" }}>Auto-generate on avatar {aiBorderConfig.autoGenerateOnAvatar ? "On" : "Off"}</button>
-                    <button className="liquid-action-chip" onClick={() => setAiBorderConfig(prev => ({ ...prev, autoApplyGeneratedBorder: !prev.autoApplyGeneratedBorder }))} style={{ border:`1px solid ${aiBorderConfig.autoApplyGeneratedBorder ? accent : cardBorder}`, background: aiBorderConfig.autoApplyGeneratedBorder ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:14, padding:"10px 12px", fontSize:11.5, fontWeight:800, cursor:"pointer" }}>Auto-apply border {aiBorderConfig.autoApplyGeneratedBorder ? "On" : "Off"}</button>
-                  </div>
-
-                  <button
-                    className="liquid-action-chip"
-                    onClick={() => generateAiBorderAsset()}
-                    disabled={aiBorderBusy}
-                    style={{ width:"100%", padding:"13px 14px", borderRadius:16, border:`1px solid ${accent}`, background:`linear-gradient(135deg, ${accent}32, ${accent2}16)`, color:textPrimary, cursor:aiBorderBusy ? "wait" : "pointer", fontSize:13, fontWeight:800, display:"inline-flex", alignItems:"center", justifyContent:"center", gap:8, opacity: aiBorderBusy ? 0.72 : 1 }}
-                  >
-                    <UiIcon name="sparkles" size={16} color={textPrimary} />
-                    {aiBorderBusy ? "Generating AI Border…" : "Generate Border From Current Avatar"}
-                  </button>
-
-                  <p className="premium-body-copy" style={{ margin:"10px 0 0", fontSize:11.5, color: aiBorderStatus ? textPrimary : textDim }}>{aiBorderStatus || "All AI border outputs are stored as border assets and can be reapplied anytime."}</p>
-                </div>
-              </section>
-
-              <section className="asset-hub-card" style={{
-                border:`1px solid ${cardBorder}`,
-                borderRadius:26,
-                background:cardBg,
-                padding:16,
-                boxShadow:cardShadow,
-                minHeight:360,
-              }}>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap", marginBottom:14 }}>
-                  <h3 style={{ margin:0, fontSize:13, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:0.9 }}>Library</h3>
-                  <div style={{ display:"flex", gap:7, overflowX:"auto", paddingBottom:2 }}>
-                    {["all", ...ASSET_KIND_ORDER].map(kind => {
-                      const active = assetKindFilter === kind;
-                      return (
+              {/* ── Section: LIBRARY ─────────────────────────────────── */}
+              {assetHubSection === "library" && (
+                <>
+                  {visibleAssetItems.length === 0 ? (
+                    <div style={{
+                      minHeight: vp.isMobile ? 200 : 260,
+                      display:"flex",
+                      alignItems:"center",
+                      justifyContent:"center",
+                      flexDirection:"column",
+                      gap:12,
+                      textAlign:"center",
+                      borderRadius:18,
+                      border:`1px dashed ${cardBorder}`,
+                      background: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+                      color:textDim,
+                      padding: 20,
+                    }}>
+                      <div style={{ width:50, height:50, borderRadius:16, display:"flex", alignItems:"center", justifyContent:"center", background:controlBg }}>
+                        <UiIcon name="package" size={24} color={accent} />
+                      </div>
+                      <p style={{ margin:0, fontSize:13, maxWidth:280, fontWeight:600 }}>
+                        {assetSearch ? `No assets match "${assetSearch}".` : "No assets here yet. Use Import or AI Border to add some."}
+                      </p>
+                      {assetHubTab !== "all" && !assetSearch && (
                         <button
-                          key={kind}
-                          className="liquid-action-chip"
-                          onClick={() => { setAssetKindFilter(kind); setAssetActionId(null); }}
+                          onClick={() => setAssetHubTab("all")}
+                          style={{ marginTop:4, padding:"8px 14px", borderRadius:10, border:`1px solid ${accent}`, background:`linear-gradient(135deg, ${accent}, ${accent2})`, color:"#fff", fontWeight:800, fontSize:12, cursor:"pointer" }}
+                        >Show All</button>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{
+                        display:"grid",
+                        gridTemplateColumns: vp.isMobile ? "repeat(2, minmax(0, 1fr))"
+                          : vp.w < 900 ? "repeat(3, minmax(0, 1fr))"
+                          : vp.w < 1200 ? "repeat(4, minmax(0, 1fr))"
+                          : "repeat(5, minmax(0, 1fr))",
+                        gap: vp.isMobile ? 10 : 12,
+                      }}>
+                        {visibleAssetItems.map((item) => (
+                          <AssetTile
+                            key={item.id}
+                            item={item}
+                            held={assetActionId === item.id}
+                            accent={accent}
+                            accent2={accent2}
+                            cardBorder={cardBorder}
+                            controlBg={controlBg}
+                            textPrimary={textPrimary}
+                            textDim={textDim}
+                            isDark={isDark}
+                            liquidEnabled={liquidEnabled}
+                            uiBlurPx={uiBlurPx}
+                            hapticEnabled={settings.hapticFeedback}
+                            onPointerDown={() => beginAssetHold(item)}
+                            onPointerUp={() => endAssetHold(item)}
+                            onPointerCancel={() => window.clearTimeout(assetHoldTimerRef.current)}
+                            onPointerLeave={() => window.clearTimeout(assetHoldTimerRef.current)}
+                            onContextMenu={(e) => { e.preventDefault(); setAssetActionId(item.id); mediumHaptic(settings.hapticFeedback); }}
+                            onApply={(it) => { applyAssetFromLibrary(it); setAssetActionId(null); }}
+                            onSetAvatar={(it) => { applyAssetFromLibrary({ ...it, kind:"avatar" }); setAssetActionId(null); }}
+                            onSetBackground={(it) => { applyAssetFromLibrary({ ...it, kind:"background" }); setAssetActionId(null); }}
+                            onSetBorder={(it) => { applyAssetFromLibrary({ ...it, kind:"border" }); setAssetActionId(null); }}
+                            onRemove={(it) => removeAsset(it)}
+                            onToggleFavorite={(it) => toggleAssetFavorite(it)}
+                          />
+                        ))}
+                      </div>
+                      {hiddenAssetCount > 0 && (
+                        <button
+                          onClick={() => setAssetVisibleCount(c => c + (vp.isMobile ? 24 : 48))}
                           style={{
-                            border:`1px solid ${active ? accent : cardBorder}`,
-                            background: active ? `linear-gradient(135deg, ${accent}30, ${accent2}16)` : controlBg,
-                            color: active ? textPrimary : textDim,
-                            borderRadius:999,
-                            padding:"8px 10px",
-                            fontSize:11,
+                            display:"block",
+                            margin:"16px auto 0",
+                            padding:"10px 18px",
+                            borderRadius:12,
+                            border:`1px solid ${cardBorder}`,
+                            background:controlBg,
+                            color:textPrimary,
+                            fontSize:12,
                             fontWeight:800,
+                            cursor:"pointer",
+                          }}
+                        >Load {Math.min(hiddenAssetCount, vp.isMobile ? 24 : 48)} more · ({hiddenAssetCount} hidden)</button>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── Section: IMPORT ──────────────────────────────────── */}
+              {assetHubSection === "import" && (
+                <div style={{ display:"grid", gap:16 }}>
+                  <div>
+                    <h3 style={{ margin:"0 0 10px", fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Upload</h3>
+                    <div style={{ display:"grid", gridTemplateColumns: vp.isMobile ? "1fr 1fr" : "repeat(4, minmax(0,1fr))", gap:10 }}>
+                      {[
+                        { id:"avatar",     label:"Avatar",     icon:"avatar",     desc:"Profile",  onClick: () => hubAvFileRef.current?.click() },
+                        { id:"background", label:"Background", icon:"background", desc:"Scene",    onClick: () => hubBgFileRef.current?.click() },
+                        { id:"overlay",    label:"Overlay",    icon:"overlay",    desc:"Sticker",  onClick: () => hubOverlayFileRef.current?.click() },
+                        { id:"border",     label:"Border",     icon:"border",     desc:"Frame",    onClick: () => hubBorderFileRef.current?.click() },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={item.onClick}
+                          style={{
+                            padding: vp.isMobile ? "12px 10px" : "14px 12px",
+                            minHeight: vp.isMobile ? 80 : 96,
+                            borderRadius:14,
+                            border:`1px solid ${cardBorder}`,
+                            background:controlBg,
+                            color:textPrimary,
+                            cursor:"pointer",
+                            display:"flex",
+                            flexDirection:"column",
+                            alignItems:"flex-start",
+                            justifyContent:"space-between",
+                            gap:8,
+                          }}
+                        >
+                          <span style={{ width:32, height:32, borderRadius:10, display:"inline-flex", alignItems:"center", justifyContent:"center", background:`linear-gradient(135deg, ${accent}, ${accent2})` }}>
+                            <UiIcon name={item.icon} size={15} color="#fff" />
+                          </span>
+                          <span style={{ textAlign:"left" }}>
+                            <span style={{ display:"block", fontSize:12.5, fontWeight:800 }}>{item.label}</span>
+                            <span style={{ display:"block", fontSize:10.5, color:textDim, marginTop:2 }}>{item.desc}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 style={{ margin:"0 0 10px", fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Quick Generate</h3>
+                    <div style={{ display:"grid", gridTemplateColumns: vp.isMobile ? "1fr 1fr" : "repeat(3, minmax(0,1fr))", gap:8 }}>
+                      {[
+                        { kind:"overlay", type:"liquid-orb",   label:"Liquid Orb",  icon:"sparkles" },
+                        { kind:"overlay", type:"glass-ring",   label:"Glass Ring",  icon:"overlay" },
+                        { kind:"overlay", type:"lens-flare",   label:"Lens Flare",  icon:"wand" },
+                        { kind:"border",  type:"glass-frame",  label:"Glass Frame", icon:"border" },
+                        { kind:"border",  type:"corner-ribbon",label:"Ribbon",      icon:"border" },
+                        { kind:"texture", type:"film-grain",   label:"Film Grain",  icon:"texture" },
+                      ].map((item) => (
+                        <button
+                          key={item.type}
+                          onClick={() => addGeneratedAsset(item.kind, item.type, item.label)}
+                          style={{
+                            padding:"10px 10px",
+                            borderRadius:12,
+                            border:`1px solid ${cardBorder}`,
+                            background:controlBg,
+                            color:textPrimary,
                             cursor:"pointer",
                             display:"inline-flex",
                             alignItems:"center",
-                            gap:6,
-                            whiteSpace:"nowrap",
+                            gap:7,
+                            fontSize:11.5,
+                            fontWeight:700,
+                            justifyContent:"flex-start",
                           }}
                         >
-                          <UiIcon name={ASSET_KIND_META[kind]?.icon || "assets"} size={13} color={active ? accent : textDim} />
-                          {ASSET_KIND_META[kind]?.label || kind}
-                          <span style={{ opacity:0.62 }}>{assetCounts[kind] || 0}</span>
+                          <UiIcon name={item.icon} size={13} color={accent} />
+                          <span>{item.label}</span>
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 </div>
+              )}
 
-                {hiddenAssetCount > 0 && (
-                  <p className="premium-body-copy" style={{ margin:"-4px 0 12px", fontSize:11.5, color:textDim }}>
-                    Showing {visibleAssetItems.length} optimized items first to keep Asset Hub smooth. Use filters to narrow the rest.
-                  </p>
-                )}
-
-                {visibleAssetItems.length === 0 ? (
-                  <div style={{
-                    minHeight:260,
-                    display:"flex",
-                    alignItems:"center",
-                    justifyContent:"center",
-                    flexDirection:"column",
-                    gap:12,
-                    textAlign:"center",
-                    borderRadius:22,
-                    border:`1px dashed ${cardBorder}`,
-                    background:`linear-gradient(135deg, ${accent}10, transparent)`,
-                    color:textDim,
-                  }}>
-                    <div style={{ width:58, height:58, borderRadius:22, display:"flex", alignItems:"center", justifyContent:"center", background:controlBg }}>
-                      <UiIcon name="package" size={28} color={accent} />
+              {/* ── Section: AI BORDER STUDIO ─────────────────────────── */}
+              {assetHubSection === "ai" && (
+                <div style={{ display:"grid", gap:14 }}>
+                  {/* Style preset chips */}
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                      <h3 style={{ margin:0, fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Style</h3>
+                      <button
+                        onClick={() => setAiProviderSettingsOpen(v => !v)}
+                        style={{ border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, fontSize:11, fontWeight:800, padding:"6px 10px", borderRadius:10, cursor:"pointer", display:"inline-flex", alignItems:"center", gap:5 }}
+                      ><UiIcon name="settings" size={11} color={accent} />Provider · {AI_BORDER_PROVIDERS.find(p => p.id === aiBorderConfig.provider)?.label || "Free"}</button>
                     </div>
-                    <p className="premium-body-copy" style={{ margin:0, fontSize:13, maxWidth:260 }}>Import or generate an asset. It will be grouped by type and ready to apply with one tap.</p>
-                  </div>
-                ) : (
-                  <div style={{
-                    display:"grid",
-                    gridTemplateColumns: vp.isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fill, minmax(150px, 1fr))",
-                    gap:12,
-                  }}>
-                    {visibleAssetItems.map((item, idx) => {
-                      const held = assetActionId === item.id;
-                      const kind = normalizeAssetKind(item.kind);
-                      return (
-                        <div
-                          key={item.id}
-                          className={`morph-tile ${held ? "asset-card-held" : ""}`}
-                          onPointerDown={() => beginAssetHold(item)}
-                          onPointerUp={() => endAssetHold(item)}
-                          onPointerCancel={() => window.clearTimeout(assetHoldTimerRef.current)}
-                          onPointerLeave={() => window.clearTimeout(assetHoldTimerRef.current)}
-                          onContextMenu={(e) => { e.preventDefault(); setAssetActionId(item.id); mediumHaptic(settings.hapticFeedback); }}
-                          style={{
-                            borderRadius:22,
-                            border:`1px solid ${held ? accent : cardBorder}`,
-                            background:controlBg,
-                            overflow:"hidden",
-                            aspectRatio:"1 / 1.12",
-                            position:"relative",
-                            cursor:"pointer",
-                            boxShadow: held ? `0 12px 28px ${accent}24, inset 0 1px 0 rgba(255,255,255,0.14)` : "inset 0 1px 0 rgba(255,255,255,0.06)",
-                            contentVisibility:"auto",
-                            containIntrinsicSize:"170px 190px",
-                            animation: "none",
-                          }}
-                        >
-                          <div style={{ height:"70%", position:"relative", overflow:"hidden", background:`linear-gradient(135deg, ${accent}10, ${accent2}08)` }}>
-                            {item.src && <img src={item.src} alt={item.label || "Asset"} loading="lazy" decoding="async" style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />}
-                            <span style={{
-                              position:"absolute",
-                              top:8,
-                              left:8,
-                              display:"inline-flex",
-                              alignItems:"center",
-                              gap:5,
-                              padding:"5px 7px",
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                      {AI_BORDER_STYLE_PRESETS.map(p => {
+                        const active = aiBorderConfig.stylePreset === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => setAiBorderConfig(prev => ({ ...prev, stylePreset: p.id }))}
+                            style={{
+                              border:`1px solid ${active ? accent : cardBorder}`,
+                              background: active ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
+                              color: active ? "#fff" : textPrimary,
                               borderRadius:999,
-                              background:"rgba(0,0,0,0.42)",
-                              color:"#fff",
-                              fontSize:10,
+                              padding:"7px 11px",
+                              fontSize:11.5,
                               fontWeight:800,
-                              backdropFilter:"none",
-                              WebkitBackdropFilter:"none",
-                            }}><UiIcon name={ASSET_KIND_META[kind]?.icon || "assets"} size={11} color="#fff" />{ASSET_KIND_META[kind]?.label || "Asset"}</span>
-                          </div>
-                          <div style={{ padding:"10px 10px 12px", minHeight:0 }}>
-                            <div style={{ color:textPrimary, fontSize:12, fontWeight:800, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.label || "Asset"}</div>
-                            <div style={{ color:textDim, fontSize:10.5, marginTop:3 }}>{item.savedAt ? new Date(item.savedAt).toLocaleDateString() : "Saved"}</div>
-                          </div>
-                          {held && (
-                            <div style={{
-                              position:"absolute",
-                              inset:8,
-                              borderRadius:18,
-                              background:isDark ? "rgba(7,10,18,0.78)" : "rgba(255,255,255,0.76)",
-                              border:`1px solid ${accent}66`,
-                              backdropFilter:"none",
-                              WebkitBackdropFilter:"none",
-                              display:"grid",
-                              gridTemplateColumns:"1fr 1fr",
-                              gap:7,
-                              padding:8,
-                              animation:"morphPillIn 180ms var(--ease-glass)",
-                            }} onPointerDown={e => e.stopPropagation()} onPointerUp={e => e.stopPropagation()}>
-                              {[
-                                { label:"Apply", icon:"apply", action: () => applyAssetFromLibrary(item) },
-                                { label:"Avatar", icon:"avatar", action: () => applyAssetFromLibrary({ ...item, kind:"avatar" }) },
-                                { label:"Back", icon:"background", action: () => applyAssetFromLibrary({ ...item, kind:"background" }) },
-                                { label:"Frame", icon:"border", action: () => applyAssetFromLibrary({ ...item, kind:"border" }) },
-                              ].map(a => (
-                                <button key={a.label} className="liquid-action-chip" onClick={(e) => { e.stopPropagation(); a.action(); setAssetActionId(null); }} style={{ border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, borderRadius:12, fontSize:10.5, fontWeight:800, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:4 }}>
-                                  <UiIcon name={a.icon} size={14} color={accent} />{a.label}
-                                </button>
-                              ))}
-                              <button className="liquid-action-chip" onClick={(e) => { e.stopPropagation(); setAssetLibrary(prev => ({ ...prev, recent: (prev.recent || []).filter(x => x.id !== item.id) })); setAssetActionId(null); }} style={{ gridColumn:"1 / -1", border:`1px solid rgba(255,95,95,0.42)`, background:"rgba(255,95,95,0.10)", color:"#ff7373", borderRadius:12, fontSize:11, fontWeight:800, cursor:"pointer", display:"inline-flex", alignItems:"center", justifyContent:"center", gap:6 }}><UiIcon name="trash" size={13} color="#ff7373" />Remove</button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                              cursor:"pointer",
+                            }}
+                          >{p.label}</button>
+                        );
+                      })}
+                    </div>
                   </div>
-                )}
-              </section>
+
+                  {/* Shape preset chips */}
+                  <div>
+                    <h3 style={{ margin:"0 0 8px", fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Shape</h3>
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:6 }}>
+                      {AI_BORDER_SHAPE_PRESETS.map(p => {
+                        const active = aiBorderConfig.shapePreset === p.id;
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => setAiBorderConfig(prev => ({ ...prev, shapePreset: p.id }))}
+                            style={{
+                              border:`1px solid ${active ? accent : cardBorder}`,
+                              background: active ? `linear-gradient(135deg, ${accent}26, ${accent2}14)` : controlBg,
+                              color: textPrimary,
+                              borderRadius:10,
+                              padding:"8px 6px",
+                              fontSize:11,
+                              fontWeight:800,
+                              cursor:"pointer",
+                            }}
+                          >{p.label}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Prompt */}
+                  <div>
+                    <h3 style={{ margin:"0 0 8px", fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Extra Prompt (optional)</h3>
+                    <textarea
+                      value={aiBorderPrompt}
+                      onChange={(e) => setAiBorderPrompt(e.target.value)}
+                      placeholder="e.g. soft pink hearts, sparkles, gold accents..."
+                      style={{ ...inputSt, minHeight: vp.isMobile ? 60 : 72, resize:"vertical" }}
+                    />
+                  </div>
+
+                  {/* Variations */}
+                  <div>
+                    <h3 style={{ margin:"0 0 8px", fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Variations · {aiBorderConfig.variations || 1}</h3>
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0,1fr))", gap:6 }}>
+                      {[1, 2, 3, 4].map(n => {
+                        const active = (aiBorderConfig.variations || 1) === n;
+                        return (
+                          <button
+                            key={n}
+                            onClick={() => setAiBorderConfig(prev => ({ ...prev, variations: n }))}
+                            style={{ border:`1px solid ${active ? accent : cardBorder}`, background: active ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg, color: active ? "#fff" : textPrimary, borderRadius:10, padding:"8px 4px", fontSize:12, fontWeight:800, cursor:"pointer" }}
+                          >{n}x</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Toggles */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                    <button
+                      onClick={() => setAiBorderConfig(prev => ({ ...prev, transparentCenter: !prev.transparentCenter }))}
+                      style={{ border:`1px solid ${aiBorderConfig.transparentCenter ? accent : cardBorder}`, background: aiBorderConfig.transparentCenter ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:12, padding:"9px 10px", fontSize:11, fontWeight:800, cursor:"pointer" }}
+                    >Transparent center · {aiBorderConfig.transparentCenter ? "On" : "Off"}</button>
+                    <button
+                      onClick={() => setAiBorderConfig(prev => ({ ...prev, autoApplyGeneratedBorder: !prev.autoApplyGeneratedBorder }))}
+                      style={{ border:`1px solid ${aiBorderConfig.autoApplyGeneratedBorder ? accent : cardBorder}`, background: aiBorderConfig.autoApplyGeneratedBorder ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:12, padding:"9px 10px", fontSize:11, fontWeight:800, cursor:"pointer" }}
+                    >Auto-apply · {aiBorderConfig.autoApplyGeneratedBorder ? "On" : "Off"}</button>
+                  </div>
+
+                  {/* Provider settings drawer */}
+                  {aiProviderSettingsOpen && (
+                    <div style={{ border:`1px solid ${cardBorder}`, borderRadius:14, padding:12, background: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)" }}>
+                      <h3 style={{ margin:"0 0 8px", fontSize:12, fontWeight:800, color:textPrimary, textTransform:"uppercase", letterSpacing:1 }}>AI Provider</h3>
+                      <div style={{ display:"grid", gridTemplateColumns: vp.isMobile ? "1fr 1fr" : "repeat(3, minmax(0,1fr))", gap:6, marginBottom:10 }}>
+                        {AI_BORDER_PROVIDERS.map(p => {
+                          const active = aiBorderConfig.provider === p.id;
+                          return (
+                            <button
+                              key={p.id}
+                              onClick={() => setAiBorderConfig(prev => ({ ...prev, provider: p.id }))}
+                              title={p.desc}
+                              style={{ border:`1px solid ${active ? accent : cardBorder}`, background: active ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg, color: active ? "#fff" : textPrimary, borderRadius:10, padding:"8px 8px", fontSize:11, fontWeight:800, cursor:"pointer", textAlign:"left" }}
+                            >
+                              {p.label}
+                              {p.free && <span style={{ display:"block", fontSize:9.5, opacity:0.85, marginTop:2 }}>Free · no key</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p style={{ margin:"0 0 10px", fontSize:11, color:textDim, lineHeight:1.5 }}>
+                        {AI_BORDER_PROVIDERS.find(p => p.id === aiBorderConfig.provider)?.desc}
+                      </p>
+                      {(aiBorderConfig.provider === "openai-compatible" || aiBorderConfig.provider === "custom" || aiBorderConfig.provider === "gemini") && (
+                        <div style={{ display:"grid", gap:6 }}>
+                          <input value={aiBorderConfig.apiKey} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, apiKey: e.target.value }))} placeholder="API key (stored only in your browser)" style={inputSt} type="password" autoComplete="off" />
+                          <input value={aiBorderConfig.model} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, model: e.target.value }))} placeholder={
+                            aiBorderConfig.provider === "gemini" ? "Model (default: gemini-2.5-flash-image)"
+                            : aiBorderConfig.provider === "openai-compatible" ? "Model (default: gpt-image-1)"
+                            : "Model name (optional)"
+                          } style={inputSt} />
+                          {(aiBorderConfig.provider === "openai-compatible" || aiBorderConfig.provider === "custom") && (
+                            <input value={aiBorderConfig.endpoint} onChange={(e) => setAiBorderConfig(prev => ({ ...prev, endpoint: e.target.value }))} placeholder={aiBorderConfig.provider === "custom" ? "Full POST endpoint URL" : "Base URL (default: https://api.openai.com)"} style={inputSt} />
+                          )}
+                          <p style={{ margin:0, fontSize:10.5, color:textDim }}>Keys are stored in localStorage only and are never sent anywhere except the chosen provider.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Generate button + status */}
+                  <button
+                    onClick={() => generateAiBorderAsset()}
+                    disabled={aiBorderBusy}
+                    style={{
+                      width:"100%",
+                      padding:"13px 14px",
+                      borderRadius:14,
+                      border:"none",
+                      background: aiBorderBusy ? controlBg : `linear-gradient(135deg, ${accent}, ${accent2})`,
+                      color: aiBorderBusy ? textDim : "#fff",
+                      cursor: aiBorderBusy ? "wait" : "pointer",
+                      fontSize:13.5,
+                      fontWeight:800,
+                      display:"inline-flex",
+                      alignItems:"center",
+                      justifyContent:"center",
+                      gap:8,
+                      boxShadow: aiBorderBusy ? "none" : `0 8px 24px ${accent}55`,
+                    }}
+                  >
+                    <UiIcon name="sparkles" size={15} color={aiBorderBusy ? textDim : "#fff"} />
+                    {aiBorderBusy ? "Generating…" : `Generate ${aiBorderConfig.variations || 1} Border${(aiBorderConfig.variations || 1) > 1 ? "s" : ""}`}
+                  </button>
+
+                  {aiBorderBusy && (
+                    <div style={{ display:"flex", justifyContent:"center" }}>
+                      <button
+                        onClick={() => { setAiBorderBusy(false); setAiBorderStatus("Cancelled."); }}
+                        style={{ border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, borderRadius:10, padding:"6px 14px", fontSize:11, fontWeight:800, cursor:"pointer" }}
+                      >Cancel</button>
+                    </div>
+                  )}
+
+                  <p style={{
+                    margin:0,
+                    fontSize:11.5,
+                    fontWeight:600,
+                    color: aiBorderStatus?.toLowerCase().includes("failed") || aiBorderStatus?.toLowerCase().includes("unavailable")
+                      ? "#ff7373"
+                      : aiBorderStatus?.toLowerCase().includes("generated") ? accent : textDim,
+                    padding:"8px 12px",
+                    borderRadius:10,
+                    border:`1px solid ${cardBorder}`,
+                    background: controlBg,
+                    minHeight: 16,
+                  }}>{aiBorderStatus || "Ready. AI borders are saved to your library and can be re-applied or edited as a layer."}</p>
+
+                  {/* Recent variations strip */}
+                  {aiBorderVariations.length > 0 && (
+                    <div>
+                      <h3 style={{ margin:"0 0 8px", fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Pick a Variation</h3>
+                      <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.min(4, aiBorderVariations.length)}, minmax(0,1fr))`, gap:8 }}>
+                        {aiBorderVariations.map(v => (
+                          <button
+                            key={v.id}
+                            onClick={() => {
+                              pushState({
+                                borderStyleId: "custom-image",
+                                customBorderSrc: v.src,
+                                customBorderScale: s.customBorderScale ?? 124,
+                                customBorderOpacity: s.customBorderOpacity ?? 100,
+                                customBorderRotation: s.customBorderRotation ?? 0,
+                              });
+                              setSaveNotice("Border applied!");
+                            }}
+                            style={{
+                              border:`1px solid ${cardBorder}`,
+                              borderRadius:12,
+                              padding:0,
+                              background: controlBg,
+                              cursor:"pointer",
+                              overflow:"hidden",
+                              aspectRatio: "1 / 1",
+                            }}
+                          >
+                            <img src={v.src} alt={v.label} loading="lazy" decoding="async" style={{ width:"100%", height:"100%", objectFit:"contain", display:"block" }} />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -6182,7 +7825,7 @@ export default function LuminaryPanels() {
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────��───────────────────────
 function DimensionInput({ value, min, max, onConfirm, accent, textPrimary, controlBg, cardBorder }) {
   const [draft, setDraft] = useState(value.toString());
 
