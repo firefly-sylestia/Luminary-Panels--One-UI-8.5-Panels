@@ -699,6 +699,44 @@ function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePrese
   ].filter(Boolean).join(". ");
 }
 
+// Validates that a base64 payload actually starts with image magic bytes
+// (PNG / JPEG / WebP / GIF). On Android, a stale OkHttp keep-alive socket
+// can return an empty or HTML body that we'd otherwise pass on as a fake
+// PNG. Detecting this here lets us fall through to the next path instead
+// of silently corrupting the generation pipeline.
+function isLikelyImageBase64(b64) {
+  if (!b64 || typeof b64 !== "string" || b64.length < 32) return false;
+  // PNG: iVBORw0KGgo (base64 of \x89PNG\r\n\x1a\n)
+  if (b64.startsWith("iVBORw0KGgo")) return true;
+  // JPEG: /9j/
+  if (b64.startsWith("/9j/")) return true;
+  // WebP: RIFF...WEBP — base64 of "RIFF" is "UklGR"
+  if (b64.startsWith("UklGR")) return true;
+  // GIF: R0lGOD
+  if (b64.startsWith("R0lGOD")) return true;
+  return false;
+}
+
+async function blobLooksLikeImage(blob) {
+  if (!blob || blob.size < 32) return false;
+  const type = String(blob.type || "").toLowerCase();
+  if (type.startsWith("image/")) return true;
+  // Some CDNs strip Content-Type; sniff the first 12 bytes.
+  try {
+    const buf = await blob.slice(0, 12).arrayBuffer();
+    const b = new Uint8Array(buf);
+    // PNG
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return true;
+    // JPEG
+    if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return true;
+    // GIF
+    if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return true;
+    // RIFF / WEBP
+    if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46) return true;
+  } catch (_) {}
+  return false;
+}
+
 // Pollinations.ai — free, no auth required, returns a PNG URL directly.
 // Has a hard 60s timeout so a stalled image request can never lock the UI.
 //
@@ -711,9 +749,33 @@ function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePrese
 //      the canvas entirely so Capacitor APKs get the same PNG as the web.
 //   2. We get the original PNG bytes without a re-encode pass, which is
 //      slightly faster and a tiny bit higher quality.
+//
+// Capacitor APK reliability fix (the "works once, then SVG until force-stop"
+// bug): on Android, OkHttp pools TCP connections by default. After the first
+// successful Pollinations call, the CDN closes the socket server-side, but
+// OkHttp tries to reuse the dead socket on the next call → CapacitorHttp
+// returns an empty/short payload that decodes to a broken image, so the
+// caller silently drops to procedural SVG. We work around it by:
+//   • adding `Connection: close` + `Cache-Control: no-cache` headers so each
+//     request opens a fresh native socket and can't be served from any cache,
+//   • appending a unique nonce so the request URL is never identical,
+//   • VALIDATING the returned bytes are a real image — if not, we retry the
+//     native path once and finally fall through to browser fetch, instead of
+//     handing garbage to the canvas pipeline.
 async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), abortSignal = null) {
   const enc = encodeURIComponent(finalPrompt);
-  const url = `https://image.pollinations.ai/prompt/${enc}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
+  // Nonce defeats any intermediate caching (CDN, OkHttp disk cache, WebView).
+  const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const url = `https://image.pollinations.ai/prompt/${enc}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}&_=${nonce}`;
+
+  const noCacheHeaders = {
+    Accept: "image/*",
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+    Pragma: "no-cache",
+    // Force OkHttp to open a fresh TCP socket every call — this is the key
+    // fix for the "first generation works, then SVG forever" Capacitor bug.
+    Connection: "close",
+  };
 
   // ── Path 1: Capacitor native bridge (Android/iOS APK) ─────────────────────
   // Inside the Capacitor WebView, browser fetch() is subject to CORS — and
@@ -721,25 +783,42 @@ async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), a
   // request silently fails. CapacitorHttp performs a NATIVE HTTP request from
   // the OS layer (no WebView, no CORS), which is the only reliable way to
   // pull cross-origin binary data inside the APK.
-  // CapacitorHttp ships built-in with @capacitor/core ≥ 4 — no install needed,
-  // but it must be enabled in capacitor.config.json (see project README).
   try {
     const Cap = (typeof window !== "undefined") ? window.Capacitor : null;
     const isNative = !!(Cap && (Cap.isNativePlatform?.() || Cap.isNative));
     const CapHttp = Cap?.Plugins?.CapacitorHttp;
     if (isNative && CapHttp?.request) {
-      const res = await CapHttp.request({
-        url,
-        method: "GET",
-        responseType: "blob",      // returns the body as base64
-        connectTimeout: 60000,
-        readTimeout: 60000,
-        headers: { Accept: "image/*" },
-      });
-      // CapacitorHttp delivers binary as a base64 string in `res.data`.
-      const b64 = (res && typeof res.data === "string") ? res.data : "";
-      if (b64) return `data:image/png;base64,${b64}`;
-      // If native path returned nothing, fall through to fetch as a backup.
+      // Try up to 2 times — first attempt may hit a stale pooled socket.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (abortSignal?.aborted) return null;
+        try {
+          const attemptUrl = attempt === 0
+            ? url
+            : `${url}&r=${Math.random().toString(36).slice(2, 8)}`;
+          const res = await CapHttp.request({
+            url: attemptUrl,
+            method: "GET",
+            responseType: "blob",   // returns the body as base64
+            connectTimeout: 60000,
+            readTimeout: 60000,
+            headers: noCacheHeaders,
+          });
+          const status = res?.status ?? 0;
+          const b64 = (res && typeof res.data === "string") ? res.data : "";
+          if (status >= 200 && status < 300 && isLikelyImageBase64(b64)) {
+            return `data:image/png;base64,${b64}`;
+          }
+          // Bad payload (empty body / HTML error / stale socket): log + retry.
+          // eslint-disable-next-line no-console
+          console.warn("[v0] Pollinations native attempt", attempt + 1,
+            "returned non-image (status:", status, "size:", b64.length, ")");
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn("[v0] Pollinations native attempt", attempt + 1, "threw:", e?.message || e);
+        }
+      }
+      // Both native attempts failed — fall through to browser fetch as a
+      // last resort (works in Chrome/web build, usually fails inside APK).
     }
   } catch (_) {
     // Fall through to standard fetch.
@@ -757,10 +836,15 @@ async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), a
       method: "GET",
       cache: "no-store",
       signal: controller?.signal,
-      headers: { Accept: "image/*" },
+      headers: { Accept: "image/*", "Cache-Control": "no-cache" },
     });
     if (!res.ok) return null;
     const blob = await res.blob();
+    if (!(await blobLooksLikeImage(blob))) {
+      // eslint-disable-next-line no-console
+      console.warn("[v0] Pollinations web fetch returned non-image (type:", blob.type, "size:", blob.size, ")");
+      return null;
+    }
     const dataUrl = await new Promise((resolve) => {
       try {
         const fr = new FileReader();
@@ -5006,7 +5090,7 @@ export default function LuminaryPanels() {
     }
   };
 
-  // ── UI theme values ───────────────────────────────────────────────────────
+  // ── UI theme values ───────────��───────────────────────────────────────────
   const ALL_FONTS  = [...FONTS, ...customFonts];
   const bCtrl      = getBorderControls(s.borderStyleId);
 
