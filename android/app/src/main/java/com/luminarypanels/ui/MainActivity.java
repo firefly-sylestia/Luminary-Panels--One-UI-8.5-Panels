@@ -2,12 +2,10 @@ package com.luminarypanels.ui;
 
 import android.graphics.Color;
 import android.os.Bundle;
-
+import com.getcapacitor.BridgeActivity;
 import androidx.core.view.WindowCompat;
 
-import com.getcapacitor.BridgeActivity;
-
-public class BridgeMainActivity extends BridgeActivity {
+public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
