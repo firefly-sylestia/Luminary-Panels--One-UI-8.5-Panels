@@ -2,12 +2,13 @@
   "appId": "com.luminarypanels.ui",
   "appName": "Luminary Panels",
   "webDir": "dist",
-  "version": "3.1.2"
-}
-{
+  "version": "3.1.2",
   "server": {
     "androidScheme": "https",
-    "allowNavigation": ["image.pollinations.ai", "*.pollinations.ai"]
+    "allowNavigation": [
+      "image.pollinations.ai",
+      "*.pollinations.ai"
+    ]
   },
   "android": {
     "allowMixedContent": false
