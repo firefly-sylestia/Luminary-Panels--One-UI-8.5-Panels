@@ -288,6 +288,16 @@ const UI_COLOR_PRESETS = [
   { id: "rose-luxe", label: "Rose Luxe", uiAccent: "#ff7eb6", uiAccent2: "#ffd3ec", uiBg: "radial-gradient(circle at 22% 8%, rgba(255,126,182,0.34), transparent 31%), radial-gradient(circle at 78% 24%, rgba(255,211,236,0.20), transparent 34%), linear-gradient(145deg,#190b18 0%,#3b1d3d 46%,#7a3567 100%)", uiText: "#fff1f9" },
   { id: "greenhouse-glass", label: "Greenhouse Glass", uiAccent: "#76ffd2", uiAccent2: "#b8ff6b", uiBg: "radial-gradient(circle at 18% 10%, rgba(118,255,210,0.32), transparent 34%), radial-gradient(circle at 82% 22%, rgba(184,255,107,0.20), transparent 34%), linear-gradient(145deg,#071711 0%,#103b2e 52%,#183b1b 100%)", uiText: "#effff8" },
   { id: "ember-coral", label: "Ember Coral", uiAccent: "#ff9f6b", uiAccent2: "#ff5f8f", uiBg: "radial-gradient(circle at 18% 9%, rgba(255,159,107,0.34), transparent 32%), radial-gradient(circle at 84% 20%, rgba(255,95,143,0.28), transparent 34%), linear-gradient(145deg,#1b0d0f 0%,#4a1b26 44%,#6d2f1d 100%)", uiText: "#fff4ed" },
+  // ── Figma resource-library inspired palettes ──────────────────────────────
+  // These follow the "100 color combinations" approach: each pairs a calm
+  // primary with a warm/cool counter-tone for cohesive contrast. They use
+  // softer saturation than the iOS-26 set above so the editing UI feels
+  // less neon and more like a real-world product canvas.
+  { id: "coastal-calm",   label: "Coastal Calm",   uiAccent: "#7eb6c9", uiAccent2: "#e8d8b7", uiBg: "radial-gradient(circle at 18% 10%, rgba(126,182,201,0.32), transparent 34%), radial-gradient(circle at 82% 22%, rgba(232,216,183,0.20), transparent 36%), linear-gradient(155deg,#0a1620 0%,#16313f 48%,#244554 100%)", uiText: "#f0f7fa" },
+  { id: "botanical-sage", label: "Botanical Sage", uiAccent: "#a5b88a", uiAccent2: "#f0e3c8", uiBg: "radial-gradient(circle at 16% 8%, rgba(165,184,138,0.30), transparent 34%), radial-gradient(circle at 84% 24%, rgba(240,227,200,0.18), transparent 36%), linear-gradient(150deg,#0e140d 0%,#1e2c1a 50%,#2f3e26 100%)", uiText: "#f4f7ed" },
+  { id: "sunset-dune",    label: "Sunset Dune",    uiAccent: "#e08a6a", uiAccent2: "#d8a8a0", uiBg: "radial-gradient(circle at 20% 10%, rgba(224,138,106,0.32), transparent 34%), radial-gradient(circle at 80% 22%, rgba(216,168,160,0.22), transparent 36%), linear-gradient(150deg,#1a0f0c 0%,#3a201a 48%,#54322a 100%)", uiText: "#fbeee6" },
+  { id: "nordic-slate",   label: "Nordic Slate",   uiAccent: "#8aa6a8", uiAccent2: "#ebe2d4", uiBg: "radial-gradient(circle at 16% 8%, rgba(138,166,168,0.28), transparent 34%), radial-gradient(circle at 84% 24%, rgba(235,226,212,0.16), transparent 36%), linear-gradient(155deg,#0c1416 0%,#1c2a2c 50%,#2c3e40 100%)", uiText: "#eef4f4" },
+  { id: "mocha-cream",    label: "Mocha Cream",    uiAccent: "#b08868", uiAccent2: "#f3d9c0", uiBg: "radial-gradient(circle at 18% 10%, rgba(176,136,104,0.30), transparent 34%), radial-gradient(circle at 82% 22%, rgba(243,217,192,0.18), transparent 36%), linear-gradient(150deg,#150e0a 0%,#2c1f17 48%,#3f2d22 100%)", uiText: "#f7ece1" },
 ];
 
 const DEFAULT_SETTINGS = {
@@ -1878,7 +1888,7 @@ if (stylePremium) {
   }
 
   /* Settings + Asset Hub: spring entrance.
-     NOTE: We deliberately removed the `filter: blur()` keyframe stops here.
+     NOTE: We deliberately removed the filter:blur() keyframe stops here.
      Animating filter:blur over 360ms forces a full-screen GPU re-paint every
      frame on Android WebView (Skia/GL), which was the single biggest source
      of the "edit pages take forever to open" lag the user was seeing. The
@@ -3797,7 +3807,7 @@ export default function LuminaryPanels() {
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
 
-  // ── History ───────────────────────────────────────────────────────────────
+  // ── History ─────────────────────────��─────────────────────────────────────
   const [history, setHistory] = useState(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
