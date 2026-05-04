@@ -1833,20 +1833,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
   } catch (_) {}
 }
 
-// ── Anime.js loader (lazy-imported on first use) ─────────────────────────────
-// We load anime.js dynamically so the initial bundle stays small and the
-// import never blocks first paint. Callers await getAnime() before tweening.
-let __animeModulePromise = null;
-function getAnime() {
-  if (typeof window === "undefined") return Promise.resolve(null);
-  if (!__animeModulePromise) {
-    __animeModulePromise = import("animejs")
-      .then((m) => m.default || m)
-      .catch(() => null);
-  }
-  return __animeModulePromise;
-}
-
 // Ripple position tracker — sets CSS vars so the ::before gradient origins at
 // the touch/click point. Single delegated listener; zero per-button overhead.
 if (typeof document !== "undefined") {
