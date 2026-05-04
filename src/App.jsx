@@ -715,7 +715,37 @@ async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), a
   const enc = encodeURIComponent(finalPrompt);
   const url = `https://image.pollinations.ai/prompt/${enc}?width=1024&height=1024&nologo=true&enhance=true&seed=${seed}`;
 
-  // Build a controller we can abort on timeout OR external abortSignal.
+  // ── Path 1: Capacitor native bridge (Android/iOS APK) ─────────────────────
+  // Inside the Capacitor WebView, browser fetch() is subject to CORS — and
+  // Pollinations 302-redirects to a CDN that sends no CORS headers, so the
+  // request silently fails. CapacitorHttp performs a NATIVE HTTP request from
+  // the OS layer (no WebView, no CORS), which is the only reliable way to
+  // pull cross-origin binary data inside the APK.
+  // CapacitorHttp ships built-in with @capacitor/core ≥ 4 — no install needed,
+  // but it must be enabled in capacitor.config.json (see project README).
+  try {
+    const Cap = (typeof window !== "undefined") ? window.Capacitor : null;
+    const isNative = !!(Cap && (Cap.isNativePlatform?.() || Cap.isNative));
+    const CapHttp = Cap?.Plugins?.CapacitorHttp;
+    if (isNative && CapHttp?.request) {
+      const res = await CapHttp.request({
+        url,
+        method: "GET",
+        responseType: "blob",      // returns the body as base64
+        connectTimeout: 60000,
+        readTimeout: 60000,
+        headers: { Accept: "image/*" },
+      });
+      // CapacitorHttp delivers binary as a base64 string in `res.data`.
+      const b64 = (res && typeof res.data === "string") ? res.data : "";
+      if (b64) return `data:image/png;base64,${b64}`;
+      // If native path returned nothing, fall through to fetch as a backup.
+    }
+  } catch (_) {
+    // Fall through to standard fetch.
+  }
+
+  // ── Path 2: Browser / web fetch (also a fallback for native) ──────────────
   const controller = (typeof AbortController !== "undefined") ? new AbortController() : null;
   const timer = setTimeout(() => { try { controller?.abort(); } catch (_) {} }, 60000);
   if (abortSignal) {
@@ -725,17 +755,12 @@ async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), a
   try {
     const res = await fetch(url, {
       method: "GET",
-      // No `mode: "cors"` so the browser/WebView is permissive on redirects.
-      // We never read the bytes via canvas, so a missing CORS header on the
-      // CDN redirect target is fine — Capacitor WebView still delivers the body.
       cache: "no-store",
       signal: controller?.signal,
-      // Force the response to be treated as binary.
       headers: { Accept: "image/*" },
     });
     if (!res.ok) return null;
     const blob = await res.blob();
-    // Convert Blob → data URL (FileReader works inside Capacitor's WebView).
     const dataUrl = await new Promise((resolve) => {
       try {
         const fr = new FileReader();
