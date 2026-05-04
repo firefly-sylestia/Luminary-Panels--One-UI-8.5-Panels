@@ -209,7 +209,7 @@ const premiumAnimate = {
 };
 
 // ── Constants ────────────────────────────────────────────────────────────────
-const __APP_VERSION__ = "2.4.1-premium-animations";
+ const __APP_VERSION__ = "3.1.1";
 
 const COMBINED_FONT_URL =
   "https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=JetBrains+Mono:wght@500;600&family=Great+Vibes&family=Dancing+Script:wght@600;700&family=Pinyon+Script&family=Tangerine:wght@700&family=Cormorant+Garamond:ital,wght@1,300;1,400&family=Sacramento&family=Allura&family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&display=swap";
@@ -272,6 +272,7 @@ const ASSET_LIBRARY_KEY = "luminary-panels-asset-library-v1";
 const EMOJI_PRESETS_KEY = "luminary-panels-emoji-presets-v1";
 const PRESET_DECOR_EMOJI_KEY = "luminary-panels-preset-decor-emojis-v1";
 const AI_BORDER_CONFIG_KEY = "luminary-panels-ai-border-config-v1";
+const APP_ONBOARDING_KEY = "luminary_onboarding_v1";
 const RELEASE_MANIFEST_URL = "/release.json";
 const GITHUB_REPO_URL = "https://github.com/firefly-sylestia/Luminary-Panels--One-UI-8.5-Panels";
 const MOBILE_TABS = ["assets", "layout", "avatar", "text"];
@@ -681,6 +682,8 @@ function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePrese
     "Transparent PNG background. Empty transparent center where the avatar goes.",
     "No avatar, no face, no person, no full picture, no backdrop, no scenery.",
     "Symmetrical, polished, high-resolution, suitable for a profile picture frame.",
+    "Important: do NOT use green, lime, chroma green, or screen-key green anywhere.",
+    "Background must be pure transparent. If transparency is unsupported, use white only.",
     stylePart,
     shapePart,
     userPart,
@@ -689,10 +692,17 @@ function buildAiBorderPrompt({ userPrompt = "", stylePreset = "cute", shapePrese
 }
 
 // Pollinations.ai — free, no auth required, returns a PNG URL directly.
-async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now()) {
+// Has a hard 45s timeout so a stalled image request can never lock the UI.
+async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now(), abortSignal = null) {
   const enc = encodeURIComponent(finalPrompt);
   const url = `https://image.pollinations.ai/prompt/${enc}?width=768&height=768&nologo=true&enhance=true&seed=${seed}`;
   return new Promise((resolve) => {
+    let settled = false;
+    const finish = (val) => { if (settled) return; settled = true; clearTimeout(timer); resolve(val); };
+    const timer = setTimeout(() => finish(null), 45000); // hard cap
+    if (abortSignal) {
+      abortSignal.addEventListener("abort", () => finish(null), { once: true });
+    }
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
@@ -701,10 +711,10 @@ async function generateAiBorderViaPollinations(finalPrompt, seed = Date.now()) {
         canvas.width = 768; canvas.height = 768;
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, 768, 768);
-        resolve(canvas.toDataURL("image/png"));
-      } catch (_) { resolve(null); }
+        finish(canvas.toDataURL("image/png"));
+      } catch (_) { finish(null); }
     };
-    img.onerror = () => resolve(null);
+    img.onerror = () => finish(null);
     img.src = url;
   });
 }
@@ -802,22 +812,27 @@ async function generateAiBorderViaGateway(finalPrompt, modelName) {
 }
 
 // Main provider dispatcher.
-async function dispatchAiBorderProvider(finalPrompt, providerCfg, seed) {
+async function dispatchAiBorderProvider(finalPrompt, providerCfg, seed, abortSignal = null) {
   const { provider, apiKey, model, endpoint } = providerCfg || {};
+  // Wrap network calls in a 60s timeout race so they can never hang the UI.
+  const withTimeout = (p, ms = 60000) => Promise.race([
+    p,
+    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
   switch (provider) {
     case "gemini":
-      return generateAiBorderViaGemini(finalPrompt, apiKey, model);
+      return withTimeout(generateAiBorderViaGemini(finalPrompt, apiKey, model).catch(() => null));
     case "openai-compatible":
-      return generateAiBorderViaOpenAI(finalPrompt, apiKey, model, endpoint);
+      return withTimeout(generateAiBorderViaOpenAI(finalPrompt, apiKey, model, endpoint).catch(() => null));
     case "custom":
-      return generateAiBorderViaCustom(finalPrompt, apiKey, model, endpoint);
+      return withTimeout(generateAiBorderViaCustom(finalPrompt, apiKey, model, endpoint).catch(() => null));
     case "gateway":
-      return generateAiBorderViaGateway(finalPrompt, model);
+      return withTimeout(generateAiBorderViaGateway(finalPrompt, model).catch(() => null));
     case "procedural":
       return null; // procedural fallback handled by caller
     case "pollinations":
     default:
-      return generateAiBorderViaPollinations(finalPrompt, seed);
+      return generateAiBorderViaPollinations(finalPrompt, seed, abortSignal);
   }
 }
 
@@ -937,10 +952,22 @@ async function makeBorderTransparentCenter(src, { size = 768, innerRatio = 0.46,
   }
 }
 
+// Generic image decoder used by every post-processor. Returns null on failure
+// so callers can gracefully fall back instead of throwing.
+function decodeImage(src) {
+  return new Promise((resolve) => {
+    if (!src) return resolve(null);
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 async function toPngDataUrl(src, size = 768) {
   if (!src) return null;
-  if (typeof src === "string" && src.startsWith("data:image/png")) return src;
-  const image = await decodeImageOrFallback(src, null);
+  const image = await decodeImage(src);
   if (!image) return src;
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -956,6 +983,164 @@ async function toPngDataUrl(src, size = 768) {
   const dx = (size - drawW) / 2;
   const dy = (size - drawH) / 2;
   ctx.drawImage(image, dx, dy, drawW, drawH);
+  return canvas.toDataURL("image/png");
+}
+
+// ── Chroma-key background remover ─────────────────────────────────────────
+// Many image models ignore "transparent background" prompts and return a flat
+// color (commonly a pale green, light gray, or white) behind the artwork. We
+// auto-detect the dominant edge color of the image and remove pixels close to
+// it within a tolerance. The center is also softly punched so the avatar can
+// peek through cleanly.
+function _rgbDistance(a, b) {
+  const dr = a[0] - b[0], dg = a[1] - b[1], db = a[2] - b[2];
+  return Math.sqrt(dr * dr + dg * dg + db * db);
+}
+
+async function removeBorderBackground(src, {
+  size = 768,
+  tolerance = 36,         // 0..255, higher = more aggressive removal
+  feather = 14,           // soft alpha falloff in distance units
+  punchCenter = true,
+  innerRatio = 0.46,
+  centerFeather = 0.14,
+} = {}) {
+  if (!src) return src;
+  const image = await decodeImage(src);
+  if (!image) return src;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: true });
+  if (!ctx) return src;
+
+  // Fit-cover draw
+  const sw = image.naturalWidth || image.width || size;
+  const sh = image.naturalHeight || image.height || size;
+  const ratio = Math.max(size / sw, size / sh);
+  const dw = sw * ratio, dh = sh * ratio;
+  ctx.drawImage(image, (size - dw) / 2, (size - dh) / 2, dw, dh);
+
+  let imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, size, size);
+  } catch (_) {
+    // Cross-origin tainted canvas — bail safely
+    return src;
+  }
+  const data = imageData.data;
+
+  // 1) Sample edge pixels (top, bottom, left, right strips of ~6px)
+  const samples = [];
+  const strip = 6;
+  const sampleStep = 4; // every 4th pixel keeps it cheap
+  const pushSample = (x, y) => {
+    const i = (y * size + x) * 4;
+    if (data[i + 3] < 32) return; // skip already-transparent
+    samples.push([data[i], data[i + 1], data[i + 2]]);
+  };
+  for (let x = 0; x < size; x += sampleStep) {
+    for (let y = 0; y < strip; y++) pushSample(x, y);
+    for (let y = size - strip; y < size; y++) pushSample(x, y);
+  }
+  for (let y = 0; y < size; y += sampleStep) {
+    for (let x = 0; x < strip; x++) pushSample(x, y);
+    for (let x = size - strip; x < size; x++) pushSample(x, y);
+  }
+  if (samples.length === 0) return src;
+
+  // 2) Find dominant edge color by 32-bin RGB cube voting.
+  const bins = new Map();
+  let best = null, bestCount = 0;
+  for (const [r, g, b] of samples) {
+    const key = ((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3);
+    const cur = bins.get(key) || { count: 0, r: 0, g: 0, b: 0 };
+    cur.count++; cur.r += r; cur.g += g; cur.b += b;
+    bins.set(key, cur);
+    if (cur.count > bestCount) { bestCount = cur.count; best = cur; }
+  }
+  if (!best || bestCount < 8) return src;
+  const keyColor = [
+    Math.round(best.r / best.count),
+    Math.round(best.g / best.count),
+    Math.round(best.b / best.count),
+  ];
+
+  // 3) Heuristic: if the dominant edge color is highly saturated/dark/colorful,
+  //    the model probably DID intend it as content (e.g. a vivid red frame).
+  //    Only chroma-key when it looks like a flat backdrop: low saturation OR
+  //    very light OR ANY shade of green (we never want green in a border).
+  const [kr, kg, kb] = keyColor;
+  const maxC = Math.max(kr, kg, kb), minC = Math.min(kr, kg, kb);
+  const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+  const lightness = (maxC + minC) / 2 / 255;
+  // Aggressive green detection: any pixel where green dominates noticeably.
+  const isAnyGreen = kg > kr + 8 && kg > kb + 8;
+  const looksLikeBackdrop =
+    sat < 0.22 ||           // near-grayscale
+    lightness > 0.82 ||     // near-white
+    lightness < 0.10 ||     // near-black
+    isAnyGreen;             // any green dominance
+  if (!looksLikeBackdrop) {
+    // Even when we skip the full chroma-key, still nuke pure-green pixels.
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      if (g > r + 14 && g > b + 14 && g > 70) data[i + 3] = 0;
+    }
+    ctx.putImageData(imageData, 0, 0);
+    // Skip chroma-key but still optionally punch the center hole.
+    if (punchCenter) {
+      const cx = size / 2, cy = size / 2;
+      const rInner = (size / 2) * innerRatio;
+      const rOuter = rInner * (1 + centerFeather);
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOuter);
+      grad.addColorStop(0, "rgba(0,0,0,1)");
+      grad.addColorStop(rInner / rOuter, "rgba(0,0,0,1)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(cx, cy, rOuter, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+    }
+    return canvas.toDataURL("image/png");
+  }
+
+  // 4) Apply alpha based on distance from key color, AND always nuke any
+  //    pixel that is dominantly green (catches every shade of chroma green).
+  const tol = tolerance;
+  const fade = Math.max(1, feather);
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    // Universal green killer — runs regardless of edge color.
+    if (g > r + 14 && g > b + 14 && g > 70) {
+      data[i + 3] = 0;
+      continue;
+    }
+    const dist = _rgbDistance([r, g, b], keyColor);
+    if (dist < tol) {
+      data[i + 3] = 0;
+    } else if (dist < tol + fade) {
+      const t = (dist - tol) / fade;
+      data[i + 3] = Math.round(data[i + 3] * t);
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // 5) Optional center hole.
+  if (punchCenter) {
+    const cx = size / 2, cy = size / 2;
+    const rInner = (size / 2) * innerRatio;
+    const rOuter = rInner * (1 + centerFeather);
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rOuter);
+    grad.addColorStop(0, "rgba(0,0,0,1)");
+    grad.addColorStop(rInner / rOuter, "rgba(0,0,0,1)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(cx, cy, rOuter, 0, Math.PI * 2); ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+  }
+
   return canvas.toDataURL("image/png");
 }
 
@@ -2635,13 +2820,13 @@ const AssetTile = React.memo(function AssetTile({
   item, held, accent, accent2, cardBorder, controlBg, textPrimary, textDim, isDark,
   liquidEnabled, uiBlurPx, onPointerDown, onPointerUp, onPointerCancel, onPointerLeave,
   onContextMenu, onApply, onSetAvatar, onSetBackground, onSetBorder, onRemove, onToggleFavorite,
-  hapticEnabled,
+  hapticEnabled, isApplied,
 }) {
   const kind = normalizeAssetKind(item.kind);
   const isFav = !!item.favorite;
   return (
     <div
-      className={`morph-tile ${held ? "asset-card-held" : ""}`}
+      className={`morph-tile ${held ? "asset-card-held" : ""} ${isApplied ? "asset-card-applied" : ""}`}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
@@ -2649,13 +2834,15 @@ const AssetTile = React.memo(function AssetTile({
       onContextMenu={onContextMenu}
       style={{
         borderRadius:18,
-        border:`1px solid ${held ? accent : cardBorder}`,
+        border:`${isApplied ? 2 : 1}px solid ${held ? accent : isApplied ? accent : cardBorder}`,
         background:controlBg,
         overflow:"hidden",
         aspectRatio:"1 / 1.18",
         position:"relative",
         cursor:"pointer",
-        boxShadow: held ? `0 8px 22px ${accent}24` : "inset 0 1px 0 rgba(255,255,255,0.06)",
+        boxShadow: held ? `0 8px 22px ${accent}24`
+                  : isApplied ? `0 0 0 2px ${accent}33, 0 6px 18px ${accent}33`
+                  : "inset 0 1px 0 rgba(255,255,255,0.06)",
         contentVisibility:"auto",
         containIntrinsicSize:"160px 188px",
         animation: "none",
@@ -2687,6 +2874,30 @@ const AssetTile = React.memo(function AssetTile({
           <UiIcon name={item.aiGenerated ? "sparkles" : (ASSET_KIND_META[kind]?.icon || "assets")} size={10} color="#fff" />
           {item.aiGenerated ? "AI" : (ASSET_KIND_META[kind]?.label || "Asset")}
         </span>
+        {isApplied && (
+          <span
+            aria-label="Currently applied"
+            style={{
+              position:"absolute",
+              bottom:6,
+              left:6,
+              display:"inline-flex",
+              alignItems:"center",
+              gap:4,
+              padding:"4px 8px",
+              borderRadius:999,
+              background: `linear-gradient(135deg, ${accent}, ${accent2})`,
+              color:"#fff",
+              fontSize:9.5,
+              fontWeight:800,
+              letterSpacing:0.3,
+              boxShadow:`0 4px 12px ${accent}55`,
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            APPLIED
+          </span>
+        )}
         <button
           aria-label={isFav ? "Unfavorite" : "Favorite"}
           onClick={(e) => { e.stopPropagation(); microHaptic(hapticEnabled); onToggleFavorite(item); }}
@@ -2744,6 +2955,276 @@ const AssetTile = React.memo(function AssetTile({
           </button>
         </div>
       )}
+    </div>
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// First-Run Onboarding (mobile-first quick setup tutorial)
+// ─────────────────────────────────────────────────────────────────────────────
+const ONBOARDING_STEPS = [
+  {
+    id: "welcome",
+    title: "Welcome to your Avatar Studio",
+    text: "Create avatars, add cute borders, glow effects, textures, and export your final design. Let's take a quick tour.",
+    primary: { label: "Start Quick Setup" },
+    secondary: { label: "Skip", action: "skip" },
+  },
+  {
+    id: "upload",
+    title: "Add your avatar",
+    text: "Start by uploading an image. You can crop and adjust it before adding effects.",
+    primary: { label: "Upload Avatar", action: "upload-avatar" },
+    secondary: { label: "Next" },
+    tip: "Borders work best when an avatar is loaded. The avatar image is never used as the border content.",
+  },
+  {
+    id: "style",
+    title: "Choose a look",
+    text: "Pick a theme, shape, border style, and colors. You can change everything later.",
+    primary: { label: "Open Style Panel", action: "open-style" },
+    secondary: { label: "Next" },
+  },
+  {
+    id: "asset-hub",
+    title: "Use the Asset Hub",
+    text: "Find borders, AI borders, glow effects, textures, stickers, and favorites here.",
+    primary: { label: "Open Asset Hub", action: "open-asset-hub" },
+    secondary: { label: "Next" },
+  },
+  {
+    id: "ai",
+    title: "AI borders are optional",
+    text: "Generate cute borders using free demo, Gemini, OpenAI-compatible, or your own custom endpoint. API keys stay on your device.",
+    primary: { label: "Set up AI Provider", action: "open-ai-settings" },
+    secondary: { label: "Skip AI for now" },
+  },
+  {
+    id: "layers",
+    title: "Everything stays editable",
+    text: "Borders, glow, flares, stickers, and textures become layers. Tap a layer to move, scale, rotate, change opacity, or delete it.",
+    primary: { label: "Got it" },
+    secondary: { label: "Back", action: "back" },
+    chips: ["Move", "Scale", "Rotate", "Opacity", "Fit", "Center", "Delete"],
+  },
+  {
+    id: "export",
+    title: "Export your avatar",
+    text: "When you're happy, export your design as a PNG. Performance Mode lowers preview quality only — final export stays high quality.",
+    primary: { label: "Show Export", action: "open-export" },
+    secondary: { label: "Next" },
+  },
+  {
+    id: "finish",
+    title: "You are ready!",
+    text: "You can replay this quick setup anytime from Settings.",
+    primary: { label: "Start Creating", action: "finish" },
+  },
+];
+
+const FirstRunOnboarding = React.memo(function FirstRunOnboarding({
+  open, step, setStep, onClose, onComplete, onSkip,
+  onUploadAvatar, onOpenStyle, onOpenAssetHub, onOpenAiSettings, onOpenExport,
+  performanceMode, accentColor, accentColor2, isDark, isMobile,
+}) {
+  const sheetRef = useRef(null);
+  const totalSteps = ONBOARDING_STEPS.length;
+  const current = ONBOARDING_STEPS[Math.min(step, totalSteps - 1)] || ONBOARDING_STEPS[0];
+  const isLast = step >= totalSteps - 1;
+  const isFirst = step === 0;
+
+  const runAction = useCallback((action) => {
+    switch (action) {
+      case "skip":            onSkip?.(); return;
+      case "back":            setStep(s => Math.max(0, s - 1)); return;
+      case "upload-avatar":   onUploadAvatar?.(); return;
+      case "open-style":      onOpenStyle?.(); return;
+      case "open-asset-hub":  onOpenAssetHub?.(); return;
+      case "open-ai-settings":onOpenAiSettings?.(); return;
+      case "open-export":     onOpenExport?.(); return;
+      case "finish":          onComplete?.(); return;
+      default:
+        if (isLast) onComplete?.();
+        else setStep(s => Math.min(totalSteps - 1, s + 1));
+    }
+  }, [isLast, onComplete, onOpenAiSettings, onOpenAssetHub, onOpenExport, onOpenStyle, onSkip, onUploadAvatar, setStep, totalSteps]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (e.key === "Escape")    { e.preventDefault(); onSkip?.(); }
+      else if (e.key === "Enter")     { e.preventDefault(); runAction(current.primary?.action); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); setStep(s => Math.min(totalSteps - 1, s + 1)); }
+      else if (e.key === "ArrowLeft")  { e.preventDefault(); setStep(s => Math.max(0, s - 1)); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, current, runAction, onSkip, setStep, totalSteps]);
+
+  // Body scroll lock
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  if (!open) return null;
+
+  const accent = accentColor || "#6f7bff";
+  const accent2 = accentColor2 || "#a78bfa";
+  const bg = isDark ? "#0f1424" : "#ffffff";
+  const fg = isDark ? "#e7ebf5" : "#0a0e1a";
+  const dim = isDark ? "rgba(231,235,245,0.62)" : "rgba(10,14,26,0.58)";
+  const border = isDark ? "rgba(255,255,255,0.10)" : "rgba(10,14,26,0.10)";
+  const subtle = isDark ? "rgba(255,255,255,0.04)" : "rgba(10,14,26,0.04)";
+
+  return (
+    <div
+      className="onboarding-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Quick setup tutorial"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 4000,
+        background: performanceMode
+          ? "rgba(0,0,0,0.62)"
+          : (isDark ? "rgba(5,8,14,0.74)" : "rgba(20,28,40,0.55)"),
+        backdropFilter: performanceMode ? "none" : "blur(6px)",
+        WebkitBackdropFilter: performanceMode ? "none" : "blur(6px)",
+        display: "flex",
+        flexDirection: isMobile ? "column-reverse" : "column",
+        alignItems: "center",
+        justifyContent: isMobile ? "flex-end" : "center",
+        animation: performanceMode ? "none" : "assetHubFadeIn 240ms var(--ease-ios, ease-out)",
+      }}
+      onClick={(e) => {
+        // Don't close on backdrop click on mobile to avoid accidental dismiss
+        if (!isMobile && e.target === e.currentTarget) onSkip?.();
+      }}
+    >
+      <div
+        ref={sheetRef}
+        className="onboarding-sheet"
+        style={{
+          width: isMobile ? "calc(100vw - 24px)" : "min(460px, calc(100vw - 24px))",
+          maxWidth: 460,
+          maxHeight: "calc(100dvh - 32px)",
+          background: bg,
+          color: fg,
+          borderRadius: isMobile ? "22px 22px 16px 16px" : 22,
+          border: `1px solid ${border}`,
+          boxShadow: "0 24px 80px rgba(0,0,0,0.42)",
+          margin: isMobile ? "0 12px 12px" : 0,
+          marginBottom: isMobile ? "max(12px, env(safe-area-inset-bottom))" : 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          animation: performanceMode ? "none" : (isMobile ? "assetHubSlideUp 320ms var(--ease-spring, ease-out)" : "modalContentSpring 280ms var(--ease-spring, ease-out)"),
+          fontFamily: "system-ui, -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="onboarding-header" style={{ padding: "16px 18px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, borderBottom: `1px solid ${border}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 11, background: `linear-gradient(135deg, ${accent}, ${accent2})`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.39 4.84L20 8l-4 3.9.94 5.5L12 14.77 7.06 17.4 8 11.9 4 8l5.61-1.16L12 2z"/></svg>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Quick Setup</div>
+              <div className="onboarding-progress" style={{ fontSize: 11, color: dim, fontWeight: 700, marginTop: 2 }}>Step {step + 1} of {totalSteps}</div>
+            </div>
+          </div>
+          <button
+            onClick={onSkip}
+            aria-label="Skip tutorial"
+            className="onboarding-skip"
+            style={{ border: `1px solid ${border}`, background: subtle, color: fg, borderRadius: 10, padding: "7px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}
+          >Skip</button>
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ height: 3, background: subtle, position: "relative", flexShrink: 0 }}>
+          <div style={{ height: "100%", width: `${((step + 1) / totalSteps) * 100}%`, background: `linear-gradient(90deg, ${accent}, ${accent2})`, transition: performanceMode ? "none" : "width 280ms ease" }} />
+        </div>
+
+        {/* Body */}
+        <div className="onboarding-body" style={{ padding: "20px 22px 16px", overflowY: "auto", flex: 1 }}>
+          <h2 style={{ margin: "0 0 8px", fontSize: 19, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.25 }}>{current.title}</h2>
+          <p style={{ margin: 0, fontSize: 13.5, color: dim, lineHeight: 1.55, fontWeight: 500 }}>{current.text}</p>
+
+          {current.tip && (
+            <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 10, border: `1px dashed ${border}`, background: subtle, fontSize: 12, color: dim, fontWeight: 600, lineHeight: 1.5 }}>
+              <strong style={{ color: fg, fontWeight: 800 }}>Tip:</strong> {current.tip}
+            </div>
+          )}
+
+          {current.chips && (
+            <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {current.chips.map(c => (
+                <span key={c} style={{ padding: "6px 11px", borderRadius: 999, border: `1px solid ${border}`, background: subtle, fontSize: 11.5, fontWeight: 800, color: fg }}>{c}</span>
+              ))}
+            </div>
+          )}
+
+          {current.id === "welcome" && (
+            <ol style={{ margin: "16px 0 0", padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+              {[
+                "Upload your avatar",
+                "Pick your shape and style",
+                "Open Asset Hub for borders, textures, glow, stickers",
+                "Generate AI borders if you want",
+                "Tap any layer to move, scale, rotate, or adjust",
+                "Export your final avatar as PNG",
+              ].map((line, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 12.5, color: fg, fontWeight: 600, lineHeight: 1.5 }}>
+                  <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 999, background: `linear-gradient(135deg, ${accent}, ${accent2})`, color: "#fff", fontSize: 11, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", marginTop: 1 }}>{i + 1}</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        {/* Step dots */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 5, padding: "0 22px 12px", flexShrink: 0 }}>
+          {ONBOARDING_STEPS.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setStep(i)}
+              aria-label={`Go to step ${i + 1}`}
+              style={{ width: i === step ? 22 : 6, height: 6, borderRadius: 999, border: "none", background: i === step ? `linear-gradient(90deg, ${accent}, ${accent2})` : (isDark ? "rgba(255,255,255,0.18)" : "rgba(10,14,26,0.18)"), padding: 0, cursor: "pointer", transition: performanceMode ? "none" : "width 220ms ease" }}
+            />
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="onboarding-actions" style={{ padding: "12px 18px 18px", borderTop: `1px solid ${border}`, display: "flex", gap: 8, flexShrink: 0, paddingBottom: isMobile ? "max(18px, env(safe-area-inset-bottom))" : 18 }}>
+          {!isFirst && (
+            <button
+              onClick={() => setStep(s => Math.max(0, s - 1))}
+              aria-label="Back"
+              style={{ flex: "0 0 auto", border: `1px solid ${border}`, background: subtle, color: fg, borderRadius: 12, padding: "12px 16px", fontSize: 13, fontWeight: 800, cursor: "pointer", minHeight: 44 }}
+            >Back</button>
+          )}
+          {current.secondary && (
+            <button
+              onClick={() => current.secondary.action ? runAction(current.secondary.action) : setStep(s => Math.min(totalSteps - 1, s + 1))}
+              className="onboarding-secondary"
+              style={{ flex: 1, border: `1px solid ${border}`, background: subtle, color: fg, borderRadius: 12, padding: "12px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer", minHeight: 44 }}
+            >{current.secondary.label}</button>
+          )}
+          <button
+            onClick={() => runAction(current.primary?.action)}
+            className="onboarding-primary"
+            style={{ flex: 1.4, border: "none", background: `linear-gradient(135deg, ${accent}, ${accent2})`, color: "#fff", borderRadius: 12, padding: "12px 14px", fontSize: 13.5, fontWeight: 800, cursor: "pointer", minHeight: 44, boxShadow: performanceMode ? "none" : `0 8px 22px ${accent}55` }}
+          >{current.primary?.label || (isLast ? "Finish" : "Next")}</button>
+        </div>
+      </div>
     </div>
   );
 });
@@ -2834,6 +3315,9 @@ export default function LuminaryPanels() {
       variations: 1,
       transparentCenter: true,
       addAsLayer: true,
+      removeBackground: true,         // chroma-key bg color when model returns flat backdrop
+      bgRemoveTolerance: 36,
+      referenceSource: "avatar",      // "avatar" | "background" | "none"
     };
     try {
       const raw = localStorage.getItem(AI_BORDER_CONFIG_KEY);
@@ -2850,6 +3334,10 @@ export default function LuminaryPanels() {
   const [aiBorderBusy, setAiBorderBusy] = useState(false);
   const [aiBorderStatus, setAiBorderStatus] = useState("");
   const [aiBorderVariations, setAiBorderVariations] = useState([]); // recent generations for "regenerate / pick"
+  const aiBorderAbortRef = useRef({ aborted: false, controller: null });
+  // Onboarding / first-run tutorial state
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   // ── History ───────────────────────────────────────────────────────────────
   const [history, setHistory] = useState(() => {
@@ -4357,6 +4845,38 @@ export default function LuminaryPanels() {
       return () => { document.body.style.overflow = prev; };
     }
   }, [assetHubOpen]);
+
+  // First-run tutorial: open onboarding if user hasn't completed it yet.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(APP_ONBOARDING_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (!parsed?.completed) {
+        const t = setTimeout(() => setOnboardingOpen(true), 600);
+        return () => clearTimeout(t);
+      }
+    } catch (_) {
+      const t = setTimeout(() => setOnboardingOpen(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  const completeOnboarding = useCallback((skipped = false) => {
+    try {
+      localStorage.setItem(APP_ONBOARDING_KEY, JSON.stringify({
+        completed: true,
+        skipped,
+        completedAt: Date.now(),
+      }));
+    } catch (_) {}
+    setOnboardingOpen(false);
+    setOnboardingStep(0);
+  }, []);
+
+  const replayOnboarding = useCallback(() => {
+    setOnboardingStep(0);
+    setOnboardingOpen(true);
+  }, []);
   const addGeneratedAsset = useCallback((kind, type, label) => {
     const src = makeGeneratedAssetSvg(type, accent, accent2);
     const isGlow = /(orb|flare|glow|halo|aura|lens)/i.test(type) || /(orb|flare|glow|halo|aura|lens)/i.test(label);
@@ -4367,12 +4887,17 @@ export default function LuminaryPanels() {
   }, [accent, accent2, registerImportedAsset]);
 
   const generateAiBorderAsset = useCallback(async (avatarSrcOverride = null, promptOverride = "") => {
-    const sourceImage = avatarSrcOverride || avRawSrc;
+    // Reset abort flag for this run; previous run is gone.
+    aiBorderAbortRef.current = { aborted: false, controller: typeof AbortController !== "undefined" ? new AbortController() : null };
     setAiBorderBusy(true);
     setAiBorderStatus("Preparing prompt...");
     const variationCount = Math.max(1, Math.min(4, aiBorderConfig.variations || 1));
     const generatedItems = [];
     try {
+      // Pick reference image based on user choice
+      const refSource = aiBorderConfig.referenceSource || "avatar";
+      const sourceImage = avatarSrcOverride
+        || (refSource === "background" ? bgRawSrc : refSource === "avatar" ? avRawSrc : null);
       let palette = { primary: accent, secondary: accent2, neutral: mixHex(accent, accent2, 0.5), highlight: mixHex(accent, "#ffffff", 0.7), shadow: mixHex(accent, "#0b1020", 0.7) };
       if (sourceImage) {
         try { palette = await extractPaletteFromImageSrc(sourceImage); } catch (_) {}
@@ -4388,14 +4913,21 @@ export default function LuminaryPanels() {
       const providerLabel = AI_BORDER_PROVIDERS.find(p => p.id === aiBorderConfig.provider)?.label || aiBorderConfig.provider;
 
       for (let v = 0; v < variationCount; v++) {
+        if (aiBorderAbortRef.current?.aborted) break;
         setAiBorderStatus(`Generating with ${providerLabel}${variationCount > 1 ? ` (${v + 1}/${variationCount})` : ""}...`);
         let generatedSrc = null;
         try {
-          generatedSrc = await dispatchAiBorderProvider(finalPrompt, aiBorderConfig, Date.now() + v * 7919);
+          generatedSrc = await dispatchAiBorderProvider(
+            finalPrompt,
+            aiBorderConfig,
+            Date.now() + v * 7919,
+            aiBorderAbortRef.current?.controller?.signal || null,
+          );
         } catch (provErr) {
           console.warn("AI provider failed:", provErr);
           setAiBorderStatus(`${providerLabel} unavailable: ${provErr.message}. Using procedural fallback...`);
         }
+        if (aiBorderAbortRef.current?.aborted) break;
         // Procedural fallback if provider returned nothing
         if (!generatedSrc) {
           generatedSrc = await generateAiBorderFallback({
@@ -4413,8 +4945,20 @@ export default function LuminaryPanels() {
         }
         // Normalize to PNG data URL
         let finalBorderSrc = await toPngDataUrl(generatedSrc, 768);
-        // Punch transparent center if requested
-        if (aiBorderConfig.transparentCenter !== false) {
+        // Auto background removal: detects + chroma-keys flat backdrops the
+        // model returned (default green / white / gray) and ALSO punches the
+        // center hole in one pass when transparentCenter is on.
+        if (aiBorderConfig.removeBackground !== false) {
+          setAiBorderStatus("Cleaning background...");
+          finalBorderSrc = await removeBorderBackground(finalBorderSrc, {
+            size: 768,
+            tolerance: aiBorderConfig.bgRemoveTolerance ?? 36,
+            feather: 16,
+            punchCenter: aiBorderConfig.transparentCenter !== false,
+            innerRatio: 0.46,
+            centerFeather: 0.14,
+          });
+        } else if (aiBorderConfig.transparentCenter !== false) {
           finalBorderSrc = await makeBorderTransparentCenter(finalBorderSrc, { size: 768, innerRatio: 0.46, feather: 0.14 });
         }
         const stylePresetMeta = AI_BORDER_STYLE_PRESETS.find(s => s.id === aiBorderConfig.stylePreset);
@@ -4453,7 +4997,7 @@ export default function LuminaryPanels() {
     } finally {
       setAiBorderBusy(false);
     }
-  }, [accent, accent2, aiBorderConfig, aiBorderPrompt, avRawSrc, pushState, registerImportedAsset, s.customBorderOpacity, s.customBorderRotation, s.customBorderScale]);
+  }, [accent, accent2, aiBorderConfig, aiBorderPrompt, avRawSrc, bgRawSrc, pushState, registerImportedAsset, s.customBorderOpacity, s.customBorderRotation, s.customBorderScale]);
   const applyUiPreset = useCallback((preset) => {
     if (!preset) return;
     mediumHaptic(settings.hapticFeedback);
@@ -5310,6 +5854,32 @@ export default function LuminaryPanels() {
 
 
       <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
+        <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Quick Setup Tutorial</p>
+        <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Replay the first-time tour anytime.</p>
+        <button
+          onClick={() => { closeSettings?.(); replayOnboarding(); }}
+          style={{
+            width: "100%",
+            border: "none",
+            background: `linear-gradient(135deg, ${accent}, ${accent2})`,
+            color: "#fff",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 12,
+            fontWeight: 800,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><polyline points="21 4 21 10 15 10"/></svg>
+          Replay Quick Setup
+        </button>
+      </div>
+
+      <div style={{ marginBottom: 14, border:`1px solid ${cardBorder}`, borderRadius:14, padding:"10px 12px", background:controlBg }}>
         <p style={{ margin:"0 0 8px", fontSize:12, color:textPrimary, fontWeight:600 }}>Auto Update Channel</p>
         <p style={{ margin:"0 0 6px", fontSize:11, color:textDim }}>Current {__APP_VERSION__} · Latest {releaseInfo.latestVersion || "--"}</p>
         <p style={{ margin:"0 0 10px", fontSize:11, color:textDim }}>Downloads: {releaseInfo.downloadCount != null ? releaseInfo.downloadCount.toLocaleString() : "--"}</p>
@@ -5536,7 +6106,7 @@ export default function LuminaryPanels() {
     </Card>
   );
 
-  // ── Preview customization values ──────────────────────────────────────────
+  // ── Preview customization values ───────────────���──────────────────────────
   const prevBorderRadius = settings.previewBorderRadius ?? 24;
   const prevPadding = settings.previewPadding ?? 16;
   const prevGlowIntensity = settings.previewGlowIntensity ?? 28;
@@ -7175,6 +7745,13 @@ export default function LuminaryPanels() {
                             onSetBorder={(it) => { applyAssetFromLibrary({ ...it, kind:"border" }); setAssetActionId(null); }}
                             onRemove={(it) => removeAsset(it)}
                             onToggleFavorite={(it) => toggleAssetFavorite(it)}
+                            isApplied={
+                              !!item.src && (
+                                item.src === s.customBorderSrc ||
+                                item.src === avRawSrc ||
+                                item.src === bgRawSrc
+                              )
+                            }
                           />
                         ))}
                       </div>
@@ -7369,8 +7946,46 @@ export default function LuminaryPanels() {
                     </div>
                   </div>
 
+                  {/* Reference image source */}
+                  <div>
+                    <h3 style={{ margin:"0 0 8px", fontSize:12, fontWeight:800, color:textDim, textTransform:"uppercase", letterSpacing:1 }}>Color Reference</h3>
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(3, minmax(0,1fr))", gap:6 }}>
+                      {[
+                        { id:"avatar",     label:"Avatar",     disabled: !avRawSrc },
+                        { id:"background", label:"Background", disabled: !bgRawSrc },
+                        { id:"none",       label:"None",       disabled: false },
+                      ].map(opt => {
+                        const active = (aiBorderConfig.referenceSource || "avatar") === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            onClick={() => !opt.disabled && setAiBorderConfig(prev => ({ ...prev, referenceSource: opt.id }))}
+                            disabled={opt.disabled}
+                            title={opt.disabled ? `No ${opt.label.toLowerCase()} loaded` : `Use ${opt.label.toLowerCase()} colors`}
+                            style={{
+                              border:`1px solid ${active && !opt.disabled ? accent : cardBorder}`,
+                              background: active && !opt.disabled ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
+                              color: active && !opt.disabled ? "#fff" : textPrimary,
+                              borderRadius:10,
+                              padding:"8px 6px",
+                              fontSize:11,
+                              fontWeight:800,
+                              cursor: opt.disabled ? "not-allowed" : "pointer",
+                              opacity: opt.disabled ? 0.4 : 1,
+                            }}
+                          >{opt.label}</button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Toggles */}
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                  <div style={{ display:"grid", gridTemplateColumns: vp.isMobile ? "1fr 1fr" : "repeat(3, minmax(0,1fr))", gap:8 }}>
+                    <button
+                      onClick={() => setAiBorderConfig(prev => ({ ...prev, removeBackground: !prev.removeBackground }))}
+                      title="Auto chroma-key the dominant edge color (handles green/white backdrops)"
+                      style={{ border:`1px solid ${aiBorderConfig.removeBackground ? accent : cardBorder}`, background: aiBorderConfig.removeBackground ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:12, padding:"9px 10px", fontSize:11, fontWeight:800, cursor:"pointer" }}
+                    >Remove background · {aiBorderConfig.removeBackground ? "On" : "Off"}</button>
                     <button
                       onClick={() => setAiBorderConfig(prev => ({ ...prev, transparentCenter: !prev.transparentCenter }))}
                       style={{ border:`1px solid ${aiBorderConfig.transparentCenter ? accent : cardBorder}`, background: aiBorderConfig.transparentCenter ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:12, padding:"9px 10px", fontSize:11, fontWeight:800, cursor:"pointer" }}
@@ -7380,6 +7995,21 @@ export default function LuminaryPanels() {
                       style={{ border:`1px solid ${aiBorderConfig.autoApplyGeneratedBorder ? accent : cardBorder}`, background: aiBorderConfig.autoApplyGeneratedBorder ? `linear-gradient(135deg, ${accent}24, ${accent2}10)` : controlBg, color:textPrimary, borderRadius:12, padding:"9px 10px", fontSize:11, fontWeight:800, cursor:"pointer" }}
                     >Auto-apply · {aiBorderConfig.autoApplyGeneratedBorder ? "On" : "Off"}</button>
                   </div>
+
+                  {/* BG remove tolerance slider (only if removeBackground is on) */}
+                  {aiBorderConfig.removeBackground && (
+                    <label style={{ display:"grid", gap:6, color:textDim, fontSize:11.5, fontWeight:700 }}>
+                      Background remove sensitivity · {aiBorderConfig.bgRemoveTolerance ?? 36}
+                      <input
+                        type="range"
+                        min="12"
+                        max="80"
+                        value={aiBorderConfig.bgRemoveTolerance ?? 36}
+                        onChange={(e) => setAiBorderConfig(prev => ({ ...prev, bgRemoveTolerance: Number(e.target.value) }))}
+                        style={{ accentColor: accent }}
+                      />
+                    </label>
+                  )}
 
                   {/* Provider settings drawer */}
                   {aiProviderSettingsOpen && (
@@ -7449,7 +8079,15 @@ export default function LuminaryPanels() {
                   {aiBorderBusy && (
                     <div style={{ display:"flex", justifyContent:"center" }}>
                       <button
-                        onClick={() => { setAiBorderBusy(false); setAiBorderStatus("Cancelled."); }}
+                        onClick={() => {
+                          // Flip flag so the loop breaks; abort the in-flight fetch/img.
+                          if (aiBorderAbortRef.current) {
+                            aiBorderAbortRef.current.aborted = true;
+                            try { aiBorderAbortRef.current.controller?.abort(); } catch (_) {}
+                          }
+                          setAiBorderBusy(false);
+                          setAiBorderStatus("Cancelled.");
+                        }}
                         style={{ border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, borderRadius:10, padding:"6px 14px", fontSize:11, fontWeight:800, cursor:"pointer" }}
                       >Cancel</button>
                     </div>
@@ -8241,6 +8879,40 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary =
           )}
         </div>
       )}
+
+      {/* First-run onboarding tutorial */}
+      <FirstRunOnboarding
+        open={onboardingOpen}
+        step={onboardingStep}
+        setStep={setOnboardingStep}
+        onClose={() => setOnboardingOpen(false)}
+        onComplete={() => completeOnboarding(false)}
+        onSkip={() => completeOnboarding(true)}
+        onUploadAvatar={() => { try { hubAvFileRef.current?.click(); } catch (_) {} }}
+        onOpenStyle={() => {
+          if (vp.isMobile) setMobileTab?.("design");
+          if (settingsOpen) closeSettings?.();
+        }}
+        onOpenAssetHub={() => {
+          setAssetHubOpen(true);
+          setAssetHubSection("library");
+          setAssetHubTab("border");
+        }}
+        onOpenAiSettings={() => {
+          setAssetHubOpen(true);
+          setAssetHubSection("ai");
+          setAssetHubTab("ai-border");
+        }}
+        onOpenExport={() => {
+          if (settingsOpen) closeSettings?.();
+          if (vp.isMobile) setMobileTab?.("export");
+        }}
+        performanceMode={!!performanceMode}
+        accentColor={accent}
+        accentColor2={accent2}
+        isDark={isDark}
+        isMobile={vp.isMobile}
+      />
     </div>
   );
 }
