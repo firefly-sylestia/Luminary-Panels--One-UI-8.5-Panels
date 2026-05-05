@@ -1,10 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark" style="color-scheme: dark; background: #050812;">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="./app-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0b1020" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#050812" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="color-scheme" content="dark" />
+    
+    <!-- Performance optimizations -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Prevent white flash on load -->
+    <style>
+      html, body, #root {
+        background: #050812 !important;
+        color: #f5fffd;
+        margin: 0;
+        padding: 0;
+      }
+      /* Critical loading styles to prevent white flash */
+      html::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -10;
+        background: 
+          radial-gradient(circle at 18% 8%, rgba(124,255,218,0.25), transparent 35%),
+          radial-gradient(circle at 82% 22%, rgba(154,134,255,0.20), transparent 40%),
+          linear-gradient(155deg, #050812 0%, #0b1936 38%, #25114e 70%, #083d3b 100%);
+      }
+    </style>
+    
     <title>Luminary Panels</title>
   </head>
   <body>
