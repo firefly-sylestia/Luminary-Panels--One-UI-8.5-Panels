@@ -1759,19 +1759,16 @@ styleEnhance.textContent = `
     0% { 
       opacity: 0; 
       transform: translate3d(var(--slide-from, 18px), 8px, 0) scale(0.94); 
-      filter: blur(6px);
     }
-    50% {
+    60% {
       opacity: 1;
-      filter: blur(0);
     }
-    70% { 
-      transform: translate3d(calc(var(--slide-from, 18px) * -0.1), -3px, 0) scale(1.01); 
+    75% { 
+      transform: translate3d(calc(var(--slide-from, 18px) * -0.1), -3px, 0) scale(1.012); 
     }
     100% { 
       opacity: 1; 
       transform: translate3d(0, 0, 0) scale(1); 
-      filter: blur(0);
     }
   }
   @keyframes tabPillIndicator {
@@ -1793,71 +1790,117 @@ styleEnhance.textContent = `
   @keyframes fadeInSmooth { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideDown { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
   @keyframes slideUp { from { opacity: 0; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+
+  /* ═══ TRUE iOS Shape Morph: page emanates FROM the tapped button ═══
+     Driven by --mx and --my CSS vars (viewport-px coords of button center).
+     The clip-path circle physically grows out from that exact point and
+     simultaneously the panel scales from origin — together producing the
+     "the page came out of the option" effect. Single GPU property
+     (clip-path) animates → buttery on Android too. */
+  @keyframes morphReveal {
+    0% {
+      opacity: 0;
+      clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
+      -webkit-clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
+      transform: scale(0.86) translate3d(0, 0, 0);
+    }
+    35% {
+      opacity: 1;
+    }
+    70% {
+      transform: scale(1.012) translate3d(0, 0, 0);
+    }
+    100% {
+      opacity: 1;
+      clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
+      -webkit-clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
+      transform: scale(1) translate3d(0, 0, 0);
+    }
+  }
+  @keyframes morphCollapse {
+    0% {
+      opacity: 1;
+      clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
+      -webkit-clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
+      transform: scale(1) translate3d(0, 0, 0);
+    }
+    100% {
+      opacity: 0;
+      clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
+      -webkit-clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
+      transform: scale(0.92) translate3d(0, 0, 0);
+    }
+  }
+  /* Backdrop fade — paired with morphReveal, but completely independent
+     so the dim background fades smoothly while the panel morphs out. */
+  @keyframes morphBackdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes morphBackdropOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+  }
+
+  /* Header / nav / toolbar entrances — blur filter removed (was the
+     #1 frame-budget killer on Android). Pure transform+opacity is
+     ~10× cheaper and visually indistinguishable. */
   @keyframes headerSlideDown { 
-    0% { opacity: 0; transform: translate3d(0, -20px, 0) scale(0.96); filter: blur(8px); } 
-    60% { opacity: 1; filter: blur(0); }
-    80% { transform: translate3d(0, 4px, 0) scale(1.01); }
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); } 
+    0% { opacity: 0; transform: translate3d(0, -16px, 0) scale(0.97); } 
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
   }
   @keyframes navSlideUp { 
-    0% { opacity: 0; transform: translate3d(0, 32px, 0) scale(0.92); filter: blur(10px); } 
-    50% { opacity: 1; filter: blur(0); }
-    75% { transform: translate3d(0, -4px, 0) scale(1.02); }
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); } 
+    0% { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.94); } 
+    70% { transform: translate3d(0, -3px, 0) scale(1.015); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
   }
   @keyframes toolSlideUp { 
-    0% { opacity: 0; transform: translate3d(0, 28px, 0) scale(0.94); filter: blur(8px); } 
-    50% { opacity: 1; filter: blur(0); }
-    70% { transform: translate3d(0, -3px, 0) scale(1.015); }
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); } 
+    0% { opacity: 0; transform: translate3d(0, 20px, 0) scale(0.96); } 
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
   }
   @keyframes bouncySlideDown { from { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.992); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  /* Modal entrance: pure transform+opacity. backdrop-filter on a keyframe
+     re-rasterizes every frame on Android — disastrous for FPS. */
   @keyframes modalBackdropFade { 
-    from { opacity: 0; backdrop-filter: blur(0); } 
-    to { opacity: 1; backdrop-filter: blur(8px); } 
+    from { opacity: 0; } 
+    to { opacity: 1; } 
   }
   @keyframes modalContentSpring { 
     0% { 
       opacity: 0; 
-      transform: translate3d(0, 28px, 0) scale(0.88); 
-      filter: blur(10px);
+      transform: translate3d(0, 24px, 0) scale(0.9); 
     }
-    50% {
+    60% {
       opacity: 1;
-      filter: blur(0);
     }
-    70% { 
-      transform: translate3d(0, -6px, 0) scale(1.02); 
-    }
-    85% { 
-      transform: translate3d(0, 2px, 0) scale(0.99); 
+    75% { 
+      transform: translate3d(0, -4px, 0) scale(1.015); 
     }
     100% { 
       opacity: 1; 
       transform: translate3d(0, 0, 0) scale(1); 
-      filter: blur(0);
     } 
   }
   @keyframes cardFloat { from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.996); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
   @keyframes colorSwatchPop { 
-    0% { opacity: 0; transform: scale(0.5) rotate(-10deg); filter: blur(4px); } 
-    60% { opacity: 1; transform: scale(1.12) rotate(2deg); filter: blur(0); } 
+    0% { opacity: 0; transform: scale(0.5) rotate(-10deg); } 
+    60% { opacity: 1; transform: scale(1.12) rotate(2deg); } 
     80% { transform: scale(0.95) rotate(-1deg); }
-    100% { opacity: 1; transform: scale(1) rotate(0deg); filter: blur(0); } 
+    100% { opacity: 1; transform: scale(1) rotate(0deg); } 
   }
   @keyframes shapeButtonPop { 
-    0% { opacity: 0; transform: scale(0.6) translateY(14px); filter: blur(6px); } 
-    50% { opacity: 1; filter: blur(0); }
+    0% { opacity: 0; transform: scale(0.6) translateY(14px); } 
+    60% { opacity: 1; }
     70% { transform: scale(1.08) translateY(-4px); } 
     90% { transform: scale(0.97) translateY(2px); }
-    100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } 
+    100% { opacity: 1; transform: scale(1) translateY(0); } 
   }
   @keyframes styleButtonPop { 
-    0% { opacity: 0; transform: scale(0.7) translateY(12px) rotate(-5deg); filter: blur(5px); } 
-    50% { opacity: 1; filter: blur(0); }
+    0% { opacity: 0; transform: scale(0.7) translateY(12px) rotate(-5deg); } 
+    60% { opacity: 1; }
     65% { transform: scale(1.06) translateY(-3px) rotate(2deg); } 
     85% { transform: scale(0.98) translateY(1px) rotate(-1deg); }
-    100% { opacity: 1; transform: scale(1) translateY(0) rotate(0deg); filter: blur(0); } 
+    100% { opacity: 1; transform: scale(1) translateY(0) rotate(0deg); } 
   }
   @keyframes overlayItemSlide { from { opacity: 0; transform: translate3d(-8px, 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
   @keyframes sliderThumbExpand { 0% { transform: scale(1); } 100% { transform: scale(1.18); } }
@@ -1866,16 +1909,12 @@ styleEnhance.textContent = `
     0% { 
       opacity: 0; 
       transform: translate(-50%, -50%) scale(0.75) rotate(-3deg); 
-      filter: blur(12px);
-      border-radius: 50%;
     }
-    40% {
+    50% {
       opacity: 1;
-      filter: blur(2px);
     }
     70% { 
       transform: translate(-50%, -50%) scale(1.04) rotate(1deg); 
-      filter: blur(0);
     }
     85% { 
       transform: translate(-50%, -50%) scale(0.98) rotate(-0.5deg); 
@@ -1905,25 +1944,22 @@ styleEnhance.textContent = `
   @keyframes tabPillMorph { from { opacity: 0.6; transform: scaleX(0.78) scaleY(0.92); } to { opacity: 1; transform: scaleX(1) scaleY(1); } }
   @keyframes softGlow { 0%,100% { opacity: .48; } 50% { opacity: .84; } }
 
-  /* ═══ Apple UI Shape Morphing Animations ═══ */
+  /* ═══ Apple UI Shape Morphing Animations (GPU-only, no filter) ═══ */
   @keyframes morphShapeIn {
     0% { 
       opacity: 0; 
       transform: scale(0.75) translate3d(0, 16px, 0); 
       border-radius: 50%;
-      filter: blur(12px);
     }
-    50% { 
+    60% { 
       opacity: 1; 
-      filter: blur(0);
     }
-    70% { 
+    75% { 
       transform: scale(1.04) translate3d(0, -4px, 0); 
     }
     100% { 
       opacity: 1; 
       transform: scale(1) translate3d(0, 0, 0); 
-      filter: blur(0);
     }
   }
   
@@ -1939,7 +1975,6 @@ styleEnhance.textContent = `
       opacity: 0; 
       transform: scale(0.88) translate3d(0, 12px, 0); 
       border-radius: 50%;
-      filter: blur(8px);
     }
   }
 
@@ -2322,50 +2357,23 @@ if (stylePremium) {
     transition-duration: 90ms, 0ms;
   }
 
-  /* Settings + Asset Hub: Premium Apple-style morphing entrance */
+  /* premiumPanelIn/Out kept as fallback for legacy users — but the real
+     morph entrance is now handled inline by morphReveal/morphCollapse on
+     each overlay (driven by --mx/--my origin vars). Pure transform+opacity
+     here so we don't double up on filter:blur (disastrous on Android). */
   @keyframes premiumPanelIn {
-    0% { 
-      opacity: 0; 
-      transform: translate3d(0, 32px, 0) scale(0.92); 
-      filter: blur(16px);
-      border-radius: 40px;
-    }
-    40% { 
-      opacity: 1; 
-      filter: blur(4px);
-    }
-    70% { 
-      transform: translate3d(0, -6px, 0) scale(1.01); 
-      filter: blur(0);
-    }
-    100% { 
-      opacity: 1; 
-      transform: translate3d(0, 0, 0) scale(1); 
-      filter: blur(0);
-    }
+    0% { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.94); }
+    70% { transform: translate3d(0, -3px, 0) scale(1.01); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   }
   @keyframes premiumPanelOut {
-    0% { 
-      opacity: 1; 
-      transform: translate3d(0, 0, 0) scale(1); 
-      filter: blur(0);
-    }
-    30% { 
-      transform: translate3d(0, -4px, 0) scale(1.01); 
-    }
-    100% { 
-      opacity: 0; 
-      transform: translate3d(0, 24px, 0) scale(0.94); 
-      filter: blur(12px);
-    }
+    0% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    100% { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.96); }
   }
-  .settings-panel,
-  .asset-hub-panel { 
-    animation: premiumPanelIn var(--duration-morph) var(--ease-out-expo) both;
-    transform: translate3d(0, 0, 0);
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
+  /* Note: .settings-panel/.asset-hub-panel no longer get this animation
+     auto-applied — each instance now drives its own morphReveal animation
+     inline (with origin vars). Keeping the rule unset prevents double
+     animation jank on first paint. */
 
   /* Stagger entrance for list items inside panels. Targets direct children
      of common containers — no JSX changes required. The nth-child delays
@@ -3740,7 +3748,7 @@ function IOSToggle({ checked, onChange, accent = "#4fb3d9", hapticEnabled = true
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────��────────────
 // Asset Hub Helpers (top level so they don't reallocate on every render)
 // ─────────────────────────────────────────────────────────────────────────────
 const ASSET_HUB_TABS = [
@@ -4226,7 +4234,12 @@ export default function LuminaryPanels() {
   const [sheetOpen, setSheetOpen]     = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsAnimState, setSettingsAnimState] = useState("closed"); // closed | opening | open | closing
-  const [settingsOrigin, setSettingsOrigin] = useState({ x: 50, y: 50 });
+  const [settingsOrigin, setSettingsOrigin] = useState({ x: 50, y: 50, px: 0, py: 0 });
+  // Morph origins for true iOS-style "page comes out of the button" reveal.
+  // x/y are viewport-pixel coords of the button center; used by clip-path circle().
+  const [assetHubOrigin, setAssetHubOrigin] = useState({ x: 0, y: 0 });
+  const [assetHubAnimState, setAssetHubAnimState] = useState("closed"); // closed | opening | open | closing
+  const [sheetOrigin, setSheetOrigin] = useState({ x: 0, y: 0 });
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isSliding, setIsSliding] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(72);
@@ -4586,21 +4599,32 @@ export default function LuminaryPanels() {
     });
   };
 
+  // ── Morph open/close: capture button viewport coords so the panel
+  // physically grows OUT of the exact spot the user tapped (iOS "shape
+  // morph" effect). Falls back to bottom-center if the source button
+  // isn't measurable yet.
+  const captureMorphOrigin = useCallback((btnEl) => {
+    if (!btnEl || typeof btnEl.getBoundingClientRect !== "function") {
+      return { x: window.innerWidth / 2, y: window.innerHeight, px: 50, py: 100 };
+    }
+    const r = btnEl.getBoundingClientRect();
+    return {
+      x: r.left + r.width / 2,
+      y: r.top + r.height / 2,
+      px: ((r.left + r.width / 2) / window.innerWidth) * 100,
+      py: ((r.top + r.height / 2) / window.innerHeight) * 100,
+    };
+  }, []);
+
   // Genie settings open/close
   const openSettings = useCallback(() => {
-    const btn = settingsBtnRef.current;
-    if (btn) {
-      const r = btn.getBoundingClientRect();
-      setSettingsOrigin({
-        x: ((r.left + r.width / 2) / window.innerWidth) * 100,
-        y: ((r.top + r.height / 2) / window.innerHeight) * 100,
-      });
-    }
+    const o = captureMorphOrigin(settingsBtnRef.current);
+    setSettingsOrigin({ x: o.px, y: o.py, px: o.x, py: o.y });
     setSettingsOpen(true);
     setSettingsAnimState("opening");
     mediumHaptic(settings.hapticFeedback);
     requestAnimationFrame(() => setSettingsAnimState("open"));
-  }, [settings.hapticFeedback]);
+  }, [settings.hapticFeedback, captureMorphOrigin]);
 
   const closeSettings = useCallback(() => {
     setSettingsAnimState("closing");
@@ -4608,7 +4632,31 @@ export default function LuminaryPanels() {
     setTimeout(() => {
       setSettingsOpen(false);
       setSettingsAnimState("closed");
-    }, 260);
+    }, 320);
+  }, [settings.hapticFeedback]);
+
+  // Asset Hub morph open/close — page emanates from the tapped button
+  const openAssetHubFromEvent = useCallback((e, opts = {}) => {
+    const btnEl = e?.currentTarget || e?.target;
+    const o = captureMorphOrigin(btnEl);
+    setAssetHubOrigin({ x: o.x, y: o.y });
+    setAssetHubOpen(true);
+    setAssetHubAnimState("opening");
+    if (opts.section) setAssetHubSection(opts.section);
+    if (opts.tab) setAssetHubTab(opts.tab);
+    if (opts.assetManagerTab) setAssetManagerTab(opts.assetManagerTab);
+    mediumHaptic(settings.hapticFeedback);
+    requestAnimationFrame(() => setAssetHubAnimState("open"));
+  }, [captureMorphOrigin, settings.hapticFeedback]);
+
+  const closeAssetHub = useCallback(() => {
+    setAssetHubAnimState("closing");
+    mediumHaptic(settings.hapticFeedback);
+    setTimeout(() => {
+      setAssetHubOpen(false);
+      setAssetHubAnimState("closed");
+      setAssetActionId(null);
+    }, 320);
   }, [settings.hapticFeedback]);
 
   // ── Images ────────────────────────────────────────────────────────────────
@@ -4620,7 +4668,7 @@ export default function LuminaryPanels() {
   // True while a freshly imported border is being chroma-keyed + center-punched
   // via donutifyImportedBorder. Used to disable the "Border Overlay" button on
   // the home-screen quick-actions row so users get visual feedback during the
-  // 200–800ms canvas processing pass and can't double-import.
+  // 200���800ms canvas processing pass and can't double-import.
   const [borderImportBusy, setBorderImportBusy] = useState(false);
   const [loadedImages, setLoadedImages] = useState({});
 
@@ -4963,7 +5011,7 @@ export default function LuminaryPanels() {
     setSaveNotice(`${ASSET_KIND_META[normalizeAssetKind(item.kind)]?.label || "Asset"} applied`);
     // After applying anything from the Asset Hub, dismiss the hub and scroll
     // the live preview into view so the user immediately sees their change.
-    setAssetHubOpen(false);
+    closeAssetHub();
     requestAnimationFrame(() => {
       try {
         const node = previewDockRef.current;
@@ -5823,10 +5871,20 @@ export default function LuminaryPanels() {
     setVisitedTabs(prev => prev[mobileTab] ? prev : { ...prev, [mobileTab]: true });
   }, [mobileTab, sheetOpen]);
 
-  const changeMobileTab = (next) => {
+  const changeMobileTab = (next, e) => {
     if (next === mobileTab && sheetOpen) {
       setSheetOpen(false);
       return;
+    }
+    // Capture morph origin from the tapped tab button so the sheet
+    // physically grows OUT of that exact button (iOS shape-morph feel).
+    const btnEl = e?.currentTarget || e?.target;
+    if (btnEl?.getBoundingClientRect) {
+      const r = btnEl.getBoundingClientRect();
+      setSheetOrigin({
+        x: r.left + r.width / 2,
+        y: r.top + r.height / 2,
+      });
     }
     const nextIndex = MOBILE_TABS.indexOf(next);
     setSwipeDir(nextIndex >= tabIndex ? 1 : -1);
@@ -5920,7 +5978,7 @@ export default function LuminaryPanels() {
       // Close in priority order (topmost first).
       if (onboardingOpen) { setOnboardingOpen(false); return; }
       if (settingsOpen)   { closeSettings?.(); return; }
-      if (assetHubOpen)   { setAssetHubOpen(false); return; }
+      if (assetHubOpen)   { closeAssetHub?.(); return; }
       if (sheetOpen)      { setSheetOpen(false); return; }
     };
     window.addEventListener("popstate", onPop);
@@ -6047,12 +6105,10 @@ export default function LuminaryPanels() {
         advance(); // phase 3 done: post-processed + saved
       }
 
-      if (generatedItems.length > 0) {
-        setAiBorderVariations(generatedItems);
-        setAssetHubOpen(true);
-        setAssetHubSection("ai");
-        setAssetHubTab("ai-border");
-        setAssetKindFilter("border");
+  if (generatedItems.length > 0) {
+  setAiBorderVariations(generatedItems);
+  openAssetHubFromEvent(null, { section: "ai", tab: "ai-border" });
+  setAssetKindFilter("border");
         setSaveNotice(generatedItems.length > 1 ? `${generatedItems.length} AI borders generated!` : "AI border created and saved!");
         setAiBorderStatus(`Generated ${generatedItems.length} border${generatedItems.length > 1 ? "s" : ""}. Tap any to apply.`);
 
@@ -7172,7 +7228,7 @@ export default function LuminaryPanels() {
       <Sep cardBorder={cardBorder} />
       <p style={{ fontSize:11, fontWeight:700, color:textDim, textTransform:"uppercase", letterSpacing:0.9, marginBottom:10 }}>App Assets Hub</p>
       <div style={{ display:"flex", gap:8, marginBottom:10, flexWrap:"wrap" }}>
-        <button onClick={() => { setAssetHubOpen(true); setAssetManagerTab("recent"); }} style={{ ...outlineBtn, flex:"1 1 150px", color:accent }}>Open Assets Hub</button>
+        <button onClick={(e) => openAssetHubFromEvent(e, { assetManagerTab: "recent" })} style={{ ...outlineBtn, flex:"1 1 150px", color:accent }}>Open Assets Hub</button>
         <button onClick={() => setAssetLibrary(prev => ({ ...prev, recent: [] }))} style={{ ...outlineBtn, flex:"1 1 120px", color:"#ff6666" }}>Clear Recent Imports</button>
       </div>
       <p style={{ margin:"0 0 12px", fontSize:11, color:textDim }}>
@@ -7793,16 +7849,11 @@ export default function LuminaryPanels() {
           }
         }
 
-        /* Fade Blur - Subtle Appearance */
+        /* fadeBlur — kept name for compatibility; pure opacity now (filter:blur
+           keyframes re-rasterize every frame on Android = murderous on FPS). */
         @keyframes fadeBlur {
-          from {
-            opacity: 0;
-            filter: blur(10px);
-          }
-          to {
-            opacity: 1;
-            filter: blur(0);
-          }
+          from { opacity: 0; transform: translate3d(0, 4px, 0); }
+          to   { opacity: 1; transform: translate3d(0, 0, 0); }
         }
 
         /* Elastic Scale - Bouncy Growth */
@@ -8204,7 +8255,7 @@ export default function LuminaryPanels() {
                   { id:"undo",     icon:ICONS.undo,  title:"Undo",     onClick: undo, disabled: hIndex <= 0 },
                   { id:"redo",     icon:ICONS.redo,  title:"Redo",     onClick: redo, disabled: hIndex >= history.length - 1 },
                   { id:"reset",    icon:ICONS.reset, title:"Reset",    onClick: reset },
-                  { id:"assets-hub", icon:"assets", title:"Asset Hub", onClick: () => setAssetHubOpen(!assetHubOpen), accent: assetHubOpen },
+                  { id:"assets-hub", icon:"assets", title:"Asset Hub", onClick: (e) => { if (assetHubOpen) closeAssetHub(); else openAssetHubFromEvent(e); }, accent: assetHubOpen },
                   { id:"save",     icon:"download", title:"Save PNG",   onClick: exportPNG,  accent: true  },
                   { id:"share",    icon:"share",    title:"Share PNG",  onClick: sharePNG,   accent: true, hideOnMobile: vp.isMobile && headerExpanded === false },
                   { id:"settings", icon:ICONS.settings, title:"Settings", onClick:() => { settingsOpen ? closeSettings() : openSettings(); }, ref: settingsBtnRef },
@@ -8464,7 +8515,7 @@ export default function LuminaryPanels() {
               return (
                 <button
                   key={t.id}
-                  onClick={() => changeMobileTab(t.id)}
+                  onClick={(e) => changeMobileTab(t.id, e)}
                   style={{
                     flex:1,
                     minHeight: 56,
@@ -8558,7 +8609,7 @@ export default function LuminaryPanels() {
             return (
               <button
                 key={t.id}
-                onClick={() => changeMobileTab(t.id)}
+                onClick={(e) => changeMobileTab(t.id, e)}
                 style={{
                   flex:1,
                   minHeight: 56,
@@ -8665,9 +8716,15 @@ export default function LuminaryPanels() {
               // global layout/paint pass. Combined with translateZ this
               // gives a noticeable boost on the first open.
               contain: "layout paint",
-              transform: "translate3d(0,0,0)",
-              willChange: "transform, opacity",
-              animation: settings.performanceMode ? "none" : "sheetSlideUp 280ms var(--ease-ios)",
+              // ── TRUE MORPH: sheet physically emanates from the tapped
+              // bottom-nav tab button ──
+              "--mx": `${sheetOrigin.x || window.innerWidth / 2}px`,
+              "--my": `${sheetOrigin.y || window.innerHeight}px`,
+              willChange: "clip-path, transform, opacity",
+              transformOrigin: `${sheetOrigin.x || window.innerWidth / 2}px ${sheetOrigin.y || window.innerHeight}px`,
+              animation: settings.performanceMode
+                ? "none"
+                : "morphReveal 440ms cubic-bezier(0.34, 1.42, 0.42, 1) both",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -8781,18 +8838,20 @@ export default function LuminaryPanels() {
             position:"fixed",
             inset:0,
             zIndex:2190,
-            background: settings.performanceMode
-              ? (isDark ? "rgba(0,0,0,0.78)" : "rgba(20,28,40,0.55)")
-              : (isDark ? "rgba(5,8,14,0.78)" : "rgba(20,28,40,0.45)"),
             display:"flex",
             flexDirection: vp.isMobile ? "column-reverse" : "column",
             alignItems: vp.isMobile ? "stretch" : "center",
             justifyContent: vp.isMobile ? "flex-end" : "center",
-            backdropFilter: settings.performanceMode ? "none" : "blur(4px)",
-            WebkitBackdropFilter: settings.performanceMode ? "none" : "blur(4px)",
-            animation: "assetHubFadeIn 240ms var(--ease-ios)",
+            // Backdrop fades independently of the panel so the morph
+            // shape is unmistakable.
+            background: settings.performanceMode
+              ? (isDark ? "rgba(0,0,0,0.78)" : "rgba(20,28,40,0.55)")
+              : (isDark ? "rgba(5,8,14,0.78)" : "rgba(20,28,40,0.45)"),
+            animation: assetHubAnimState === "closing"
+              ? "morphBackdropOut 280ms var(--ease-ios) forwards"
+              : "morphBackdropIn 220ms var(--ease-ios) both",
           }}
-          onClick={() => { setAssetHubOpen(false); setAssetActionId(null); }}
+          onClick={() => closeAssetHub()}
         >
           <div
             className="asset-hub-panel"
@@ -8802,7 +8861,16 @@ export default function LuminaryPanels() {
               maxHeight: vp.isMobile ? "92dvh" : "86vh",
               display:"flex",
               flexDirection:"column",
-              animation: vp.isMobile ? "assetHubSlideUp 320ms var(--ease-spring)" : "modalContentSpring 280ms var(--ease-spring)",
+              // ── TRUE MORPH: page emanates from the tapped button ──
+              // CSS vars set viewport-px coordinates of the button center;
+              // the keyframe's clip-path circle expands from that point.
+              "--mx": `${assetHubOrigin.x}px`,
+              "--my": `${assetHubOrigin.y}px`,
+              animation: assetHubAnimState === "closing"
+                ? "morphCollapse 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards"
+                : "morphReveal 480ms cubic-bezier(0.34, 1.42, 0.42, 1) both",
+              willChange: "clip-path, transform, opacity",
+              transformOrigin: `${assetHubOrigin.x}px ${assetHubOrigin.y}px`,
               overflow: "hidden",
               borderRadius: vp.isMobile ? "22px 22px 0 0" : 24,
               // Solid background - no transparency on Asset Hub itself
@@ -8872,7 +8940,7 @@ export default function LuminaryPanels() {
                   style={{ width:36, height:36, borderRadius:11, border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, cursor:"pointer", display:"inline-flex", alignItems:"center", justifyContent:"center" }}
                 ><UiIcon name="reset" size={14} color={textPrimary} /></button>
                 <button
-                  onClick={() => { setAssetHubOpen(false); setAssetActionId(null); }}
+                  onClick={() => closeAssetHub()}
                   aria-label="Close"
                   title="Close"
                   style={{ width:36, height:36, borderRadius:11, border:`1px solid ${cardBorder}`, background:controlBg, color:textPrimary, cursor:"pointer", display:"inline-flex", alignItems:"center", justifyContent:"center", marginLeft:4 }}
@@ -9674,20 +9742,20 @@ export default function LuminaryPanels() {
         </div>
       )}
 
-      {/* Genie Settings overlay */}
+      {/* Settings overlay — true iOS shape morph from the settings button */}
       {settingsOpen && (
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: `rgba(0,0,0,${settingsAnimState === "closing" ? 0 : 0.55})`,
+            background: `rgba(0,0,0,0.55)`,
             zIndex: 1500,
             display: "flex",
             alignItems: "flex-end",
             justifyContent: "center",
-            transition: "background 180ms var(--ease-ios)",
-            backdropFilter: liquidEnabled ? "blur(1px)" : "none",
-            WebkitBackdropFilter: liquidEnabled ? "blur(1px)" : "none",
+            animation: settingsAnimState === "closing"
+              ? "morphBackdropOut 260ms var(--ease-ios) forwards"
+              : "morphBackdropIn 200ms var(--ease-ios) both",
           }}
           onClick={closeSettings}
         >
@@ -9701,12 +9769,15 @@ export default function LuminaryPanels() {
               background: isDark ? "rgba(14,14,20,0.97)" : "rgba(255,255,255,0.97)",
               padding: "14px 12px 20px",
               paddingBottom: vp.isMobile ? "calc(max(20px, env(safe-area-inset-bottom)) + 16px)" : "max(20px, env(safe-area-inset-bottom))",
+              // ── TRUE MORPH: page emanates from the settings cog button ──
+              "--mx": `${settingsOrigin.px}px`,
+              "--my": `${settingsOrigin.py}px`,
               transformOrigin: `${settingsOrigin.x}% ${settingsOrigin.y}%`,
               animation: settingsAnimState === "closing"
-                ? "fadeSlideUp 180ms var(--ease-ios) reverse forwards"
-                : "fadeSlideUp 220ms var(--ease-ios)",
+                ? "morphCollapse 280ms cubic-bezier(0.4, 0, 0.2, 1) forwards"
+                : "morphReveal 460ms cubic-bezier(0.34, 1.42, 0.42, 1) both",
+              willChange: "clip-path, transform, opacity",
               boxShadow: "0 -20px 80px rgba(0,0,0,0.5)",
-              willChange: "transform, opacity",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -9832,16 +9903,8 @@ export default function LuminaryPanels() {
           if (vp.isMobile) setMobileTab?.("design");
           if (settingsOpen) closeSettings?.();
         }}
-        onOpenAssetHub={() => {
-          setAssetHubOpen(true);
-          setAssetHubSection("library");
-          setAssetHubTab("border");
-        }}
-        onOpenAiSettings={() => {
-          setAssetHubOpen(true);
-          setAssetHubSection("ai");
-          setAssetHubTab("ai-border");
-        }}
+  onOpenAssetHub={() => openAssetHubFromEvent(null, { section: "library", tab: "border" })}
+  onOpenAiSettings={() => openAssetHubFromEvent(null, { section: "ai", tab: "ai-border" })}
         onOpenExport={() => {
           if (settingsOpen) closeSettings?.();
           if (vp.isMobile) setMobileTab?.("export");
