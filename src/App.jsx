@@ -1335,13 +1335,27 @@ styleEnhance.textContent = `
   }
 
   :root {
+    /* Apple UI Premium Easings — Ultra Smooth */
     --ease-ios: cubic-bezier(0.22, 1, 0.36, 1);
     --ease-glass: cubic-bezier(0.20, 0.85, 0.20, 1);
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --ease-morph: cubic-bezier(0.4, 0, 0, 1);
+    --ease-bounce: cubic-bezier(0.68, -0.35, 0.265, 1.35);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+    
+    /* Liquid Glass Variables */
     --liquid-highlight: rgba(255,255,255,0.38);
     --liquid-stroke: rgba(255,255,255,0.18);
     --liquid-shadow: 0 22px 70px rgba(0,0,0,0.34);
+    
+    /* Animation Durations */
+    --duration-instant: 80ms;
+    --duration-fast: 180ms;
+    --duration-normal: 280ms;
+    --duration-slow: 420ms;
+    --duration-morph: 600ms;
   }
 
   body {
@@ -1410,23 +1424,37 @@ styleEnhance.textContent = `
   input[type="range"].ios-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
-    margin-top: -9.5px;
+    margin-top: -10.5px;
     background:
-      radial-gradient(circle at 32% 24%, rgba(255,255,255,1), rgba(255,255,255,0.72) 48%, rgba(235,242,255,0.92));
-    border: 1px solid rgba(255,255,255,0.72);
-    box-shadow: 0 7px 22px rgba(0,0,0,0.24), inset 0 1px 1px rgba(255,255,255,0.95);
-    transition: transform 260ms var(--ease-spring), box-shadow 220ms var(--ease-ios), width 260ms var(--ease-spring), height 260ms var(--ease-spring), margin-top 260ms var(--ease-spring);
+      radial-gradient(circle at 32% 24%, rgba(255,255,255,1), rgba(255,255,255,0.85) 42%, rgba(235,242,255,0.95));
+    border: 1.5px solid rgba(255,255,255,0.85);
+    box-shadow: 
+      0 6px 20px rgba(0,0,0,0.28), 
+      0 2px 8px rgba(0,0,0,0.15),
+      inset 0 1px 2px rgba(255,255,255,0.98);
+    transform: translate3d(0, 0, 0) scale(1);
+    transition: 
+      transform var(--duration-normal) var(--ease-spring), 
+      box-shadow var(--duration-fast) var(--ease-ios),
+      width var(--duration-normal) var(--ease-spring), 
+      height var(--duration-normal) var(--ease-spring), 
+      margin-top var(--duration-normal) var(--ease-spring);
+    cursor: grab;
   }
   input[type="range"].ios-slider:active::-webkit-slider-thumb,
   input[type="range"].ios-slider:focus::-webkit-slider-thumb {
-    width: 32px;
-    height: 32px;
-    margin-top: -13.5px;
-    transform: scale(1.03);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.32), inset 0 1px 1px rgba(255,255,255,0.95);
+    width: 34px;
+    height: 34px;
+    margin-top: -14.5px;
+    transform: translate3d(0, -2px, 0) scale(1.08);
+    box-shadow: 
+      0 12px 36px rgba(0,0,0,0.35), 
+      0 4px 12px rgba(124, 255, 218, 0.20),
+      inset 0 1px 2px rgba(255,255,255,0.98);
+    cursor: grabbing;
   }
   input[type="range"].ios-slider::-moz-range-thumb {
     width: 24px;
@@ -1533,11 +1561,26 @@ styleEnhance.textContent = `
   }
 
   .btn-bouncy {
-    transition: transform 220ms var(--ease-glass), filter 180ms var(--ease-ios), background 220ms var(--ease-ios), border-color 220ms var(--ease-ios), box-shadow 260ms var(--ease-ios) !important;
+    position: relative;
+    overflow: hidden;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transition: 
+      transform var(--duration-normal) var(--ease-spring), 
+      filter var(--duration-fast) var(--ease-ios), 
+      background var(--duration-fast) var(--ease-ios), 
+      border-color var(--duration-fast) var(--ease-ios), 
+      box-shadow var(--duration-slow) var(--ease-ios) !important;
+  }
+  .btn-bouncy:hover {
+    transform: translate3d(0, -2px, 0) scale(1.02);
+    filter: brightness(1.05) saturate(1.05);
   }
   .btn-bouncy:active {
-    transform: scale(0.965) translate3d(0, 1px, 0) !important;
-    filter: brightness(1.08) saturate(1.08);
+    transform: scale(0.94) translate3d(0, 2px, 0) !important;
+    filter: brightness(1.12) saturate(1.12);
+    transition-duration: var(--duration-instant) !important;
   }
 
   .chevron-morph {
@@ -1641,16 +1684,58 @@ styleEnhance.textContent = `
     to   { transform: translate3d(8%, 6%, 0) scale(1.08); }
   }
   @keyframes liquidOrb {
-    0%   { transform: translate3d(0,0,0) rotate(-5deg); border-radius: 30px 42px 34px 42px; filter: saturate(1.05); }
-    50%  { transform: translate3d(0,-7px,0) rotate(4deg); border-radius: 44px 30px 44px 32px; filter: saturate(1.18); }
-    100% { transform: translate3d(0,2px,0) rotate(-2deg); border-radius: 36px 48px 30px 46px; filter: saturate(1.12); }
+    0% { 
+      transform: translate3d(0, 0, 0) rotate(-5deg) scale(1); 
+      border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; 
+      filter: saturate(1.05) brightness(1);
+    }
+    25% { 
+      transform: translate3d(3px, -8px, 0) rotate(3deg) scale(1.03); 
+      border-radius: 58% 42% 42% 58% / 42% 58% 42% 58%; 
+      filter: saturate(1.15) brightness(1.05);
+    }
+    50% { 
+      transform: translate3d(-2px, -12px, 0) rotate(-2deg) scale(0.98); 
+      border-radius: 42% 58% 70% 30% / 50% 40% 60% 50%; 
+      filter: saturate(1.2) brightness(1.08);
+    }
+    75% { 
+      transform: translate3d(4px, -6px, 0) rotate(4deg) scale(1.02); 
+      border-radius: 70% 30% 30% 70% / 60% 40% 60% 40%; 
+      filter: saturate(1.12) brightness(1.03);
+    }
+    100% { 
+      transform: translate3d(0, 0, 0) rotate(-5deg) scale(1); 
+      border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; 
+      filter: saturate(1.05) brightness(1);
+    }
   }
   @keyframes liquidRefraction {
-    from { transform: translate3d(-7%, -4%, 0) scale(1) rotate(0.001deg); opacity: 0.42; }
-    to   { transform: translate3d(7%, 5%, 0) scale(1.06) rotate(0.001deg); opacity: 0.72; }
+    0% { 
+      transform: translate3d(-8%, -5%, 0) scale(1) rotate(0deg); 
+      opacity: 0.35;
+      filter: hue-rotate(0deg);
+    }
+    33% { 
+      transform: translate3d(4%, 3%, 0) scale(1.04) rotate(1deg); 
+      opacity: 0.55;
+      filter: hue-rotate(8deg);
+    }
+    66% { 
+      transform: translate3d(-3%, 6%, 0) scale(0.98) rotate(-0.5deg); 
+      opacity: 0.65;
+      filter: hue-rotate(-5deg);
+    }
+    100% { 
+      transform: translate3d(8%, -4%, 0) scale(1.06) rotate(0.5deg); 
+      opacity: 0.50;
+      filter: hue-rotate(0deg);
+    }
   }
   @keyframes glassSweep {
-    from { transform: translateX(-120%); }
+    0% { transform: translateX(-120%); opacity: 0.3; }
+    50% { opacity: 0.6; }
+    100% { transform: translateX(120%); opacity: 0.3; }
     to   { transform: translateX(120%); }
   }
   @keyframes glassReveal {
@@ -1671,96 +1756,357 @@ styleEnhance.textContent = `
     to   { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
   }
   @keyframes tabSlideSmooth {
-    /* Lighter than before: drops the scale (was .996 → costs a paint frame on
-       low-end Android WebView), keeps just opacity + a tiny translate. This
-       is what animate-ui-style tab transitions feel like in practice. */
-    from { opacity: 0; transform: translate3d(var(--slide-from, 10px), 0, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+    0% { 
+      opacity: 0; 
+      transform: translate3d(var(--slide-from, 18px), 8px, 0) scale(0.94); 
+      filter: blur(6px);
+    }
+    50% {
+      opacity: 1;
+      filter: blur(0);
+    }
+    70% { 
+      transform: translate3d(calc(var(--slide-from, 18px) * -0.1), -3px, 0) scale(1.01); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: translate3d(0, 0, 0) scale(1); 
+      filter: blur(0);
+    }
   }
-  /* Animate-ui-style cross-fade for swapping panel content while the bottom
-     sheet stays mounted. Cheaper than tabSlideSmooth — opacity only, no
-     transform — so switching tabs while the sheet is already open is
-     effectively instant on mid-range Android. */
-  @keyframes tabFadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-  @keyframes sheetSlideUp {
-    /* Bottom-sheet entrance — single transform property, no scale/blur, so
-       the compositor can promote it cleanly. Replaces the heavier
-       toolSlideUp animation on the editing sheet. */
-    from { opacity: 0; transform: translate3d(0, 22px, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
-  }
-  /* animate-ui style directional pane enter — used by the mobile sheet's
-     visited-tabs stack. The pane that becomes display:flex re-fires the
-     animation; previous pane just hides instantly via display:none.
-     Together with the visitedTabs persistent-mount strategy this means
-     tab switches are essentially CSS toggles, not React remounts, so
-     editing-page navigation feels instant even while the sheet is open. */
-  @keyframes paneEnterRight {
-    from { opacity: 0; transform: translate3d(20px, 0, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
-  }
-  @keyframes paneEnterLeft {
-    from { opacity: 0; transform: translate3d(-20px, 0, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
-  }
-  .sheet-pane-stack {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    contain: layout paint;
-  }
-  .sheet-pane {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    padding: 16px 14px 24px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    transform: translate3d(0,0,0);
-    will-change: transform, opacity;
-  }
-  .sheet-pane[data-active="false"] { display: none; }
-  .sheet-pane-stack[data-dir="right"] .sheet-pane[data-active="true"] {
-    animation: paneEnterRight 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  .sheet-pane-stack[data-dir="left"] .sheet-pane[data-active="true"] {
-    animation: paneEnterLeft 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  /* Skip the slide on Android — display:none → flex toggle alone is the
-     smoothest path on the WebView, where small transform animations can
-     stutter while panel content paints for the first time. */
-  html[data-platform="android"] .sheet-pane-stack .sheet-pane[data-active="true"] {
-    animation: none !important;
+  @keyframes tabPillIndicator {
+    0% {
+      transform: scaleX(0.7) scaleY(0.85);
+      opacity: 0;
+    }
+    60% {
+      transform: scaleX(1.06) scaleY(1.02);
+      opacity: 1;
+    }
+    100% {
+      transform: scaleX(1) scaleY(1);
+      opacity: 1;
+    }
   }
   @keyframes fadeIn { from { opacity: 0; transform: translate3d(0, 6px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
   @keyframes fadeSlideUp { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.988); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
   @keyframes fadeInSmooth { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideDown { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
   @keyframes slideUp { from { opacity: 0; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-  @keyframes headerSlideDown { from { opacity: 0; transform: translate3d(0, -12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-  @keyframes navSlideUp { from { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.98); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
-  @keyframes toolSlideUp { from { opacity: 0; transform: translate3d(0, 26px, 0) scale(0.985); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes headerSlideDown { 
+    0% { opacity: 0; transform: translate3d(0, -20px, 0) scale(0.96); filter: blur(8px); } 
+    60% { opacity: 1; filter: blur(0); }
+    80% { transform: translate3d(0, 4px, 0) scale(1.01); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); } 
+  }
+  @keyframes navSlideUp { 
+    0% { opacity: 0; transform: translate3d(0, 32px, 0) scale(0.92); filter: blur(10px); } 
+    50% { opacity: 1; filter: blur(0); }
+    75% { transform: translate3d(0, -4px, 0) scale(1.02); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); } 
+  }
+  @keyframes toolSlideUp { 
+    0% { opacity: 0; transform: translate3d(0, 28px, 0) scale(0.94); filter: blur(8px); } 
+    50% { opacity: 1; filter: blur(0); }
+    70% { transform: translate3d(0, -3px, 0) scale(1.015); }
+    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); } 
+  }
   @keyframes bouncySlideDown { from { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.992); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
-  @keyframes modalBackdropFade { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes modalContentSpring { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.982); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes modalBackdropFade { 
+    from { opacity: 0; backdrop-filter: blur(0); } 
+    to { opacity: 1; backdrop-filter: blur(8px); } 
+  }
+  @keyframes modalContentSpring { 
+    0% { 
+      opacity: 0; 
+      transform: translate3d(0, 28px, 0) scale(0.88); 
+      filter: blur(10px);
+    }
+    50% {
+      opacity: 1;
+      filter: blur(0);
+    }
+    70% { 
+      transform: translate3d(0, -6px, 0) scale(1.02); 
+    }
+    85% { 
+      transform: translate3d(0, 2px, 0) scale(0.99); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: translate3d(0, 0, 0) scale(1); 
+      filter: blur(0);
+    } 
+  }
   @keyframes cardFloat { from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.996); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
-  @keyframes colorSwatchPop { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: scale(1); } }
-  @keyframes shapeButtonPop { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-  @keyframes styleButtonPop { from { opacity: 0; transform: scale(0.92) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  @keyframes colorSwatchPop { 
+    0% { opacity: 0; transform: scale(0.5) rotate(-10deg); filter: blur(4px); } 
+    60% { opacity: 1; transform: scale(1.12) rotate(2deg); filter: blur(0); } 
+    80% { transform: scale(0.95) rotate(-1deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); filter: blur(0); } 
+  }
+  @keyframes shapeButtonPop { 
+    0% { opacity: 0; transform: scale(0.6) translateY(14px); filter: blur(6px); } 
+    50% { opacity: 1; filter: blur(0); }
+    70% { transform: scale(1.08) translateY(-4px); } 
+    90% { transform: scale(0.97) translateY(2px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } 
+  }
+  @keyframes styleButtonPop { 
+    0% { opacity: 0; transform: scale(0.7) translateY(12px) rotate(-5deg); filter: blur(5px); } 
+    50% { opacity: 1; filter: blur(0); }
+    65% { transform: scale(1.06) translateY(-3px) rotate(2deg); } 
+    85% { transform: scale(0.98) translateY(1px) rotate(-1deg); }
+    100% { opacity: 1; transform: scale(1) translateY(0) rotate(0deg); filter: blur(0); } 
+  }
   @keyframes overlayItemSlide { from { opacity: 0; transform: translate3d(-8px, 0, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
   @keyframes sliderThumbExpand { 0% { transform: scale(1); } 100% { transform: scale(1.18); } }
   @keyframes morphPillIn { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: scale(1); } }
-  @keyframes pillPreviewMorph { from { opacity: 0; transform: translate(-50%, -50%) scale(0.82); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+  @keyframes pillPreviewMorph { 
+    0% { 
+      opacity: 0; 
+      transform: translate(-50%, -50%) scale(0.75) rotate(-3deg); 
+      filter: blur(12px);
+      border-radius: 50%;
+    }
+    40% {
+      opacity: 1;
+      filter: blur(2px);
+    }
+    70% { 
+      transform: translate(-50%, -50%) scale(1.04) rotate(1deg); 
+      filter: blur(0);
+    }
+    85% { 
+      transform: translate(-50%, -50%) scale(0.98) rotate(-0.5deg); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: translate(-50%, -50%) scale(1) rotate(0deg); 
+      filter: blur(0);
+    } 
+  }
+  @keyframes previewGlowPulse {
+    0%, 100% {
+      box-shadow: 
+        0 0 30px rgba(124, 255, 218, 0.20),
+        0 0 60px rgba(154, 134, 255, 0.15),
+        0 20px 60px rgba(0, 0, 0, 0.40);
+    }
+    50% {
+      box-shadow: 
+        0 0 45px rgba(124, 255, 218, 0.30),
+        0 0 80px rgba(154, 134, 255, 0.22),
+        0 25px 70px rgba(0, 0, 0, 0.45);
+    }
+  }
   @keyframes fadeOut { to { opacity: 0; pointer-events: none; } }
   @keyframes liquidFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
   @keyframes tabPillMorph { from { opacity: 0.6; transform: scaleX(0.78) scaleY(0.92); } to { opacity: 1; transform: scaleX(1) scaleY(1); } }
   @keyframes softGlow { 0%,100% { opacity: .48; } 50% { opacity: .84; } }
+
+  /* ═══ Apple UI Shape Morphing Animations ═══ */
+  @keyframes morphShapeIn {
+    0% { 
+      opacity: 0; 
+      transform: scale(0.75) translate3d(0, 16px, 0); 
+      border-radius: 50%;
+      filter: blur(12px);
+    }
+    50% { 
+      opacity: 1; 
+      filter: blur(0);
+    }
+    70% { 
+      transform: scale(1.04) translate3d(0, -4px, 0); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: scale(1) translate3d(0, 0, 0); 
+      filter: blur(0);
+    }
+  }
+  
+  @keyframes morphShapeOut {
+    0% { 
+      opacity: 1; 
+      transform: scale(1) translate3d(0, 0, 0);
+    }
+    40% { 
+      transform: scale(1.02) translate3d(0, -2px, 0); 
+    }
+    100% { 
+      opacity: 0; 
+      transform: scale(0.88) translate3d(0, 12px, 0); 
+      border-radius: 50%;
+      filter: blur(8px);
+    }
+  }
+
+  @keyframes morphBounceIn {
+    0% { 
+      opacity: 0; 
+      transform: scale(0.3); 
+    }
+    40% { 
+      opacity: 1; 
+      transform: scale(1.12); 
+    }
+    60% { 
+      transform: scale(0.92); 
+    }
+    80% { 
+      transform: scale(1.04); 
+    }
+    100% { 
+      opacity: 1; 
+      transform: scale(1); 
+    }
+  }
+
+  @keyframes morphElastic {
+    0% { 
+      transform: scale(0.5) translateY(20px); 
+      opacity: 0; 
+    }
+    50% { 
+      transform: scale(1.08) translateY(-8px); 
+      opacity: 1; 
+    }
+    70% { 
+      transform: scale(0.96) translateY(4px); 
+    }
+    85% { 
+      transform: scale(1.02) translateY(-2px); 
+    }
+    100% { 
+      transform: scale(1) translateY(0); 
+      opacity: 1; 
+    }
+  }
+
+  @keyframes morphLiquidBlob {
+    0%, 100% {
+      border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+      transform: rotate(0deg) scale(1);
+    }
+    25% {
+      border-radius: 70% 30% 46% 70% / 30% 30% 70% 70%;
+      transform: rotate(4deg) scale(1.02);
+    }
+    50% {
+      border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+      transform: rotate(-2deg) scale(0.98);
+    }
+    75% {
+      border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+      transform: rotate(3deg) scale(1.01);
+    }
+  }
+
+  @keyframes morphPulseGlow {
+    0%, 100% {
+      box-shadow: 
+        0 0 20px rgba(124, 255, 218, 0.25),
+        0 0 40px rgba(154, 134, 255, 0.15),
+        0 20px 50px rgba(0, 0, 0, 0.35);
+    }
+    50% {
+      box-shadow: 
+        0 0 35px rgba(124, 255, 218, 0.40),
+        0 0 60px rgba(154, 134, 255, 0.25),
+        0 25px 60px rgba(0, 0, 0, 0.40);
+    }
+  }
+
+  @keyframes morphFloat {
+    0%, 100% {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+    25% {
+      transform: translate3d(0, -8px, 0) rotate(1deg);
+    }
+    50% {
+      transform: translate3d(0, -12px, 0) rotate(-1deg);
+    }
+    75% {
+      transform: translate3d(0, -6px, 0) rotate(0.5deg);
+    }
+  }
+
+  @keyframes morphRotateGlow {
+    0% {
+      transform: rotate(0deg);
+      filter: hue-rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+      filter: hue-rotate(30deg);
+    }
+  }
+
+  @keyframes morphStaggerIn {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 20px, 0) scale(0.95);
+    }
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes morphSlideFromLeft {
+    0% {
+      opacity: 0;
+      transform: translate3d(-30px, 0, 0) scale(0.96);
+    }
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes morphSlideFromRight {
+    0% {
+      opacity: 0;
+      transform: translate3d(30px, 0, 0) scale(0.96);
+    }
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  /* ═══ Premium Micro-interactions ═══ */
+  .morph-press {
+    transition: transform var(--duration-fast) var(--ease-spring);
+  }
+  .morph-press:active {
+    transform: scale(0.94) translate3d(0, 2px, 0);
+  }
+
+  .morph-hover-lift {
+    transition: transform var(--duration-normal) var(--ease-spring), box-shadow var(--duration-slow) var(--ease-ios);
+  }
+  .morph-hover-lift:hover {
+    transform: translate3d(0, -6px, 0);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 8px 25px rgba(124, 255, 218, 0.15);
+  }
+
+  .morph-hover-glow {
+    transition: box-shadow var(--duration-slow) var(--ease-ios);
+  }
+  .morph-hover-glow:hover {
+    box-shadow: 0 0 30px rgba(124, 255, 218, 0.30), 0 0 60px rgba(154, 134, 255, 0.20);
+  }
+
+  .morph-hover-scale {
+    transition: transform var(--duration-normal) var(--ease-spring);
+  }
+  .morph-hover-scale:hover {
+    transform: scale(1.06);
+  }
 
 
   .liquid-surface,
@@ -1776,7 +2122,16 @@ styleEnhance.textContent = `
     position: relative;
     isolation: isolate;
     overflow: hidden;
-    transition: transform 180ms var(--ease-glass), background 220ms var(--ease-ios), border-color 220ms var(--ease-ios), box-shadow 260ms var(--ease-ios), opacity 180ms var(--ease-ios) !important;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: transform;
+    transition: 
+      transform var(--duration-normal) var(--ease-spring), 
+      background var(--duration-fast) var(--ease-ios), 
+      border-color var(--duration-fast) var(--ease-ios), 
+      box-shadow var(--duration-slow) var(--ease-ios), 
+      opacity var(--duration-fast) var(--ease-ios) !important;
   }
   .morph-tile::after,
   .liquid-action-chip::after {
@@ -1786,20 +2141,97 @@ styleEnhance.textContent = `
     border-radius: inherit;
     pointer-events: none;
     background:
-      radial-gradient(circle at 24% 10%, rgba(255,255,255,0.32), transparent 32%),
-      linear-gradient(135deg, rgba(255,255,255,0.14), transparent 55%);
+      radial-gradient(circle at 24% 10%, rgba(255,255,255,0.36), transparent 35%),
+      linear-gradient(135deg, rgba(255,255,255,0.18), transparent 60%);
     opacity: 0;
-    transform: scale(.94);
-    transition: opacity 180ms var(--ease-ios), transform 220ms var(--ease-glass);
+    transform: scale(0.92);
+    transition: 
+      opacity var(--duration-fast) var(--ease-ios), 
+      transform var(--duration-normal) var(--ease-spring);
     mix-blend-mode: screen;
   }
+  .morph-tile:hover,
+  .liquid-action-chip:hover {
+    transform: translate3d(0, -2px, 0) scale(1.02);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(124, 255, 218, 0.12);
+  }
+  .morph-tile:hover::after,
+  .liquid-action-chip:hover::after {
+    opacity: 0.6;
+    transform: scale(1);
+  }
   .morph-tile:active,
-  .liquid-action-chip:active { transform: scale(.965) translate3d(0,1px,0); }
+  .liquid-action-chip:active { 
+    transform: scale(0.94) translate3d(0, 2px, 0); 
+    transition-duration: var(--duration-instant);
+  }
   .morph-tile:active::after,
-  .liquid-action-chip:active::after { opacity: .86; transform: scale(1); }
-  .asset-card-held { transform: scale(.97) !important; filter: saturate(1.12) brightness(1.08); }
-  .theme-liquid-transition { transition: background 420ms var(--ease-ios), color 220ms var(--ease-ios), filter 260ms var(--ease-ios), transform 260ms var(--ease-ios) !important; }
-  .premium-body-copy { letter-spacing: .02em; line-height: 1.45; }
+  .liquid-action-chip:active::after { 
+    opacity: 0.9; 
+    transform: scale(1); 
+  }
+  .asset-card-held { 
+    transform: scale(0.95) !important; 
+    filter: saturate(1.15) brightness(1.10);
+    transition: transform var(--duration-instant) var(--ease-spring) !important;
+  }
+  .theme-liquid-transition { 
+    transition: 
+      background var(--duration-slow) var(--ease-ios), 
+      color var(--duration-fast) var(--ease-ios), 
+      filter var(--duration-normal) var(--ease-ios), 
+      transform var(--duration-normal) var(--ease-spring) !important; 
+  }
+  .premium-body-copy { 
+    letter-spacing: 0.02em; 
+    line-height: 1.48; 
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  /* ═══ Global Smooth Transitions ═══ */
+  * {
+    transition-timing-function: var(--ease-ios);
+  }
+
+  /* Smoother scrolling for all containers */
+  [style*="overflow"] {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* GPU acceleration for all animated elements */
+  [class*="animate"],
+  [class*="morph"],
+  [class*="liquid"],
+  [class*="slide"],
+  [class*="fade"],
+  [class*="bounce"] {
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: transform, opacity;
+  }
+
+  /* Smooth focus transitions */
+  :focus {
+    transition: outline-offset var(--duration-fast) var(--ease-spring);
+  }
+  :focus-visible {
+    outline: 2px solid rgba(124, 255, 218, 0.6);
+    outline-offset: 3px;
+  }
+
+  /* Touch feedback optimization */
+  @media (pointer: coarse) {
+    .btn-bouncy,
+    .morph-tile,
+    .liquid-action-chip {
+      /* Larger touch targets on mobile */
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -1824,10 +2256,13 @@ if (stylePremium) {
   stylePremium.id = "luminary-premium-anim";
   stylePremium.textContent = `
   :root {
-    --spring-out:    cubic-bezier(.22,1.4,.36,1);     /* iOS-like overshoot */
-    --spring-in:     cubic-bezier(.5,-0.18,.7,.4);
-    --ease-emphasis: cubic-bezier(.2,.8,.2,1);
-    --ease-snap:     cubic-bezier(.32,.72,0,1);
+    --spring-out:     cubic-bezier(.22, 1.4, .36, 1);     /* iOS-like overshoot */
+    --spring-in:      cubic-bezier(.5, -0.18, .7, .4);
+    --spring-elastic: cubic-bezier(.68, -0.6, .32, 1.6);  /* Elastic bounce */
+    --ease-emphasis:  cubic-bezier(.2, .8, .2, 1);
+    --ease-snap:      cubic-bezier(.32, .72, 0, 1);
+    --ease-out-expo:  cubic-bezier(.19, 1, .22, 1);       /* Exponential ease out */
+    --ease-in-out-back: cubic-bezier(.68, -0.55, .265, 1.55);
   }
 
   /* Force the compositor to handle these surfaces (massive Android win). */
@@ -1887,22 +2322,50 @@ if (stylePremium) {
     transition-duration: 90ms, 0ms;
   }
 
-  /* Settings + Asset Hub: spring entrance.
-     NOTE: We deliberately removed the filter:blur() keyframe stops here.
-     Animating filter:blur over 360ms forces a full-screen GPU re-paint every
-     frame on Android WebView (Skia/GL), which was the single biggest source
-     of the "edit pages take forever to open" lag the user was seeing. The
-     entrance still feels premium thanks to the spring curve + tiny scale. */
+  /* Settings + Asset Hub: Premium Apple-style morphing entrance */
   @keyframes premiumPanelIn {
-    0%   { opacity: 0; transform: translate3d(0,28px,0) scale(.985); }
-    100% { opacity: 1; transform: translate3d(0,0,0)    scale(1);    }
+    0% { 
+      opacity: 0; 
+      transform: translate3d(0, 32px, 0) scale(0.92); 
+      filter: blur(16px);
+      border-radius: 40px;
+    }
+    40% { 
+      opacity: 1; 
+      filter: blur(4px);
+    }
+    70% { 
+      transform: translate3d(0, -6px, 0) scale(1.01); 
+      filter: blur(0);
+    }
+    100% { 
+      opacity: 1; 
+      transform: translate3d(0, 0, 0) scale(1); 
+      filter: blur(0);
+    }
   }
   @keyframes premiumPanelOut {
-    0%   { opacity: 1; transform: translate3d(0,0,0)    scale(1);    }
-    100% { opacity: 0; transform: translate3d(0,18px,0) scale(.99);  }
+    0% { 
+      opacity: 1; 
+      transform: translate3d(0, 0, 0) scale(1); 
+      filter: blur(0);
+    }
+    30% { 
+      transform: translate3d(0, -4px, 0) scale(1.01); 
+    }
+    100% { 
+      opacity: 0; 
+      transform: translate3d(0, 24px, 0) scale(0.94); 
+      filter: blur(12px);
+    }
   }
   .settings-panel,
-  .asset-hub-panel { animation: premiumPanelIn 360ms var(--spring-out) both; }
+  .asset-hub-panel { 
+    animation: premiumPanelIn var(--duration-morph) var(--ease-out-expo) both;
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
 
   /* Stagger entrance for list items inside panels. Targets direct children
      of common containers — no JSX changes required. The nth-child delays
@@ -1960,38 +2423,69 @@ if (stylePremium) {
     transition: outline-offset 160ms var(--ease-emphasis);
   }
 
-  /* ── Android perf overrides ─────────────────────────────────────────────── */
+  /* ── Android & Mobile Performance Optimizations ─────────────────────────── */
   /* WebView's Skia-on-GL pipeline chokes on multiple stacked backdrop-filter
-     surfaces. We swap them for cheaper opaque/translucent fills only on
-     Android. Browsers stay untouched. */
+     surfaces. We use GPU-optimized alternatives for smoother 60fps+ animations */
   html[data-platform="android"] * {
-    /* Disable expensive backdrop-filter globally on Android; replace with
-       the surface's own background color (which already has alpha). */
+    /* Force GPU compositing for all transforms */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  html[data-platform="android"] .liquid-surface,
+  html[data-platform="android"] .liquid-water,
+  html[data-platform="android"] .settings-panel,
+  html[data-platform="android"] .asset-hub-panel {
+    /* Replace expensive backdrop-filter with optimized semi-opaque backgrounds */
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
+    background: rgba(12, 18, 35, 0.96) !important;
   }
   html[data-platform="android"] .settings-panel,
   html[data-platform="android"] .asset-hub-panel,
   html[data-platform="android"] .onboarding-sheet {
-    /* Cheaper, jitter-free shadow on Android. */
-    box-shadow: 0 14px 40px rgba(0,0,0,.45) !important;
-  }
-  html[data-platform="android"] .settings-panel > *,
-  html[data-platform="android"] .asset-hub-panel .asset-grid > * {
-    /* Skip the cascade entrance on Android — single fade is far smoother. */
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
+    /* Optimized shadow for Android - GPU friendly */
+    box-shadow: 
+      0 16px 48px rgba(0, 0, 0, 0.50),
+      0 0 0 1px rgba(124, 255, 218, 0.08) !important;
   }
   html[data-platform="android"] .settings-panel,
   html[data-platform="android"] .asset-hub-panel {
-    animation-duration: 240ms !important;
-    animation-timing-function: var(--ease-snap) !important;
+    /* Faster, smoother animations on Android */
+    animation-duration: var(--duration-slow) !important;
+    animation-timing-function: var(--ease-out) !important;
+  }
+  html[data-platform="android"] .settings-panel > *,
+  html[data-platform="android"] .asset-hub-panel .asset-grid > * {
+    /* Use simpler fade animations on Android for smoothness */
+    animation: fadeInUp var(--duration-normal) var(--ease-out) both !important;
+  }
+  html[data-platform="android"] .settings-panel > *:nth-child(1) { animation-delay: 30ms !important; }
+  html[data-platform="android"] .settings-panel > *:nth-child(2) { animation-delay: 60ms !important; }
+  html[data-platform="android"] .settings-panel > *:nth-child(3) { animation-delay: 90ms !important; }
+  html[data-platform="android"] .settings-panel > *:nth-child(4) { animation-delay: 120ms !important; }
+  html[data-platform="android"] .settings-panel > *:nth-child(n+5) { animation-delay: 150ms !important; }
+  
+  html[data-platform="android"] .liquid-action-chip,
+  html[data-platform="android"] .btn-bouncy,
+  html[data-platform="android"] .morph-tile {
+    /* Faster transitions for snappier feel on mobile */
+    transition-duration: var(--duration-fast) !important;
   }
   html[data-platform="android"] .liquid-action-chip::before,
   html[data-platform="android"] .btn-bouncy::before {
-    /* Ripple gradient is fine on Android, but we shorten it. */
-    transition-duration: 200ms !important;
+    /* Faster ripple on Android */
+    transition-duration: var(--duration-fast) !important;
+  }
+  
+  /* iOS Safari optimizations */
+  @supports (-webkit-touch-callout: none) {
+    .liquid-surface,
+    .liquid-water {
+      /* Reduce blur intensity on iOS for better performance */
+      backdrop-filter: blur(16px) saturate(140%);
+      -webkit-backdrop-filter: blur(16px) saturate(140%);
+    }
   }
 
   /* Honor reduced-motion: kill premium animations entirely. */
