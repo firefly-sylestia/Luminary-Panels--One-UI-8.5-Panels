@@ -2282,7 +2282,8 @@ styleEnhance.textContent = `
     display: flex;
     flex-direction: column;
     width: 100%;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
@@ -2292,9 +2293,6 @@ styleEnhance.textContent = `
     display: none;
     flex-shrink: 0;
     width: 100%;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
   }
 
   .sheet-pane[data-active="true"] {
@@ -5887,7 +5885,9 @@ export default function LuminaryPanels() {
   const mobilePreviewOffset = Math.max(420, headerHeight + previewDockHeight + 28);
   const previewMini = pxScale < (vp.isMobile ? 0.78 : 0.7);
   const [swipeDir, setSwipeDir] = useState(1);
-  const tabIndex = useMemo(() => MOBILE_TABS.indexOf(mobileTab), [mobileTab]);
+  // Use the correct tabs array with 4 items (assets, layout, avatar, text)
+  const mobileTabsArray = ["assets", "layout", "avatar", "text"];
+  const tabIndex = useMemo(() => mobileTabsArray.indexOf(mobileTab), [mobileTab]);
   // Persistent-mount strategy: once a tab has been opened in the editing
   // sheet, keep its panel mounted so subsequent visits are an instant
   // CSS display toggle instead of a full React remount of hundreds of
@@ -5897,6 +5897,7 @@ export default function LuminaryPanels() {
   const [visitedTabs, setVisitedTabs] = useState(() => ({ [mobileTab]: true }));
   useEffect(() => {
     if (!sheetOpen) return;
+    console.log("[v0] Tab switched to:", mobileTab, "visitedTabs:", visitedTabs);
     setVisitedTabs(prev => prev[mobileTab] ? prev : { ...prev, [mobileTab]: true });
   }, [mobileTab, sheetOpen]);
 
@@ -8838,24 +8839,24 @@ export default function LuminaryPanels() {
               data-dir={swipeDir >= 0 ? "right" : "left"}
             >
               {visitedTabs.assets && (
-                <div className="sheet-pane" data-active={mobileTab === "assets" ? "true" : "false"}>
+                <div className="sheet-pane" data-active={mobileTab === "assets" ? "true" : "false"} style={{ padding: "16px 20px" }}>
                   <div className={tabSliderClass("assets")}>{panelAssetsAndLayers}</div>
                   <div className={tabSliderClass("assets")}>{panelEnvironment}</div>
                 </div>
               )}
               {visitedTabs.layout && (
-                <div className="sheet-pane" data-active={mobileTab === "layout" ? "true" : "false"}>
+                <div className="sheet-pane" data-active={mobileTab === "layout" ? "true" : "false"} style={{ padding: "16px 20px" }}>
                   <div className={tabSliderClass("layout")}>{panelBaseConfig}</div>
                 </div>
               )}
               {visitedTabs.avatar && (
-                <div className="sheet-pane" data-active={mobileTab === "avatar" ? "true" : "false"}>
+                <div className="sheet-pane" data-active={mobileTab === "avatar" ? "true" : "false"} style={{ padding: "16px 20px" }}>
                   <div className={tabSliderClass("avatar")}>{panelAvatar}</div>
                   <div className={tabSliderClass("avatar")}>{panelBorder}</div>
                 </div>
               )}
               {visitedTabs.text && (
-                <div className="sheet-pane" data-active={mobileTab === "text" ? "true" : "false"}>
+                <div className="sheet-pane" data-active={mobileTab === "text" ? "true" : "false"} style={{ padding: "16px 20px" }}>
                   <div className={tabSliderClass("text")}>{panelTypography}</div>
                 </div>
               )}
