@@ -2276,6 +2276,35 @@ styleEnhance.textContent = `
       transition-duration: 0.001ms !important;
     }
   }
+
+  /* ═══ Sheet Pane Styling for Mobile Tab Navigation ═══ */
+  .sheet-pane-stack {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .sheet-pane {
+    display: none;
+    flex-shrink: 0;
+    width: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .sheet-pane[data-active="true"] {
+    display: block;
+    animation: fadeInSmooth 200ms ease-out;
+  }
+
+  .sliders-hidden {
+    display: none !important;
+  }
 `;
 if (typeof document !== "undefined" && document.head && !document.getElementById('luminary-enhance-style')) {
   document.head.appendChild(styleEnhance);
@@ -5886,8 +5915,12 @@ export default function LuminaryPanels() {
         y: r.top + r.height / 2,
       });
     }
-    const nextIndex = MOBILE_TABS.indexOf(next);
-    setSwipeDir(nextIndex >= tabIndex ? 1 : -1);
+    // Use the correct MOBILE_TABS array defined at the top of this file (4 items)
+    // not the one imported from constants (3 items)
+    const tabs = ["assets", "layout", "avatar", "text"];
+    const nextIndex = tabs.indexOf(next);
+    const currentTabIndex = tabs.indexOf(mobileTab);
+    setSwipeDir(nextIndex >= currentTabIndex ? 1 : -1);
     setMobileTab(next);
     setSheetOpen(true);
     microHaptic(settings.hapticFeedback);
