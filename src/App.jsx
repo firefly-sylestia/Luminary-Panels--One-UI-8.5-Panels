@@ -1783,16 +1783,20 @@ styleEnhance.textContent = `
     display: flex;
     flex-direction: column;
     gap: 14px;
-    padding: 16px 14px 24px;
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom));
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     min-height: 0;
+    touch-action: pan-y;
   }
   .sheet-pane[data-active="false"] { display: none; }
   .sheet-pane[data-active="true"] {
     animation: none;
+  }
+  .sheet-pane * {
+    touch-action: auto;
   }
 
   @keyframes tabSlideSmooth {
@@ -1818,8 +1822,8 @@ styleEnhance.textContent = `
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeInSmooth { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes slideDown { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-  @keyframes slideUp { from { opacity: 0; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
   /* ═══ TRUE iOS Shape Morph: page emanates FROM the tapped button ═══
      Driven by --mx and --my CSS vars (viewport-px coords of button center).
@@ -1830,21 +1834,25 @@ styleEnhance.textContent = `
   @keyframes morphReveal {
     0% {
       opacity: 0;
-      transform: translateY(40px) scale(0.95);
+      clip-path: circle(0% at var(--mx, 50%) var(--my, 100%));
+      transform: scale(0.92);
     }
     100% {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      clip-path: circle(150% at var(--mx, 50%) var(--my, 100%));
+      transform: scale(1);
     }
   }
   @keyframes morphCollapse {
     0% {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      clip-path: circle(150% at var(--mx, 50%) var(--my, 100%));
+      transform: scale(1);
     }
     100% {
       opacity: 0;
-      transform: translateY(30px) scale(0.96);
+      clip-path: circle(0% at var(--mx, 50%) var(--my, 100%));
+      transform: scale(0.95);
     }
   }
   /* Backdrop fade — paired with morphReveal, but completely independent
@@ -2612,7 +2620,7 @@ function useViewport() {
   };
 }
 
-// ── Math & Helpers ────────────────────────────────────────────────────────────
+// ── Math & Helpers ───────────────────────────────────────────────��────────────
 function roundedRectPath(ctx, x, y, w, h, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -3672,7 +3680,7 @@ function BorderSvgIcon({ name, size = 18, color = "currentColor", accent = "curr
 function SvgAction({ icon, label, tone, size = 15 }) {
   return <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", gap:7, minWidth:0 }}><UiIcon name={icon} size={size} color={tone || "currentColor"} />{label && <span>{label}</span>}</span>;
 }
-// ─────────────────────────────────────────────────────────────────────────────
+// ───��─────────────────────────────────────────────────────────────────────────
 // iOS Toggle Component — animated icon morph like iOS Privacy Pane
 // ──────────────────────────────������─────────────────────────────────────────────
 function IOSToggle({ checked, onChange, accent = "#4fb3d9", hapticEnabled = true }) {
@@ -6426,9 +6434,7 @@ export default function LuminaryPanels() {
                   flexDirection:"column",
                   alignItems:"center",
                   gap:3,
-                  transition:"transform 200ms var(--ease-spring), background 200ms ease, border-color 200ms ease",
-                  transform: isActive ? "scale(1.05)" : "scale(1)",
-                  animation: `fadeIn 300ms var(--ease-ios) ${idx * 20}ms backwards`,
+                  transition:"background 150ms ease, border-color 150ms ease",
                 }}>
                 <div style={previewStyle} />
                 <span style={{ fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:0.5, opacity: isActive ? 1 : 0.7 }}>{t.label}</span>
@@ -6581,10 +6587,8 @@ export default function LuminaryPanels() {
               gap:3,
               color: s.borderStyleId === b.id ? accent : textPrimary,
               background: s.borderStyleId === b.id ? `${accent}22` : controlBg,
-              transition:"transform 200ms var(--ease-spring), background 200ms ease, border-color 200ms ease, color 200ms ease",
-              transform: s.borderStyleId === b.id ? "scale(1.06)" : "scale(1)",
+              transition:"background 150ms ease, border-color 150ms ease, color 150ms ease",
               minHeight:54,
-              animation: `fadeIn 280ms var(--ease-ios) ${idx * 15}ms backwards`,
             }}>
             <span style={{ width:24, height:24, display:"inline-flex", alignItems:"center", justifyContent:"center" }}><BorderSvgIcon name={b.icon} size={19} color={s.borderStyleId === b.id ? accent : textPrimary} accent={accent} /></span>
             <span style={{ fontSize:9.5 }}>{b.label}</span>
@@ -6813,8 +6817,7 @@ export default function LuminaryPanels() {
               padding:"10px 12px",
               borderRadius:10,
               border:`1px solid ${cardBorder}`,
-              transition: "all 250ms var(--ease-ios)",
-              animation: `overlayItemSlide 320ms var(--ease-spring) ${idx * 40}ms backwards`,
+              transition: "background 150ms ease, border-color 150ms ease",
             }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <span style={{ width:24, flexShrink:0, display:"inline-flex", alignItems:"center", justifyContent:"center" }}><UiIcon name={ov.type === "emoji" ? "text" : "image"} size={15} color={accent} /></span>
@@ -6829,7 +6832,7 @@ export default function LuminaryPanels() {
                     padding:"6px 12px",
                     borderRadius:8,
                     fontWeight:600,
-                    transition: "all 220ms var(--ease-ios)",
+                    transition: "background 150ms ease",
                   }}>
                   {expandedOverlayId === ov.id ? "Close" : "Adjust"}
                 </button>
@@ -7103,7 +7106,6 @@ export default function LuminaryPanels() {
             alignItems:"center",
             justifyContent:"space-between",
             gap:8,
-            animation: `overlayItemSlide 320ms var(--ease-spring) ${idx * 40}ms backwards`,
           }}>
             <div>
               <div style={{ color:textPrimary, fontSize:13, fontWeight:600 }}>{item.label}</div>
@@ -7201,10 +7203,8 @@ export default function LuminaryPanels() {
               padding: 0, minHeight: 0, fontSize:11,
               border: settings.uiPreset === preset.id ? `2px solid ${preset.uiAccent}` : `1px solid ${cardBorder}`,
               borderRadius: 12, overflow: "hidden",
-              transition: "transform 260ms var(--ease-spring), border-color 200ms ease, box-shadow 240ms ease",
-              transform: settings.uiPreset === preset.id ? "scale(1.03)" : "scale(1)",
-              boxShadow: settings.uiPreset === preset.id ? `0 6px 22px ${preset.uiAccent}55` : "none",
-              animation: `fadeIn 280ms var(--ease-ios) ${idx * 30}ms backwards`,
+              transition: "border-color 150ms ease, box-shadow 150ms ease",
+              boxShadow: settings.uiPreset === preset.id ? `0 4px 16px ${preset.uiAccent}44` : "none",
             }}
           >
             <div style={{ background: preset.uiBg, padding: "14px", display: "flex", flexDirection: "column", gap: 6, minHeight: 80, justifyContent: "space-between" }}>
@@ -8704,11 +8704,9 @@ export default function LuminaryPanels() {
               background: isDark
                 ? "linear-gradient(155deg, rgba(18,22,38,0.92), rgba(8,12,24,0.86))"
                 : "linear-gradient(155deg, rgba(255,255,255,0.94), rgba(240,248,255,0.86))",
-              // Reduced blur radius (was uiBlurPx+4, capped at 24) and
-              // dropped the saturate filter — both are cheap quality wins
-              // on iOS and big perf wins on Android.
-              backdropFilter: liquidEnabled ? `blur(${Math.min(uiBlurPx + 2, 16)}px)` : "none",
-              WebkitBackdropFilter: liquidEnabled ? `blur(${Math.min(uiBlurPx + 2, 16)}px)` : "none",
+              // Reduced blur radius for performance - blur is expensive on mobile
+              backdropFilter: liquidEnabled ? "blur(10px)" : "none",
+              WebkitBackdropFilter: liquidEnabled ? "blur(10px)" : "none",
               border:`1px solid ${cardBorder}`,
               borderBottom:"none",
               // Smaller shadow blur radius (80→32) — roughly 6× cheaper to
@@ -8721,9 +8719,11 @@ export default function LuminaryPanels() {
               // global layout/paint pass. Combined with translateZ this
               // gives a noticeable boost on the first open.
               contain: "layout paint",
+              "--mx": `${sheetOrigin.x || window.innerWidth / 2}px`,
+              "--my": `${sheetOrigin.y || window.innerHeight}px`,
               animation: settings.performanceMode
                 ? "none"
-                : "morphReveal 280ms cubic-bezier(0.22, 1, 0.36, 1) both",
+                : "morphReveal 320ms cubic-bezier(0.32, 0.72, 0, 1) both",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -9985,12 +9985,8 @@ function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, accent
       padding: "17px 18px 18px",
       border: `1px solid ${cardBorder}`,
       boxShadow: cardShadow || "none",
-      animation: "cardFloat 520ms var(--ease-glass)",
-      transition: "border-color 260ms var(--ease-ios), box-shadow 320ms var(--ease-ios), background 260ms var(--ease-ios), transform 260ms var(--ease-ios)",
+      transition: "border-color 200ms ease, box-shadow 200ms ease, background 200ms ease",
       position: "relative",
-      overflow: "hidden",
-      backdropFilter: "blur(26px) saturate(1.65)",
-      WebkitBackdropFilter: "blur(26px) saturate(1.65)",
     }}>
       <div style={{
         position: "absolute",
@@ -10284,9 +10280,7 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary =
                   background: c,
                   cursor: "pointer",
                   transition: "transform 200ms var(--ease-spring), border-color 180ms ease",
-                  transform: safeHex === c ? "scale(1.1)" : "scale(1)",
-                  animation: `colorSwatchPop 320ms var(--ease-spring) ${idx * 25}ms backwards`,
-                  boxShadow: safeHex === c ? `0 4px 12px ${c}88` : "none",
+                  boxShadow: safeHex === c ? `0 3px 10px ${c}66` : "none",
                 }}
               />
             ))}
