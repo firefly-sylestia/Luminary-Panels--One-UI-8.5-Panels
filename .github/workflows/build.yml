@@ -24,3 +24,30 @@ jobs:
 
       - name: Build web app
         run: npm run build
+
+      # ──────────────────────────────────────────────────────────────────
+      # Version-sync sanity check — fails the build if the four files
+      # that hold the app version disagree. The release workflow keeps
+      # them in sync, so a desync means someone hand-edited one file
+      # without updating the others.
+      # ──────────────────────────────────────────────────────────────────
+      - name: Verify version is in sync across all files
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG=$(node -p "require('./package.json').version")
+          CAP=$(node -p "require('./capacitor.config.json').version")
+          GRADLE=$(grep -E '^\s*versionName\s+"' android/app/build.gradle | head -1 | sed -E 's/.*"([^"]*)".*/\1/')
+          APP=$(grep -m1 '__APP_VERSION__' src/App.jsx | sed -E 's/.*= "([^"]*)".*/\1/')
+
+          echo "package.json:           $PKG"
+          echo "capacitor.config.json:  $CAP"
+          echo "android build.gradle:   $GRADLE"
+          echo "src/App.jsx:            $APP"
+
+          if [[ "$PKG" != "$CAP" || "$PKG" != "$GRADLE" || "$PKG" != "$APP" ]]; then
+            echo "::error::Version mismatch detected. All four files must hold the same version."
+            echo "::error::Run the release workflow (push a tag like v$PKG) or manually align them."
+            exit 1
+          fi
+          echo "::notice::All four files agree on version $PKG"
