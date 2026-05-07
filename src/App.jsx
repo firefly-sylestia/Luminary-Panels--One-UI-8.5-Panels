@@ -1743,34 +1743,33 @@ styleEnhance.textContent = `
     to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   }
   @keyframes iconMorphIn {
-    0% { opacity: 0; transform: scale(0.55) rotate(-18deg); }
-    70% { opacity: 1; transform: scale(1.06) rotate(2deg); }
-    100% { opacity: 1; transform: scale(1) rotate(0); }
+    from { opacity: 0; transform: scale(0.7); }
+    to { opacity: 1; transform: scale(1); }
   }
   @keyframes panelSpringUp {
-    from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.985); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
   @keyframes toastPop {
-    from { opacity: 0; transform: translate3d(-50%, 18px, 0) scale(0.94); }
-    to   { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
   }
 
   /* ── Mobile sheet visited-tab pane stack ─────────────────────────────────
-     Without the `data-active="false" → display:none` rule, every visited
+     Without the [data-active="false"] → display:none rule, every visited
      pane stacks on top of the assets pane (which is the initial visited
      tab), making non-asset tab taps look like they "always open assets".
      The .sheet-pane rule also defines overflow-y:auto, so scrolling
      inside each panel only works once these rules are in place.
      The directional slide-in (paneEnterRight / paneEnterLeft, set via
-     `data-dir` on the stack) only fires on the pane that becomes active. */
+     [data-dir] on the stack) only fires on the pane that becomes active. */
   @keyframes paneEnterRight {
-    from { opacity: 0; transform: translate3d(20px, 0, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes paneEnterLeft {
-    from { opacity: 0; transform: translate3d(-20px, 0, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+    from { opacity: 0; transform: translateX(-16px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   .sheet-pane-stack {
     flex: 1;
@@ -1784,62 +1783,47 @@ styleEnhance.textContent = `
     display: flex;
     flex-direction: column;
     gap: 14px;
-    padding: 16px 14px 24px;
+    padding: 16px 14px calc(24px + env(safe-area-inset-bottom));
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    transform: translate3d(0, 0, 0);
-    will-change: transform, opacity;
+    overscroll-behavior-y: contain;
+    min-height: 0;
+    touch-action: pan-y;
   }
   .sheet-pane[data-active="false"] { display: none; }
-  .sheet-pane-stack[data-dir="right"] .sheet-pane[data-active="true"] {
-    animation: paneEnterRight 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  .sheet-pane[data-active="true"] {
+    animation: none;
   }
-  .sheet-pane-stack[data-dir="left"] .sheet-pane[data-active="true"] {
-    animation: paneEnterLeft 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  /* Skip the slide on Android — display:none → flex toggle alone is the
-     smoothest path on the WebView, where small transform animations can
-     stutter while panel content paints for the first time. */
-  html[data-platform="android"] .sheet-pane-stack .sheet-pane[data-active="true"] {
-    animation: none !important;
+  .sheet-pane * {
+    touch-action: auto;
   }
 
   @keyframes tabSlideSmooth {
-    0% { 
+    from { 
       opacity: 0; 
-      transform: translate3d(var(--slide-from, 18px), 8px, 0) scale(0.94); 
+      transform: translateY(6px); 
     }
-    60% {
-      opacity: 1;
-    }
-    75% { 
-      transform: translate3d(calc(var(--slide-from, 18px) * -0.1), -3px, 0) scale(1.012); 
-    }
-    100% { 
+    to { 
       opacity: 1; 
-      transform: translate3d(0, 0, 0) scale(1); 
+      transform: translateY(0); 
     }
   }
   @keyframes tabPillIndicator {
-    0% {
-      transform: scaleX(0.7) scaleY(0.85);
+    from {
+      transform: scale(0.9);
       opacity: 0;
     }
-    60% {
-      transform: scaleX(1.06) scaleY(1.02);
-      opacity: 1;
-    }
-    100% {
-      transform: scaleX(1) scaleY(1);
+    to {
+      transform: scale(1);
       opacity: 1;
     }
   }
-  @keyframes fadeIn { from { opacity: 0; transform: translate3d(0, 6px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-  @keyframes fadeSlideUp { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.988); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeInSmooth { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes slideDown { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-  @keyframes slideUp { from { opacity: 0; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
   /* ═══ TRUE iOS Shape Morph: page emanates FROM the tapped button ═══
      Driven by --mx and --my CSS vars (viewport-px coords of button center).
@@ -1850,35 +1834,21 @@ styleEnhance.textContent = `
   @keyframes morphReveal {
     0% {
       opacity: 0;
-      clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
-      -webkit-clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
-      transform: scale(0.86) translate3d(0, 0, 0);
-    }
-    35% {
-      opacity: 1;
-    }
-    70% {
-      transform: scale(1.012) translate3d(0, 0, 0);
+      clip-path: circle(0% at var(--mx, 50%) var(--my, 100%));
     }
     100% {
       opacity: 1;
-      clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
-      -webkit-clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
-      transform: scale(1) translate3d(0, 0, 0);
+      clip-path: circle(150% at var(--mx, 50%) var(--my, 100%));
     }
   }
   @keyframes morphCollapse {
     0% {
       opacity: 1;
-      clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
-      -webkit-clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
-      transform: scale(1) translate3d(0, 0, 0);
+      clip-path: circle(150% at var(--mx, 50%) var(--my, 100%));
     }
     100% {
       opacity: 0;
-      clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
-      -webkit-clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
-      transform: scale(0.92) translate3d(0, 0, 0);
+      clip-path: circle(0% at var(--mx, 50%) var(--my, 100%));
     }
   }
   /* Backdrop fade — paired with morphReveal, but completely independent
@@ -1892,21 +1862,18 @@ styleEnhance.textContent = `
     to   { opacity: 0; }
   }
 
-  /* Header / nav / toolbar entrances — blur filter removed (was the
-     #1 frame-budget killer on Android). Pure transform+opacity is
-     ~10× cheaper and visually indistinguishable. */
-  @keyframes headerSlideDown { 
-    0% { opacity: 0; transform: translate3d(0, -16px, 0) scale(0.97); } 
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
+  /* Header / nav / toolbar entrances — simplified for performance */
+  @keyframes headerSlideDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  @keyframes navSlideUp { 
-    0% { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.94); } 
-    70% { transform: translate3d(0, -3px, 0) scale(1.015); }
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
+  @keyframes navSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  @keyframes toolSlideUp { 
-    0% { opacity: 0; transform: translate3d(0, 20px, 0) scale(0.96); } 
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
+  @keyframes toolSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   @keyframes bouncySlideDown { from { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.992); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
   /* Modal entrance: pure transform+opacity. backdrop-filter on a keyframe
@@ -2602,7 +2569,7 @@ function mediumHaptic(enabled = true) {
   }
 }
 
-// ── Viewport Hook ─────────────────────────────────────────────────────────────
+// ── Viewport Hook ���────────────────────────────────────────────────────────────
 // SSR-safe: when window is undefined (server render or static prerender), we
 // fall back to a sensible desktop default. The first useEffect tick on the
 // client will immediately replace it with the real viewport dimensions.
@@ -2649,7 +2616,7 @@ function useViewport() {
   };
 }
 
-// ── Math & Helpers ────────────────────────────────────────────────────────────
+// ── Math & Helpers ───────────────────────────────────────────────��────────────
 function roundedRectPath(ctx, x, y, w, h, r) {
   ctx.beginPath(); ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
@@ -3709,9 +3676,9 @@ function BorderSvgIcon({ name, size = 18, color = "currentColor", accent = "curr
 function SvgAction({ icon, label, tone, size = 15 }) {
   return <span style={{ display:"inline-flex", alignItems:"center", justifyContent:"center", gap:7, minWidth:0 }}><UiIcon name={icon} size={size} color={tone || "currentColor"} />{label && <span>{label}</span>}</span>;
 }
-// ─────────────────────────────────────────────────────────────────────────────
+// ───��─────────────────────────────────────────────────────────────────────────
 // iOS Toggle Component — animated icon morph like iOS Privacy Pane
-// ─────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────������─────────────────────────────────────────────
 function IOSToggle({ checked, onChange, accent = "#4fb3d9", hapticEnabled = true }) {
   const [pressed, setPressed] = useState(false);
 
@@ -6463,9 +6430,7 @@ export default function LuminaryPanels() {
                   flexDirection:"column",
                   alignItems:"center",
                   gap:3,
-                  transition:"transform 200ms var(--ease-spring), background 200ms ease, border-color 200ms ease",
-                  transform: isActive ? "scale(1.05)" : "scale(1)",
-                  animation: `fadeIn 300ms var(--ease-ios) ${idx * 20}ms backwards`,
+                  transition:"background 150ms ease, border-color 150ms ease",
                 }}>
                 <div style={previewStyle} />
                 <span style={{ fontSize:10, fontWeight:600, textTransform:"uppercase", letterSpacing:0.5, opacity: isActive ? 1 : 0.7 }}>{t.label}</span>
@@ -6618,10 +6583,8 @@ export default function LuminaryPanels() {
               gap:3,
               color: s.borderStyleId === b.id ? accent : textPrimary,
               background: s.borderStyleId === b.id ? `${accent}22` : controlBg,
-              transition:"transform 200ms var(--ease-spring), background 200ms ease, border-color 200ms ease, color 200ms ease",
-              transform: s.borderStyleId === b.id ? "scale(1.06)" : "scale(1)",
+              transition:"background 150ms ease, border-color 150ms ease, color 150ms ease",
               minHeight:54,
-              animation: `fadeIn 280ms var(--ease-ios) ${idx * 15}ms backwards`,
             }}>
             <span style={{ width:24, height:24, display:"inline-flex", alignItems:"center", justifyContent:"center" }}><BorderSvgIcon name={b.icon} size={19} color={s.borderStyleId === b.id ? accent : textPrimary} accent={accent} /></span>
             <span style={{ fontSize:9.5 }}>{b.label}</span>
@@ -6850,8 +6813,7 @@ export default function LuminaryPanels() {
               padding:"10px 12px",
               borderRadius:10,
               border:`1px solid ${cardBorder}`,
-              transition: "all 250ms var(--ease-ios)",
-              animation: `overlayItemSlide 320ms var(--ease-spring) ${idx * 40}ms backwards`,
+              transition: "background 150ms ease, border-color 150ms ease",
             }}>
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <span style={{ width:24, flexShrink:0, display:"inline-flex", alignItems:"center", justifyContent:"center" }}><UiIcon name={ov.type === "emoji" ? "text" : "image"} size={15} color={accent} /></span>
@@ -6866,7 +6828,7 @@ export default function LuminaryPanels() {
                     padding:"6px 12px",
                     borderRadius:8,
                     fontWeight:600,
-                    transition: "all 220ms var(--ease-ios)",
+                    transition: "background 150ms ease",
                   }}>
                   {expandedOverlayId === ov.id ? "Close" : "Adjust"}
                 </button>
@@ -7140,7 +7102,6 @@ export default function LuminaryPanels() {
             alignItems:"center",
             justifyContent:"space-between",
             gap:8,
-            animation: `overlayItemSlide 320ms var(--ease-spring) ${idx * 40}ms backwards`,
           }}>
             <div>
               <div style={{ color:textPrimary, fontSize:13, fontWeight:600 }}>{item.label}</div>
@@ -7238,10 +7199,8 @@ export default function LuminaryPanels() {
               padding: 0, minHeight: 0, fontSize:11,
               border: settings.uiPreset === preset.id ? `2px solid ${preset.uiAccent}` : `1px solid ${cardBorder}`,
               borderRadius: 12, overflow: "hidden",
-              transition: "transform 260ms var(--ease-spring), border-color 200ms ease, box-shadow 240ms ease",
-              transform: settings.uiPreset === preset.id ? "scale(1.03)" : "scale(1)",
-              boxShadow: settings.uiPreset === preset.id ? `0 6px 22px ${preset.uiAccent}55` : "none",
-              animation: `fadeIn 280ms var(--ease-ios) ${idx * 30}ms backwards`,
+              transition: "border-color 150ms ease, box-shadow 150ms ease",
+              boxShadow: settings.uiPreset === preset.id ? `0 4px 16px ${preset.uiAccent}44` : "none",
             }}
           >
             <div style={{ background: preset.uiBg, padding: "14px", display: "flex", flexDirection: "column", gap: 6, minHeight: 80, justifyContent: "space-between" }}>
@@ -8360,15 +8319,21 @@ export default function LuminaryPanels() {
             </div>
 
             {headerExpanded && (
-              <>
-                <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"2px 4px"}}>
-                  <h1 className="lum-brand-title" style={{fontSize:14}}>Luminary Panels</h1>
-                  <span style={{fontSize:11, color:textDim}}>
+              <div style={{
+                maxHeight: vp.isMobile ? "28vh" : "none",
+                overflowY: vp.isMobile ? "auto" : "visible",
+                display:"flex",
+                flexDirection:"column",
+                gap:6,
+              }}>
+                <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:6, padding:"0 2px"}}>
+                  <h1 className="lum-brand-title" style={{fontSize:12, margin:0}}>Luminary Panels</h1>
+                  <span style={{fontSize:10, color:textDim}}>
                     {`v${__APP_VERSION__}`}
                   </span>
                 </div>
 
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
                   {Object.keys(LAYOUTS).map(k => (
                     <button key={k} className="btn-bouncy" onClick={() => {
                       microHaptic(settings.hapticFeedback);
@@ -8376,9 +8341,9 @@ export default function LuminaryPanels() {
                       const next = getLayoutDefaults(k, pillStyle);
                       pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
                     }} style={{
-                      padding:"7px 12px",
+                      padding:"5px 10px",
                       borderRadius:999,
-                      fontSize:11,
+                      fontSize:10,
                       fontWeight: layoutMode === k ? 700 : 500,
                       border: layoutMode === k ? "none" : `1px solid ${cardBorder}`,
                       background: layoutMode === k ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
@@ -8387,44 +8352,41 @@ export default function LuminaryPanels() {
                   ))}
                 </div>
 
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, flexWrap:"wrap" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6, flexWrap:"wrap" }}>
                   <span style={{
                     display:"inline-flex",
                     alignItems:"center",
-                    gap:6,
-                    padding:"7px 11px",
+                    gap:4,
+                    padding:"5px 9px",
                     borderRadius:999,
                     border:`1px solid ${cardBorder}`,
                     background: controlBg,
                     color:textDim,
-                    fontSize:11,
-                    fontWeight:700,
-                    letterSpacing:0.2,
+                    fontSize:9,
+                    fontWeight:600,
                   }}>
-                    120Hz glass motion · auto save {settings.autoSave ? "on" : "off"}
+                    120Hz · auto save {settings.autoSave ? "on" : "off"}
                   </span>
                   <button className="btn-bouncy" onClick={() => setAdvancedSettingsModalOpen(true)}
                     title="Advanced Settings"
                     style={{
-                      padding:"8px 13px",
+                      padding:"5px 10px",
                       borderRadius:999,
-                      fontSize:11,
-                      fontWeight: 700,
+                      fontSize:10,
+                      fontWeight: 600,
                       border: `1px solid ${cardBorder}`,
                       background: `linear-gradient(135deg, ${accent}22, ${accent2}16)`,
                       color: textPrimary,
                       cursor: "pointer",
                       display:"inline-flex",
                       alignItems:"center",
-                      gap: 6,
-                      boxShadow:`0 10px 28px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.14)`,
+                      gap: 4,
                     }}
                   >
-                    <UiIcon name="settings" size={13} color={accent} /> Advanced
+                    <UiIcon name="settings" size={11} color={accent} /> Advanced
                   </button>
                 </div>
-
-              </>
+              </div>
             )}
           </div>
         </header>
@@ -8631,8 +8593,8 @@ export default function LuminaryPanels() {
           left:12,
           right:12,
           background: isDark
-            ? "linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.065))"
-            : "linear-gradient(145deg, rgba(255,255,255,0.78), rgba(255,255,255,0.48))",
+            ? "linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))"
+            : "linear-gradient(145deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65))",
           border:`1px solid ${cardBorder}`,
           display:"flex",
           flexDirection:"row",
@@ -8640,13 +8602,8 @@ export default function LuminaryPanels() {
           gap:6,
           zIndex:9999,
           borderRadius:30,
-          boxShadow:`0 18px 58px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.24)`,
-          animation: settings.performanceMode ? "none" : "navSlideUp 420ms var(--ease-glass) 80ms both",
-          // Capped blur (was up to 26px; now 14) — heavy backdrop-filter
-          // is the #1 frame-budget killer on Android WebView, and a 14px
-          // glass surface looks identical to a 26px one in motion.
-          backdropFilter: liquidEnabled ? `blur(${Math.min(14, glassBlur)}px) saturate(${glassSaturation})` : "none",
-          WebkitBackdropFilter: liquidEnabled ? `blur(${Math.min(14, glassBlur)}px) saturate(${glassSaturation})` : "none",
+          boxShadow:`0 12px 40px rgba(0,0,0,0.25)`,
+          animation: settings.performanceMode ? "none" : "navSlideUp 250ms ease-out both",
           fontFamily: APPLE_FONTS,
         }}>
           {[
@@ -8676,19 +8633,15 @@ export default function LuminaryPanels() {
                   justifyContent:"center",
                   gap:4,
                   cursor:"pointer",
-                  boxShadow: isActive ? `0 10px 26px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.22)` : "inset 0 1px 0 rgba(255,255,255,0.04)",
-                  transition:`transform 220ms var(--ease-glass), background ${uiTransition}, box-shadow ${uiTransition}, color ${uiTransition}`,
-                  animation: "none",
-                  transform: isActive ? "scale(1.04)" : "scale(1)",
-                  willChange:"transform",
+                  boxShadow: isActive ? `0 6px 20px ${accent}33` : "none",
+                  transition: "all 200ms ease-out",
                 }}>
                 <span style={{
                   display:"inline-flex",
                   alignItems:"center",
                   justifyContent:"center",
-                  transform: isActive ? "scale(1.18) translateY(-1px)" : "scale(1)",
-                  transition: "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-                  filter: isActive ? `drop-shadow(0 0 5px ${accent}99)` : "none",
+                  transform: isActive ? "scale(1.1)" : "scale(1)",
+                  transition: "transform 200ms ease-out",
                 }}>
                   <UiIcon
                     name={t.icon}
@@ -8699,9 +8652,8 @@ export default function LuminaryPanels() {
                 </span>
                 <span style={{
                   fontSize:9.5,
-                  fontWeight: isActive ? 800 : 500,
-                  letterSpacing: isActive ? 0.4 : 0,
-                  transition:"font-weight 200ms ease, letter-spacing 200ms ease",
+                  fontWeight: isActive ? 700 : 500,
+                  transition: "font-weight 150ms ease",
                   fontFamily:"'Sora', sans-serif",
                 }}>{t.label}</span>
               </button>
@@ -8743,17 +8695,13 @@ export default function LuminaryPanels() {
           <div
             style={{
               width:"100%",
+              minHeight:"50vh",
               maxHeight:"100%",
-              overflowY:"auto",
+              overflow:"hidden",
               borderRadius:"32px 32px 0 0",
               background: isDark
-                ? "linear-gradient(155deg, rgba(18,22,38,0.92), rgba(8,12,24,0.86))"
-                : "linear-gradient(155deg, rgba(255,255,255,0.94), rgba(240,248,255,0.86))",
-              // Reduced blur radius (was uiBlurPx+4, capped at 24) and
-              // dropped the saturate filter — both are cheap quality wins
-              // on iOS and big perf wins on Android.
-              backdropFilter: liquidEnabled ? `blur(${Math.min(uiBlurPx + 2, 16)}px)` : "none",
-              WebkitBackdropFilter: liquidEnabled ? `blur(${Math.min(uiBlurPx + 2, 16)}px)` : "none",
+                ? "linear-gradient(155deg, rgba(18,22,38,0.98), rgba(8,12,24,0.96))"
+                : "linear-gradient(155deg, rgba(255,255,255,0.98), rgba(240,248,255,0.96))",
               border:`1px solid ${cardBorder}`,
               borderBottom:"none",
               // Smaller shadow blur radius (80→32) — roughly 6× cheaper to
@@ -8766,15 +8714,11 @@ export default function LuminaryPanels() {
               // global layout/paint pass. Combined with translateZ this
               // gives a noticeable boost on the first open.
               contain: "layout paint",
-              // ── TRUE MORPH: sheet physically emanates from the tapped
-              // bottom-nav tab button ──
               "--mx": `${sheetOrigin.x || window.innerWidth / 2}px`,
               "--my": `${sheetOrigin.y || window.innerHeight}px`,
-              willChange: "clip-path, transform, opacity",
-              transformOrigin: `${sheetOrigin.x || window.innerWidth / 2}px ${sheetOrigin.y || window.innerHeight}px`,
               animation: settings.performanceMode
                 ? "none"
-                : "morphReveal 440ms cubic-bezier(0.34, 1.42, 0.42, 1) both",
+                : "morphReveal 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -9649,9 +9593,7 @@ export default function LuminaryPanels() {
               display:"flex",
               flexDirection:"column",
               borderRadius:28,
-              background: isDark ? "rgba(10,12,24,0.97)" : "rgba(255,255,255,0.97)",
-              backdropFilter: liquidEnabled ? `blur(${Math.max(8, uiBlurPx)}px) saturate(1.18)` : "none",
-              WebkitBackdropFilter: liquidEnabled ? `blur(${Math.max(8, uiBlurPx)}px) saturate(1.18)` : "none",
+              background: isDark ? "rgba(10,12,24,0.99)" : "rgba(255,255,255,0.99)",
               border:`1px solid ${cardBorder}`,
               boxShadow:"0 24px 80px rgba(0,0,0,0.7)",
               animation:"modalContentSpring 380ms var(--ease-spring)",
@@ -9931,9 +9873,7 @@ export default function LuminaryPanels() {
           fontSize:13,
           padding:"12px 18px",
           borderRadius:16,
-          boxShadow:`0 20px 60px rgba(0,0,0,0.4), 0 0 20px ${accent}44`,
-          backdropFilter: liquidEnabled ? "blur(8px) saturate(1.18)" : "none",
-          WebkitBackdropFilter: liquidEnabled ? "blur(8px) saturate(1.18)" : "none",
+          boxShadow:`0 16px 50px rgba(0,0,0,0.35), 0 0 16px ${accent}33`,
         animation: settings.performanceMode ? "none" : "toastPop 260ms var(--ease-ios)",
         }}>
           {saveNotice}
@@ -10022,7 +9962,7 @@ function DimensionInput({ value, min, max, onConfirm, accent, textPrimary, contr
           transition: "transform 180ms var(--ease-spring), background 200ms ease",
         }}
       >
-        ✓
+        ��
       </button>
     </div>
   );
@@ -10036,12 +9976,8 @@ function Card({ label, children, cardBg, cardBorder, textDim, cardShadow, accent
       padding: "17px 18px 18px",
       border: `1px solid ${cardBorder}`,
       boxShadow: cardShadow || "none",
-      animation: "cardFloat 520ms var(--ease-glass)",
-      transition: "border-color 260ms var(--ease-ios), box-shadow 320ms var(--ease-ios), background 260ms var(--ease-ios), transform 260ms var(--ease-ios)",
+      transition: "border-color 200ms ease, box-shadow 200ms ease, background 200ms ease",
       position: "relative",
-      overflow: "hidden",
-      backdropFilter: "blur(26px) saturate(1.65)",
-      WebkitBackdropFilter: "blur(26px) saturate(1.65)",
     }}>
       <div style={{
         position: "absolute",
@@ -10335,9 +10271,7 @@ function ColorField({ value, onChange, alpha = 100, onAlphaChange, textPrimary =
                   background: c,
                   cursor: "pointer",
                   transition: "transform 200ms var(--ease-spring), border-color 180ms ease",
-                  transform: safeHex === c ? "scale(1.1)" : "scale(1)",
-                  animation: `colorSwatchPop 320ms var(--ease-spring) ${idx * 25}ms backwards`,
-                  boxShadow: safeHex === c ? `0 4px 12px ${c}88` : "none",
+                  boxShadow: safeHex === c ? `0 3px 10px ${c}66` : "none",
                 }}
               />
             ))}
