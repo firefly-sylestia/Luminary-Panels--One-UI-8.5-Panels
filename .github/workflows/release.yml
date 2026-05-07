@@ -5,11 +5,6 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version name override (without leading v). Leave empty to use package.json.'
-        required: false
-        default: ''
 
 permissions:
   contents: write
@@ -18,97 +13,29 @@ jobs:
   release-apk:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout (full history so we can push the bump back)
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ──────────────────────────────────────────────────────────────────
-      # 1. Resolve the version NAME (from tag) and the next versionCODE
-      #    (current versionCode in build.gradle + 1).
-      # ──────────────────────────────────────────────────────────────────
-      - name: Resolve versionName + bumped versionCode
+      - name: Resolve release version metadata
         id: meta
         shell: bash
         run: |
-          set -euo pipefail
-          GRADLE=android/app/build.gradle
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
 
-          # — versionName: tag → strip leading 'v'; fall back to manual input;
-          #   final fallback to current package.json so workflow_dispatch
-          #   without inputs still works.
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             APP_TAG="${GITHUB_REF_NAME}"
-            VERSION_NAME="${APP_TAG#v}"
-          elif [[ -n "${{ github.event.inputs.version }}" ]]; then
-            INPUT="${{ github.event.inputs.version }}"
-            VERSION_NAME="${INPUT#v}"
-            APP_TAG="v${VERSION_NAME}"
+            APP_VERSION="${APP_TAG#v}"
+            if [[ "${APP_VERSION}" != "${PACKAGE_VERSION}" ]]; then
+              echo "::warning::Tag/version mismatch: tag=${APP_TAG}, package.json=${PACKAGE_VERSION}. Using tag version for release metadata."
+            fi
           else
-            VERSION_NAME=$(node -p "require('./package.json').version")
-            APP_TAG="v${VERSION_NAME}"
+            APP_VERSION="${PACKAGE_VERSION}"
+            APP_TAG="v${APP_VERSION}"
           fi
 
-          # — versionCode: read current value, +1 (Play Store requires every
-          #   uploaded APK to have a strictly-increasing versionCode).
-          CURRENT_CODE=$(grep -E '^\s*versionCode\s+[0-9]+' "$GRADLE" | head -1 | awk '{print $2}' | tr -d '[:space:]')
-          if [[ -z "${CURRENT_CODE:-}" ]]; then CURRENT_CODE=0; fi
-          NEW_CODE=$((CURRENT_CODE + 1))
-
-          # — File-system-safe asset name (keeps -beta etc. but no spaces).
-          ASSET_VERSION=$(echo "$VERSION_NAME" | tr -d ' ')
-
-          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
-          echo "version_code=${NEW_CODE}"     >> "$GITHUB_OUTPUT"
-          echo "tag=${APP_TAG}"               >> "$GITHUB_OUTPUT"
-          echo "asset=Luminary-Panels-${ASSET_VERSION}-release.apk" >> "$GITHUB_OUTPUT"
-
-          echo "::notice::Resolved versionName=${VERSION_NAME}, versionCode=${NEW_CODE} (was ${CURRENT_CODE}), tag=${APP_TAG}"
-
-      # ──────────────────────────────────────────────────────────────────
-      # 2. Stamp the resolved version into every file that holds a copy.
-      #    Single source of truth for the "where does the version live"
-      #    question lives in this step — update it if you add new files.
-      # ──────────────────────────────────────────────────────────────────
-      - name: Stamp version into all source files
-        env:
-          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
-          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # 1. android/app/build.gradle — versionCode + versionName
-          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" android/app/build.gradle
-          sed -i -E "s/versionName[[:space:]]+\"[^\"]*\"/versionName \"${VERSION_NAME}\"/" android/app/build.gradle
-
-          # 2. package.json
-          node -e "
-            const fs = require('fs');
-            const p = JSON.parse(fs.readFileSync('package.json','utf8'));
-            p.version = process.env.VERSION_NAME;
-            fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n');
-          "
-
-          # 3. capacitor.config.json
-          node -e "
-            const fs = require('fs');
-            const p = JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));
-            p.version = process.env.VERSION_NAME;
-            fs.writeFileSync('capacitor.config.json', JSON.stringify(p, null, 2) + '\n');
-          "
-
-          # 4. src/App.jsx — the __APP_VERSION__ constant the in-app updater
-          #    reads. Use a quoted-string-only regex so we don't accidentally
-          #    rewrite other lines that mention __APP_VERSION__.
-          sed -i -E "s/(const __APP_VERSION__ = )\"[^\"]*\"/\1\"${VERSION_NAME}\"/" src/App.jsx
-
-          echo "── Stamped versions ──"
-          grep -E 'versionCode|versionName' android/app/build.gradle | sed 's/^/  build.gradle: /'
-          echo "  package.json:        $(node -p "require('./package.json').version")"
-          echo "  capacitor.config:    $(node -p "require('./capacitor.config.json').version")"
-          echo "  App.jsx:             $(grep -m1 '__APP_VERSION__' src/App.jsx | sed -E 's/.*= "([^"]*)".*/\1/')"
+          echo "version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${APP_TAG}" >> "$GITHUB_OUTPUT"
+          echo "asset=Luminary-Panels-${APP_VERSION}-release.apk" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -166,75 +93,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
-          name: Luminary Panels v${{ steps.meta.outputs.version_name }}
+          name: Luminary Panels v${{ steps.meta.outputs.version }}
           files: ${{ steps.meta.outputs.asset }}
-          body: |
-            **Luminary Panels v${{ steps.meta.outputs.version_name }}**
-
-            - versionName: `${{ steps.meta.outputs.version_name }}`
-            - versionCode: `${{ steps.meta.outputs.version_code }}`
           generate_release_notes: true
           overwrite_files: true
-
-      # ──────────────────────────────────────────────────────────────────
-      # 3. After a SUCCESSFUL build, commit the bumped version back to
-      #    the default branch so the next release picks up versionCode+1
-      #    and every file in the repo agrees on versionName.
-      #    [skip ci] tag prevents the bump commit from re-triggering CI.
-      # ──────────────────────────────────────────────────────────────────
-      - name: Commit version bump back to default branch
-        if: success()
-        env:
-          VERSION_NAME: ${{ steps.meta.outputs.version_name }}
-          VERSION_CODE: ${{ steps.meta.outputs.version_code }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
-          echo "Default branch: $DEFAULT_BRANCH"
-
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # Move to a clean default-branch checkout — the build runs in a
-          # detached state on the tag, so we re-stamp on top of latest main.
-          git fetch origin "$DEFAULT_BRANCH"
-          git checkout -B "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH"
-
-          # Re-apply the same stamp on the default branch HEAD.
-          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" android/app/build.gradle
-          sed -i -E "s/versionName[[:space:]]+\"[^\"]*\"/versionName \"${VERSION_NAME}\"/" android/app/build.gradle
-          node -e "
-            const fs=require('fs');
-            const p=JSON.parse(fs.readFileSync('package.json','utf8'));
-            p.version=process.env.VERSION_NAME;
-            fs.writeFileSync('package.json', JSON.stringify(p,null,2)+'\n');
-          "
-          node -e "
-            const fs=require('fs');
-            const p=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));
-            p.version=process.env.VERSION_NAME;
-            fs.writeFileSync('capacitor.config.json', JSON.stringify(p,null,2)+'\n');
-          "
-          sed -i -E "s/(const __APP_VERSION__ = )\"[^\"]*\"/\1\"${VERSION_NAME}\"/" src/App.jsx
-
-          if git diff --quiet; then
-            echo "::notice::No version changes to commit (default branch already in sync)."
-            exit 0
-          fi
-
-          git add package.json capacitor.config.json android/app/build.gradle src/App.jsx
-          git commit -m "chore(release): bump to ${VERSION_NAME} (versionCode ${VERSION_CODE}) [skip ci]"
-          # Push with retry: if main moved while we were building, rebase
-          # on top of new main and try again (handles concurrent merges).
-          for i in 1 2 3; do
-            if git push origin "$DEFAULT_BRANCH"; then
-              echo "::notice::Pushed version bump to $DEFAULT_BRANCH"
-              exit 0
-            fi
-            echo "Push rejected, rebasing on latest $DEFAULT_BRANCH (attempt $i)…"
-            git fetch origin "$DEFAULT_BRANCH"
-            git rebase "origin/$DEFAULT_BRANCH" || git rebase --abort
-          done
-          echo "::warning::Could not push version bump after 3 attempts. Tag/release succeeded; repo state may lag."
