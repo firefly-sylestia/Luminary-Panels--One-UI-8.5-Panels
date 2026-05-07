@@ -1755,6 +1755,56 @@ styleEnhance.textContent = `
     from { opacity: 0; transform: translate3d(-50%, 18px, 0) scale(0.94); }
     to   { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
   }
+
+  /* ── Mobile sheet visited-tab pane stack ─────────────────────────────────
+     Without the `data-active="false" → display:none` rule, every visited
+     pane stacks on top of the assets pane (which is the initial visited
+     tab), making non-asset tab taps look like they "always open assets".
+     The .sheet-pane rule also defines overflow-y:auto, so scrolling
+     inside each panel only works once these rules are in place.
+     The directional slide-in (paneEnterRight / paneEnterLeft, set via
+     `data-dir` on the stack) only fires on the pane that becomes active. */
+  @keyframes paneEnterRight {
+    from { opacity: 0; transform: translate3d(20px, 0, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  @keyframes paneEnterLeft {
+    from { opacity: 0; transform: translate3d(-20px, 0, 0); }
+    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  }
+  .sheet-pane-stack {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    contain: layout paint;
+  }
+  .sheet-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 14px 24px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    transform: translate3d(0, 0, 0);
+    will-change: transform, opacity;
+  }
+  .sheet-pane[data-active="false"] { display: none; }
+  .sheet-pane-stack[data-dir="right"] .sheet-pane[data-active="true"] {
+    animation: paneEnterRight 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  .sheet-pane-stack[data-dir="left"] .sheet-pane[data-active="true"] {
+    animation: paneEnterLeft 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+  /* Skip the slide on Android — display:none → flex toggle alone is the
+     smoothest path on the WebView, where small transform animations can
+     stutter while panel content paints for the first time. */
+  html[data-platform="android"] .sheet-pane-stack .sheet-pane[data-active="true"] {
+    animation: none !important;
+  }
+
   @keyframes tabSlideSmooth {
     0% { 
       opacity: 0; 
