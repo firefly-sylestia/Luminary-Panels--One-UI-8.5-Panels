@@ -1757,13 +1757,13 @@ styleEnhance.textContent = `
   }
 
   /* ── Mobile sheet visited-tab pane stack ─────────────────────────────────
-     Without the `data-active="false" → display:none` rule, every visited
+     Without the [data-active="false"] → display:none rule, every visited
      pane stacks on top of the assets pane (which is the initial visited
      tab), making non-asset tab taps look like they "always open assets".
      The .sheet-pane rule also defines overflow-y:auto, so scrolling
      inside each panel only works once these rules are in place.
      The directional slide-in (paneEnterRight / paneEnterLeft, set via
-     `data-dir` on the stack) only fires on the pane that becomes active. */
+     [data-dir] on the stack) only fires on the pane that becomes active. */
   @keyframes paneEnterRight {
     from { opacity: 0; transform: translate3d(20px, 0, 0); }
     to   { opacity: 1; transform: translate3d(0, 0, 0); }
@@ -2602,7 +2602,7 @@ function mediumHaptic(enabled = true) {
   }
 }
 
-// ── Viewport Hook ─────────────────────────────────────────────────────────────
+// ── Viewport Hook ��────────────────────────────────────────────────────────────
 // SSR-safe: when window is undefined (server render or static prerender), we
 // fall back to a sensible desktop default. The first useEffect tick on the
 // client will immediately replace it with the real viewport dimensions.
@@ -3711,7 +3711,7 @@ function SvgAction({ icon, label, tone, size = 15 }) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // iOS Toggle Component — animated icon morph like iOS Privacy Pane
-// ─────────────────────────────────────────────────────────────────────────────
+// ───────────────────────────────���─────────────────────────────────────────────
 function IOSToggle({ checked, onChange, accent = "#4fb3d9", hapticEnabled = true }) {
   const [pressed, setPressed] = useState(false);
 
@@ -10022,7 +10022,7 @@ function DimensionInput({ value, min, max, onConfirm, accent, textPrimary, contr
           transition: "transform 180ms var(--ease-spring), background 200ms ease",
         }}
       >
-        ✓
+        ��
       </button>
     </div>
   );
