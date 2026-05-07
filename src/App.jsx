@@ -1835,24 +1835,20 @@ styleEnhance.textContent = `
     0% {
       opacity: 0;
       clip-path: circle(0% at var(--mx, 50%) var(--my, 100%));
-      transform: scale(0.92);
     }
     100% {
       opacity: 1;
       clip-path: circle(150% at var(--mx, 50%) var(--my, 100%));
-      transform: scale(1);
     }
   }
   @keyframes morphCollapse {
     0% {
       opacity: 1;
       clip-path: circle(150% at var(--mx, 50%) var(--my, 100%));
-      transform: scale(1);
     }
     100% {
       opacity: 0;
       clip-path: circle(0% at var(--mx, 50%) var(--my, 100%));
-      transform: scale(0.95);
     }
   }
   /* Backdrop fade — paired with morphReveal, but completely independent
@@ -8323,15 +8319,21 @@ export default function LuminaryPanels() {
             </div>
 
             {headerExpanded && (
-              <>
-                <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding:"2px 4px"}}>
-                  <h1 className="lum-brand-title" style={{fontSize:14}}>Luminary Panels</h1>
-                  <span style={{fontSize:11, color:textDim}}>
+              <div style={{
+                maxHeight: vp.isMobile ? "28vh" : "none",
+                overflowY: vp.isMobile ? "auto" : "visible",
+                display:"flex",
+                flexDirection:"column",
+                gap:6,
+              }}>
+                <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", gap:6, padding:"0 2px"}}>
+                  <h1 className="lum-brand-title" style={{fontSize:12, margin:0}}>Luminary Panels</h1>
+                  <span style={{fontSize:10, color:textDim}}>
                     {`v${__APP_VERSION__}`}
                   </span>
                 </div>
 
-                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
                   {Object.keys(LAYOUTS).map(k => (
                     <button key={k} className="btn-bouncy" onClick={() => {
                       microHaptic(settings.hapticFeedback);
@@ -8339,9 +8341,9 @@ export default function LuminaryPanels() {
                       const next = getLayoutDefaults(k, pillStyle);
                       pushState({ ...next, font: s.font, fontWeight: s.fontWeight });
                     }} style={{
-                      padding:"7px 12px",
+                      padding:"5px 10px",
                       borderRadius:999,
-                      fontSize:11,
+                      fontSize:10,
                       fontWeight: layoutMode === k ? 700 : 500,
                       border: layoutMode === k ? "none" : `1px solid ${cardBorder}`,
                       background: layoutMode === k ? `linear-gradient(135deg, ${accent}, ${accent2})` : controlBg,
@@ -8350,44 +8352,41 @@ export default function LuminaryPanels() {
                   ))}
                 </div>
 
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, flexWrap:"wrap" }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6, flexWrap:"wrap" }}>
                   <span style={{
                     display:"inline-flex",
                     alignItems:"center",
-                    gap:6,
-                    padding:"7px 11px",
+                    gap:4,
+                    padding:"5px 9px",
                     borderRadius:999,
                     border:`1px solid ${cardBorder}`,
                     background: controlBg,
                     color:textDim,
-                    fontSize:11,
-                    fontWeight:700,
-                    letterSpacing:0.2,
+                    fontSize:9,
+                    fontWeight:600,
                   }}>
-                    120Hz glass motion · auto save {settings.autoSave ? "on" : "off"}
+                    120Hz · auto save {settings.autoSave ? "on" : "off"}
                   </span>
                   <button className="btn-bouncy" onClick={() => setAdvancedSettingsModalOpen(true)}
                     title="Advanced Settings"
                     style={{
-                      padding:"8px 13px",
+                      padding:"5px 10px",
                       borderRadius:999,
-                      fontSize:11,
-                      fontWeight: 700,
+                      fontSize:10,
+                      fontWeight: 600,
                       border: `1px solid ${cardBorder}`,
                       background: `linear-gradient(135deg, ${accent}22, ${accent2}16)`,
                       color: textPrimary,
                       cursor: "pointer",
                       display:"inline-flex",
                       alignItems:"center",
-                      gap: 6,
-                      boxShadow:`0 10px 28px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.14)`,
+                      gap: 4,
                     }}
                   >
-                    <UiIcon name="settings" size={13} color={accent} /> Advanced
+                    <UiIcon name="settings" size={11} color={accent} /> Advanced
                   </button>
                 </div>
-
-              </>
+              </div>
             )}
           </div>
         </header>
@@ -8605,8 +8604,6 @@ export default function LuminaryPanels() {
           borderRadius:30,
           boxShadow:`0 12px 40px rgba(0,0,0,0.25)`,
           animation: settings.performanceMode ? "none" : "navSlideUp 250ms ease-out both",
-          backdropFilter: liquidEnabled ? `blur(12px)` : "none",
-          WebkitBackdropFilter: liquidEnabled ? `blur(12px)` : "none",
           fontFamily: APPLE_FONTS,
         }}>
           {[
@@ -8698,15 +8695,13 @@ export default function LuminaryPanels() {
           <div
             style={{
               width:"100%",
+              minHeight:"50vh",
               maxHeight:"100%",
               overflow:"hidden",
               borderRadius:"32px 32px 0 0",
               background: isDark
-                ? "linear-gradient(155deg, rgba(18,22,38,0.92), rgba(8,12,24,0.86))"
-                : "linear-gradient(155deg, rgba(255,255,255,0.94), rgba(240,248,255,0.86))",
-              // Reduced blur radius for performance - blur is expensive on mobile
-              backdropFilter: liquidEnabled ? "blur(10px)" : "none",
-              WebkitBackdropFilter: liquidEnabled ? "blur(10px)" : "none",
+                ? "linear-gradient(155deg, rgba(18,22,38,0.98), rgba(8,12,24,0.96))"
+                : "linear-gradient(155deg, rgba(255,255,255,0.98), rgba(240,248,255,0.96))",
               border:`1px solid ${cardBorder}`,
               borderBottom:"none",
               // Smaller shadow blur radius (80→32) — roughly 6× cheaper to
