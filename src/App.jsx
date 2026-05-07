@@ -8723,7 +8723,7 @@ export default function LuminaryPanels() {
               "--my": `${sheetOrigin.y || window.innerHeight}px`,
               animation: settings.performanceMode
                 ? "none"
-                : "morphReveal 320ms cubic-bezier(0.32, 0.72, 0, 1) both",
+                : "morphReveal 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -9598,9 +9598,7 @@ export default function LuminaryPanels() {
               display:"flex",
               flexDirection:"column",
               borderRadius:28,
-              background: isDark ? "rgba(10,12,24,0.97)" : "rgba(255,255,255,0.97)",
-              backdropFilter: liquidEnabled ? `blur(${Math.max(8, uiBlurPx)}px) saturate(1.18)` : "none",
-              WebkitBackdropFilter: liquidEnabled ? `blur(${Math.max(8, uiBlurPx)}px) saturate(1.18)` : "none",
+              background: isDark ? "rgba(10,12,24,0.99)" : "rgba(255,255,255,0.99)",
               border:`1px solid ${cardBorder}`,
               boxShadow:"0 24px 80px rgba(0,0,0,0.7)",
               animation:"modalContentSpring 380ms var(--ease-spring)",
@@ -9880,9 +9878,7 @@ export default function LuminaryPanels() {
           fontSize:13,
           padding:"12px 18px",
           borderRadius:16,
-          boxShadow:`0 20px 60px rgba(0,0,0,0.4), 0 0 20px ${accent}44`,
-          backdropFilter: liquidEnabled ? "blur(8px) saturate(1.18)" : "none",
-          WebkitBackdropFilter: liquidEnabled ? "blur(8px) saturate(1.18)" : "none",
+          boxShadow:`0 16px 50px rgba(0,0,0,0.35), 0 0 16px ${accent}33`,
         animation: settings.performanceMode ? "none" : "toastPop 260ms var(--ease-ios)",
         }}>
           {saveNotice}
