@@ -5897,7 +5897,6 @@ export default function LuminaryPanels() {
   const [visitedTabs, setVisitedTabs] = useState(() => ({ [mobileTab]: true }));
   useEffect(() => {
     if (!sheetOpen) return;
-    console.log("[v0] Tab switched to:", mobileTab, "visitedTabs:", visitedTabs);
     setVisitedTabs(prev => prev[mobileTab] ? prev : { ...prev, [mobileTab]: true });
   }, [mobileTab, sheetOpen]);
 
@@ -9934,14 +9933,12 @@ export default function LuminaryPanels() {
         onSkip={() => completeOnboarding(true)}
         onUploadAvatar={() => { try { hubAvFileRef.current?.click(); } catch (_) {} }}
         onOpenStyle={() => {
-          if (vp.isMobile) setMobileTab?.("design");
           if (settingsOpen) closeSettings?.();
         }}
   onOpenAssetHub={() => openAssetHubFromEvent(null, { section: "library", tab: "border" })}
   onOpenAiSettings={() => openAssetHubFromEvent(null, { section: "ai", tab: "ai-border" })}
         onOpenExport={() => {
           if (settingsOpen) closeSettings?.();
-          if (vp.isMobile) setMobileTab?.("export");
         }}
         performanceMode={!!settings.performanceMode}
         accentColor={accent}
