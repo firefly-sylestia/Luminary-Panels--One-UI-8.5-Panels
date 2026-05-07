@@ -1743,17 +1743,16 @@ styleEnhance.textContent = `
     to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   }
   @keyframes iconMorphIn {
-    0% { opacity: 0; transform: scale(0.55) rotate(-18deg); }
-    70% { opacity: 1; transform: scale(1.06) rotate(2deg); }
-    100% { opacity: 1; transform: scale(1) rotate(0); }
+    from { opacity: 0; transform: scale(0.7); }
+    to { opacity: 1; transform: scale(1); }
   }
   @keyframes panelSpringUp {
-    from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.985); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
   @keyframes toastPop {
-    from { opacity: 0; transform: translate3d(-50%, 18px, 0) scale(0.94); }
-    to   { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
   }
 
   /* ── Mobile sheet visited-tab pane stack ─────────────────────────────────
@@ -1765,12 +1764,12 @@ styleEnhance.textContent = `
      The directional slide-in (paneEnterRight / paneEnterLeft, set via
      [data-dir] on the stack) only fires on the pane that becomes active. */
   @keyframes paneEnterRight {
-    from { opacity: 0; transform: translate3d(20px, 0, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+    from { opacity: 0; transform: translateX(16px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes paneEnterLeft {
-    from { opacity: 0; transform: translate3d(-20px, 0, 0); }
-    to   { opacity: 1; transform: translate3d(0, 0, 0); }
+    from { opacity: 0; transform: translateX(-16px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
   .sheet-pane-stack {
     flex: 1;
@@ -1786,57 +1785,38 @@ styleEnhance.textContent = `
     gap: 14px;
     padding: 16px 14px 24px;
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    transform: translate3d(0, 0, 0);
-    will-change: transform, opacity;
+    overscroll-behavior-y: contain;
+    min-height: 0;
   }
   .sheet-pane[data-active="false"] { display: none; }
-  .sheet-pane-stack[data-dir="right"] .sheet-pane[data-active="true"] {
-    animation: paneEnterRight 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  .sheet-pane-stack[data-dir="left"] .sheet-pane[data-active="true"] {
-    animation: paneEnterLeft 220ms cubic-bezier(0.32, 0.72, 0, 1) both;
-  }
-  /* Skip the slide on Android — display:none → flex toggle alone is the
-     smoothest path on the WebView, where small transform animations can
-     stutter while panel content paints for the first time. */
-  html[data-platform="android"] .sheet-pane-stack .sheet-pane[data-active="true"] {
-    animation: none !important;
+  .sheet-pane[data-active="true"] {
+    animation: none;
   }
 
   @keyframes tabSlideSmooth {
-    0% { 
+    from { 
       opacity: 0; 
-      transform: translate3d(var(--slide-from, 18px), 8px, 0) scale(0.94); 
+      transform: translateY(6px); 
     }
-    60% {
-      opacity: 1;
-    }
-    75% { 
-      transform: translate3d(calc(var(--slide-from, 18px) * -0.1), -3px, 0) scale(1.012); 
-    }
-    100% { 
+    to { 
       opacity: 1; 
-      transform: translate3d(0, 0, 0) scale(1); 
+      transform: translateY(0); 
     }
   }
   @keyframes tabPillIndicator {
-    0% {
-      transform: scaleX(0.7) scaleY(0.85);
+    from {
+      transform: scale(0.9);
       opacity: 0;
     }
-    60% {
-      transform: scaleX(1.06) scaleY(1.02);
-      opacity: 1;
-    }
-    100% {
-      transform: scaleX(1) scaleY(1);
+    to {
+      transform: scale(1);
       opacity: 1;
     }
   }
-  @keyframes fadeIn { from { opacity: 0; transform: translate3d(0, 6px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
-  @keyframes fadeSlideUp { from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.988); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes fadeInSmooth { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideDown { from { opacity: 0; transform: translate3d(0, -8px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
   @keyframes slideUp { from { opacity: 0; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
@@ -1850,35 +1830,21 @@ styleEnhance.textContent = `
   @keyframes morphReveal {
     0% {
       opacity: 0;
-      clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
-      -webkit-clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
-      transform: scale(0.86) translate3d(0, 0, 0);
-    }
-    35% {
-      opacity: 1;
-    }
-    70% {
-      transform: scale(1.012) translate3d(0, 0, 0);
+      transform: translateY(40px) scale(0.95);
     }
     100% {
       opacity: 1;
-      clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
-      -webkit-clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
-      transform: scale(1) translate3d(0, 0, 0);
+      transform: translateY(0) scale(1);
     }
   }
   @keyframes morphCollapse {
     0% {
       opacity: 1;
-      clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
-      -webkit-clip-path: circle(220% at var(--mx, 50%) var(--my, 100%));
-      transform: scale(1) translate3d(0, 0, 0);
+      transform: translateY(0) scale(1);
     }
     100% {
       opacity: 0;
-      clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
-      -webkit-clip-path: circle(0px at var(--mx, 50%) var(--my, 100%));
-      transform: scale(0.92) translate3d(0, 0, 0);
+      transform: translateY(30px) scale(0.96);
     }
   }
   /* Backdrop fade — paired with morphReveal, but completely independent
@@ -1892,21 +1858,18 @@ styleEnhance.textContent = `
     to   { opacity: 0; }
   }
 
-  /* Header / nav / toolbar entrances — blur filter removed (was the
-     #1 frame-budget killer on Android). Pure transform+opacity is
-     ~10× cheaper and visually indistinguishable. */
-  @keyframes headerSlideDown { 
-    0% { opacity: 0; transform: translate3d(0, -16px, 0) scale(0.97); } 
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
+  /* Header / nav / toolbar entrances — simplified for performance */
+  @keyframes headerSlideDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  @keyframes navSlideUp { 
-    0% { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.94); } 
-    70% { transform: translate3d(0, -3px, 0) scale(1.015); }
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
+  @keyframes navSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  @keyframes toolSlideUp { 
-    0% { opacity: 0; transform: translate3d(0, 20px, 0) scale(0.96); } 
-    100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } 
+  @keyframes toolSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   @keyframes bouncySlideDown { from { opacity: 0; transform: translate3d(0, -10px, 0) scale(0.992); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
   /* Modal entrance: pure transform+opacity. backdrop-filter on a keyframe
@@ -2602,7 +2565,7 @@ function mediumHaptic(enabled = true) {
   }
 }
 
-// ── Viewport Hook ��────────────────────────────────────────────────────────────
+// ── Viewport Hook ���────────────────────────────────────────────────────────────
 // SSR-safe: when window is undefined (server render or static prerender), we
 // fall back to a sensible desktop default. The first useEffect tick on the
 // client will immediately replace it with the real viewport dimensions.
@@ -3711,7 +3674,7 @@ function SvgAction({ icon, label, tone, size = 15 }) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 // iOS Toggle Component — animated icon morph like iOS Privacy Pane
-// ───────────────────────────────���─────────────────────────────────────────────
+// ──────────────────────────────������─────────────────────────────────────────────
 function IOSToggle({ checked, onChange, accent = "#4fb3d9", hapticEnabled = true }) {
   const [pressed, setPressed] = useState(false);
 
@@ -8631,8 +8594,8 @@ export default function LuminaryPanels() {
           left:12,
           right:12,
           background: isDark
-            ? "linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.065))"
-            : "linear-gradient(145deg, rgba(255,255,255,0.78), rgba(255,255,255,0.48))",
+            ? "linear-gradient(145deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))"
+            : "linear-gradient(145deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65))",
           border:`1px solid ${cardBorder}`,
           display:"flex",
           flexDirection:"row",
@@ -8640,13 +8603,10 @@ export default function LuminaryPanels() {
           gap:6,
           zIndex:9999,
           borderRadius:30,
-          boxShadow:`0 18px 58px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.24)`,
-          animation: settings.performanceMode ? "none" : "navSlideUp 420ms var(--ease-glass) 80ms both",
-          // Capped blur (was up to 26px; now 14) — heavy backdrop-filter
-          // is the #1 frame-budget killer on Android WebView, and a 14px
-          // glass surface looks identical to a 26px one in motion.
-          backdropFilter: liquidEnabled ? `blur(${Math.min(14, glassBlur)}px) saturate(${glassSaturation})` : "none",
-          WebkitBackdropFilter: liquidEnabled ? `blur(${Math.min(14, glassBlur)}px) saturate(${glassSaturation})` : "none",
+          boxShadow:`0 12px 40px rgba(0,0,0,0.25)`,
+          animation: settings.performanceMode ? "none" : "navSlideUp 250ms ease-out both",
+          backdropFilter: liquidEnabled ? `blur(12px)` : "none",
+          WebkitBackdropFilter: liquidEnabled ? `blur(12px)` : "none",
           fontFamily: APPLE_FONTS,
         }}>
           {[
@@ -8676,19 +8636,15 @@ export default function LuminaryPanels() {
                   justifyContent:"center",
                   gap:4,
                   cursor:"pointer",
-                  boxShadow: isActive ? `0 10px 26px ${accent}44, inset 0 1px 0 rgba(255,255,255,0.22)` : "inset 0 1px 0 rgba(255,255,255,0.04)",
-                  transition:`transform 220ms var(--ease-glass), background ${uiTransition}, box-shadow ${uiTransition}, color ${uiTransition}`,
-                  animation: "none",
-                  transform: isActive ? "scale(1.04)" : "scale(1)",
-                  willChange:"transform",
+                  boxShadow: isActive ? `0 6px 20px ${accent}33` : "none",
+                  transition: "all 200ms ease-out",
                 }}>
                 <span style={{
                   display:"inline-flex",
                   alignItems:"center",
                   justifyContent:"center",
-                  transform: isActive ? "scale(1.18) translateY(-1px)" : "scale(1)",
-                  transition: "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-                  filter: isActive ? `drop-shadow(0 0 5px ${accent}99)` : "none",
+                  transform: isActive ? "scale(1.1)" : "scale(1)",
+                  transition: "transform 200ms ease-out",
                 }}>
                   <UiIcon
                     name={t.icon}
@@ -8699,9 +8655,8 @@ export default function LuminaryPanels() {
                 </span>
                 <span style={{
                   fontSize:9.5,
-                  fontWeight: isActive ? 800 : 500,
-                  letterSpacing: isActive ? 0.4 : 0,
-                  transition:"font-weight 200ms ease, letter-spacing 200ms ease",
+                  fontWeight: isActive ? 700 : 500,
+                  transition: "font-weight 150ms ease",
                   fontFamily:"'Sora', sans-serif",
                 }}>{t.label}</span>
               </button>
@@ -8744,7 +8699,7 @@ export default function LuminaryPanels() {
             style={{
               width:"100%",
               maxHeight:"100%",
-              overflowY:"auto",
+              overflow:"hidden",
               borderRadius:"32px 32px 0 0",
               background: isDark
                 ? "linear-gradient(155deg, rgba(18,22,38,0.92), rgba(8,12,24,0.86))"
@@ -8766,15 +8721,9 @@ export default function LuminaryPanels() {
               // global layout/paint pass. Combined with translateZ this
               // gives a noticeable boost on the first open.
               contain: "layout paint",
-              // ── TRUE MORPH: sheet physically emanates from the tapped
-              // bottom-nav tab button ──
-              "--mx": `${sheetOrigin.x || window.innerWidth / 2}px`,
-              "--my": `${sheetOrigin.y || window.innerHeight}px`,
-              willChange: "clip-path, transform, opacity",
-              transformOrigin: `${sheetOrigin.x || window.innerWidth / 2}px ${sheetOrigin.y || window.innerHeight}px`,
               animation: settings.performanceMode
                 ? "none"
-                : "morphReveal 440ms cubic-bezier(0.34, 1.42, 0.42, 1) both",
+                : "morphReveal 280ms cubic-bezier(0.22, 1, 0.36, 1) both",
             }}
             onClick={(e) => e.stopPropagation()}
           >
