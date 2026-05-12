@@ -1,4 +1,4 @@
-package com.luminarypanels.ui;
+package com.mcuviewingorder.app;
 
 import android.graphics.Color;
 import android.os.Bundle;

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Luminary Panels</string>
-    <string name="title_activity_main">Luminary Panels</string>
-    <string name="package_name">com.luminarypanels.ui</string>
-    <string name="custom_url_scheme">com.luminarypanels.ui</string>
+    <string name="app_name">MCU Viewing Order</string>
+    <string name="title_activity_main">MCU Viewing Order</string>
+    <string name="package_name">com.mcuviewingorder.app</string>
+    <string name="custom_url_scheme">com.mcuviewingorder.app</string>
 </resources>

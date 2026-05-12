@@ -1,70 +1,58 @@
-# ✨ Luminary Panels
+# MCU Viewing Order
 
-A modern, aesthetic UI panel generator designed to create beautiful pill-style components, avatars, and stylized layouts with ease.
+A clean, modern Marvel Cinematic Universe (MCU) viewing-order tracker.
+Browse all films, series, and shorts across Phases 1–6 in the proper
+chronological watch order, mark what you have seen, filter by type or
+essential/optional, and keep your progress saved locally.
 
-Built for creators who care about **visual elegance, customization, and clean design systems**.
-
----
-
-## 🌙 Overview
-
-Luminary Panels is a design tool that allows users to generate visually rich UI elements such as:
-
-- Pill-style banners
-- Circular avatar panels
-- Stylized cards and layouts
-- Glassmorphism-inspired UI components
-
-The app focuses on combining **simplicity + aesthetic control**, making it easy to create polished visuals without complex design tools.
+The app ships as both a web app (Vite + React) and a native Android app
+(Capacitor).
 
 ---
 
-## ✨ Features
+## Features
 
-- 🎨 Multiple styles  
-  - Glass  
-  - Cute  
-  - Material  
-
-- 🧩 Component Types  
-  - Standard Pill  
-  - Quick Pill  
-  - Circle Toggle  
-  - Vertical Card  
-  - Square Post  
-
-- 🖼️ Image Integration  
-  - Avatar cropping  
-  - Background blending  
-  - Soft blur effects  
-
-- 🔤 Typography Controls  
-  - Custom text input  
-  - Google Fonts support  
-  - Multiple font styles  
-
-- 📐 Layout Customization  
-  - Width & height control  
-  - Corner radius adjustment  
-  - Precise geometry tuning  
-
-- ✨ Overlays & Decorations  
-  - Emojis and icons  
-  - Visual embellishments  
-
-- ⚡ Utility Actions  
-  - Undo / Redo  
-  - Reset  
-  - Save & Share  
+- Complete chronological viewing order across MCU Phases 1–6
+- Filter by film, series, or short
+- Filter to essentials only or already-watched only
+- Search by title or prerequisite
+- Sort chronological, by year, or alphabetical
+- Per-phase progress bars and overall completion percentage
+- Progress saved automatically to local storage
+- Premium dark UI with smooth, GPU-accelerated animations
+- Native Android build via Capacitor
 
 ---
 
-## 🧠 Design Philosophy
+## Development
 
-Luminary Panels is built on three core ideas:
+```bash
+npm install
+npm run dev
+```
 
-- **Elegance over clutter**  
-- **Control without complexity**  
-- **Aesthetic consistency**
+## Build the web bundle
 
-Every element is designed to feel smooth, modern, and visually balanced.
+```bash
+npm run build
+```
+
+## Build the Android APK
+
+```bash
+npm run build
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+The signed release variant uses `build-release.sh`.
+
+---
+
+## App identity
+
+| Field          | Value                          |
+| -------------- | ------------------------------ |
+| App name       | MCU Viewing Order              |
+| Package / appId| `com.mcuviewingorder.app`      |
+| Web title      | MCU Viewing Order              |
