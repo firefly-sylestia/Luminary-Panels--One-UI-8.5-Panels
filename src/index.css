@@ -472,3 +472,52 @@ a:hover {
   background: radial-gradient(circle, var(--accent-glow-2), transparent 60%);
   animation-delay: -10s;
 }
+
+/* ===== MCU Viewing Order Inspired Modernization Override ===== */
+:root {
+  --bg-0: #0b0f16;
+  --bg-1: #121826;
+  --bg-2: #1a2336;
+  --surface: color-mix(in oklab, var(--bg-1) 84%, white 16%);
+  --surface-2: color-mix(in oklab, var(--bg-2) 88%, white 12%);
+  --text-0: #eef3ff;
+  --text-1: #c3cfec;
+  --text-2: #8d9abb;
+  --brand: #62a9ff;
+  --brand-2: #9b74ff;
+  --ok: #51d4a6;
+  --danger: #ff7d8b;
+  --border-0: rgba(255,255,255,.12);
+  --border-1: rgba(255,255,255,.2);
+  --ring: 0 0 0 3px color-mix(in oklab, var(--brand) 35%, transparent);
+  --shadow-1: 0 8px 30px rgba(0,0,0,.28);
+  --shadow-2: 0 20px 46px rgba(0,0,0,.4);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-0: #f4f7ff;
+    --bg-1: #ffffff;
+    --bg-2: #eef3ff;
+    --surface: #ffffff;
+    --surface-2: #f6f9ff;
+    --text-0: #141a2b;
+    --text-1: #2f3d61;
+    --text-2: #5f6d93;
+    --brand: #356dff;
+    --brand-2: #7648ff;
+    --border-0: rgba(15,31,66,.12);
+    --border-1: rgba(15,31,66,.22);
+    --shadow-1: 0 8px 22px rgba(31,52,94,.12);
+    --shadow-2: 0 18px 34px rgba(31,52,94,.16);
+    color-scheme: light;
+  }
+}
+
+html, body, #root { background: linear-gradient(160deg, var(--bg-0), var(--bg-2)); color: var(--text-0); }
+
+* { scrollbar-width: thin; scrollbar-color: color-mix(in oklab, var(--brand) 45%, transparent) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--brand) 48%, transparent); border-radius: 999px; }
+*::-webkit-scrollbar-track { background: transparent; }
