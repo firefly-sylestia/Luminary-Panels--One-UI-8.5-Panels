@@ -402,3 +402,104 @@ code {
     color: var(--text);
   }
 }
+
+/* ===== 2026 Full UI Language Redesign (structure preserved) ===== */
+.app-container,
+.theme-liquid-transition {
+  background:
+    radial-gradient(1200px 520px at 8% -10%, color-mix(in oklab, var(--brand) 22%, transparent), transparent 60%),
+    radial-gradient(900px 420px at 100% 0%, color-mix(in oklab, var(--brand-2) 22%, transparent), transparent 65%),
+    linear-gradient(165deg, var(--bg-0), var(--bg-2));
+}
+
+.liquid-surface,
+.premium-loader-card,
+.asset-hub-panel,
+.onboarding-sheet,
+.sheet-pane,
+.morph-tile {
+  border: 1px solid var(--border-0) !important;
+  background: color-mix(in oklab, var(--surface) 92%, transparent) !important;
+  box-shadow: var(--shadow-1);
+  border-radius: 20px !important;
+  transition: transform .22s ease, box-shadow .25s ease, border-color .2s ease, background-color .2s ease;
+}
+
+.morph-tile:hover,
+.asset-hub-panel:hover,
+.liquid-surface:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-1) !important;
+  box-shadow: var(--shadow-2);
+}
+
+.btn-bouncy,
+.liquid-action-chip,
+.onboarding-primary,
+.onboarding-secondary {
+  border-radius: 14px !important;
+  border: 1px solid var(--border-0) !important;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--surface-2) 88%, white 12%), var(--surface)) !important;
+  color: var(--text-0) !important;
+  transition: transform .14s ease, box-shadow .2s ease, border-color .2s ease, filter .2s ease;
+}
+
+.btn-bouncy:hover,
+.liquid-action-chip:hover,
+.onboarding-primary:hover,
+.onboarding-secondary:hover { transform: translateY(-1px); border-color: var(--border-1) !important; }
+.btn-bouncy:active,
+.liquid-action-chip:active,
+.onboarding-primary:active,
+.onboarding-secondary:active { transform: translateY(0) scale(.98); }
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.ios-slider {
+  accent-color: var(--brand);
+  height: 4px;
+}
+
+.ios-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--brand) 28%, var(--surface-2));
+}
+
+.ios-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  margin-top: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-0);
+  border: 2px solid var(--brand);
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+
+.premium-loader-bg,
+.onboarding-backdrop {
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  background: color-mix(in oklab, var(--bg-0) 70%, transparent);
+}
+
+.sheet-pane-stack { gap: 12px; }
+.sheet-pane[data-active="false"] { opacity: .65; filter: saturate(.86); }
+
+.lum-brand-title {
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: 0ms !important; }
+}
