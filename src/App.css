@@ -201,3 +201,39 @@ h2 {
     border-radius: 24px;
   }
 }
+
+.output-text {
+  width: 100%;
+  min-height: 170px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid rgba(136, 240, 255, 0.22);
+  border-radius: 16px;
+  color: rgba(247, 251, 255, 0.9);
+  background: rgba(3, 7, 18, 0.72);
+  font: 0.84rem/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.actions button {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 18px;
+  color: #06101b;
+  background: linear-gradient(135deg, #88f0ff, #b69cff);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.actions span {
+  color: rgba(232, 240, 255, 0.68);
+  font-size: 0.9rem;
+}
