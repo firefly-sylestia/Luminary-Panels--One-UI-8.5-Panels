@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 const TIMESTAMP_PATTERN = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g
-const WORD_PATTERN = /[\p{L}\p{N}'’.-]+|[^\s]/gu
-const MIN_WORD_DURATION = 0.12
-const MAX_WORD_DURATION = 0.95
+const WORD_PATTERN = /[\p{L}\p{N}]+(?:[\p{L}\p{N}'’.-]*[\p{L}\p{N}])?[!?.,;:…)]*|[(]+[\p{L}\p{N}]+(?:[\p{L}\p{N}'’.-]*[\p{L}\p{N}])?[!?.,;:…)]*/gu
+const ANGLE_TIMESTAMP_PATTERN = /<\d{1,2}:\d{2}(?:[.:]\d{1,3})?>/g
+const MIN_WORD_GAP = 0.045
+const MAX_WORD_GAP = 1.2
 
 function timestampToSeconds(minutes, seconds, fraction = '0') {
   const paddedFraction = fraction.padEnd(3, '0').slice(0, 3)
@@ -23,12 +24,12 @@ function formatLrcTime(totalSeconds) {
   const safeSeconds = Math.max(0, totalSeconds || 0)
   const minutes = Math.floor(safeSeconds / 60)
   const seconds = Math.floor(safeSeconds % 60)
-  const centiseconds = Math.round((safeSeconds % 1) * 100)
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`
+  const milliseconds = Math.round((safeSeconds % 1) * 1000)
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`
 }
 
 function parseWords(text) {
-  return text.match(WORD_PATTERN) ?? []
+  return (text.match(WORD_PATTERN) ?? []).filter((word) => /[\p{L}\p{N}]/u.test(word))
 }
 
 function parseTimedLyrics(rawLyrics) {
@@ -38,7 +39,7 @@ function parseTimedLyrics(rawLyrics) {
     .split(/\r?\n/)
     .flatMap((line) => {
       const timestamps = [...line.matchAll(TIMESTAMP_PATTERN)]
-      const text = line.replace(TIMESTAMP_PATTERN, '').trim()
+      const text = line.replace(TIMESTAMP_PATTERN, '').replace(ANGLE_TIMESTAMP_PATTERN, '').trim()
       if (!timestamps.length || !text) return []
 
       return timestamps.map((match) => ({
@@ -60,33 +61,53 @@ function wordWeight(word) {
 function buildWordSync(lines, duration, vocalCues = []) {
   return lines.flatMap((line, lineIndex) => {
     const nextTime = lines[lineIndex + 1]?.time ?? Math.max(duration || line.time + 4, line.time + 4)
-    const lineEnd = Math.max(line.time + 0.8, nextTime - 0.04)
-    const cues = vocalCues.filter((cue) => cue.time >= line.time - 0.08 && cue.time <= lineEnd + 0.08)
-    const weights = line.words.map(wordWeight)
+    const lineEnd = Math.max(line.time + 0.35, nextTime - 0.035)
+    const words = line.words
+    const cues = vocalCues.filter((cue) => cue.time >= line.time - 0.1 && cue.time <= lineEnd + 0.1)
+    const weights = words.map(wordWeight)
     const totalWeight = weights.reduce((sum, value) => sum + value, 0) || 1
-    const availableTime = Math.max(0.8, lineEnd - line.time)
+    const availableTime = Math.max(MIN_WORD_GAP * Math.max(1, words.length), lineEnd - line.time)
     let cursor = line.time
 
-    return line.words.map((word, wordIndex) => {
-      const weightedStart = cursor
-      const weightedLength = Math.min(MAX_WORD_DURATION, Math.max(MIN_WORD_DURATION, availableTime * (weights[wordIndex] / totalWeight)))
-      const cue = cues.length ? cues.reduce((closest, next) => {
-        const target = line.time + (availableTime * wordIndex) / Math.max(1, line.words.length - 1)
-        return Math.abs(next.time - target) < Math.abs(closest.time - target) ? next : closest
-      }, cues[0]) : null
-      const vocalPull = cue ? Math.min(0.16, Math.max(-0.16, cue.time - weightedStart)) : 0
-      const start = Math.max(line.time, weightedStart + vocalPull * 0.45)
-      const end = Math.min(lineEnd, Math.max(start + MIN_WORD_DURATION, start + weightedLength))
-      cursor = end
-      const confidence = Math.round(Math.min(98, Math.max(78, 86 + (cue?.strength ?? 0) * 12 + (cues.length ? 4 : 0))))
+    const items = words.map((word, wordIndex) => {
+      const proportionalTarget = line.time + (availableTime * weights.slice(0, wordIndex).reduce((sum, value) => sum + value, 0)) / totalWeight
+      const evenTarget = line.time + (availableTime * wordIndex) / Math.max(1, words.length)
+      const target = proportionalTarget * 0.7 + evenTarget * 0.3
+      const cue = cues.length ? cues.reduce((closest, next) => Math.abs(next.time - target) < Math.abs(closest.time - target) ? next : closest, cues[0]) : null
+      const cueWindow = Math.max(0.09, Math.min(0.42, availableTime / Math.max(4, words.length)))
+      const cuePull = cue && Math.abs(cue.time - target) <= cueWindow ? (cue.time - target) * 0.62 : 0
+      const start = Math.max(cursor, Math.min(lineEnd - MIN_WORD_GAP, target + cuePull))
+      const confidence = Math.round(Math.min(99, Math.max(80, 88 + (cue?.strength ?? 0) * 10 + (cues.length ? 3 : 0))))
+      cursor = Math.min(lineEnd, start + Math.min(MAX_WORD_GAP, Math.max(MIN_WORD_GAP, availableTime * (weights[wordIndex] / totalWeight) * 0.72)))
 
-      return { word, line: line.text, start, end, confidence }
+      return { word, line: line.text, lineStart: line.time, lineEnd, start, confidence }
     })
+
+    return items.map((item, index) => ({
+      ...item,
+      end: items[index + 1]?.start ?? lineEnd,
+      isLineStart: index === 0,
+      isLineEnd: index === items.length - 1,
+    }))
   })
 }
 
 function exportEnhancedLrc(wordSync) {
-  return wordSync.map((item) => `[${formatLrcTime(item.start)}]<${formatLrcTime(item.start)}>${item.word}<${formatLrcTime(item.end)}>`).join('\n')
+  const lines = []
+  let currentLine = []
+
+  wordSync.forEach((item) => {
+    if (item.isLineStart && currentLine.length) {
+      lines.push(currentLine.join(' ').replace('] <', ']<'))
+      currentLine = []
+    }
+
+    if (item.isLineStart) currentLine.push(`[${formatLrcTime(item.lineStart)}]`)
+    currentLine.push(`<${formatLrcTime(item.start)}>${item.word}${item.isLineEnd ? `<${formatLrcTime(item.lineEnd)}>` : ''}`)
+  })
+
+  if (currentLine.length) lines.push(currentLine.join(' ').replace('] <', ']<'))
+  return lines.join('\n')
 }
 
 async function analyzeAudioForVocalCues(file) {
@@ -175,6 +196,16 @@ function App() {
     setSaveStatus('')
   }
 
+  const copyOutput = async () => {
+    if (!outputText) return
+    if (!navigator.clipboard) {
+      setSaveStatus('Clipboard is unavailable in this browser. Select the output text and copy it manually.')
+      return
+    }
+    await navigator.clipboard.writeText(outputText)
+    setSaveStatus('Copied enhanced synced lyrics to clipboard.')
+  }
+
   const saveOutput = async () => {
     if (!outputText) return
     const suggestedName = lyricsFile?.name?.replace(/\.(lrc|txt)$/i, '.word-sync.lrc') || 'word-sync.lrc'
@@ -208,11 +239,11 @@ function App() {
           <label className="upload-box"><span className="upload-icon">[00:00]</span><span className="upload-title">Upload lyrics</span><span className="upload-copy">LRC or TXT with line timestamps</span><input type="file" accept=".lrc,.txt,text/plain" onChange={(event) => handleLyricsUpload(event.target.files?.[0])} /></label>
         </div>
 
-        <div className="status-panel"><div><strong>{song ? song.name : 'No song selected'}</strong><span>{song ? `${(song.size / 1024 / 1024).toFixed(2)} MB ready for vocal analysis` : 'Choose an audio file to begin.'}</span></div><div><strong>{lyricsFile ? lyricsFile.name : 'No lyrics selected'}</strong><span>{timedLines.length ? `${timedLines.length} timestamped lyric lines found` : 'Upload timed lyrics in [mm:ss.xx] format.'}</span></div><div><strong>Separation model</strong><span>{analysisStatus}</span></div><div><strong>Write permission</strong><span>Export uses the system save picker where available, allowing overwrite of the synced lyrics file you choose.</span></div></div>
+        <div className="status-panel"><div><strong>{song ? song.name : 'No song selected'}</strong><span>{song ? `${(song.size / 1024 / 1024).toFixed(2)} MB ready for vocal analysis` : 'Choose an audio file to begin.'}</span></div><div><strong>{lyricsFile ? lyricsFile.name : 'No lyrics selected'}</strong><span>{timedLines.length ? `${timedLines.length} timestamped lyric lines found` : 'Upload timed lyrics in [mm:ss.xx] format.'}</span></div><div><strong>Separation model</strong><span>{analysisStatus}</span></div><div><strong>Write permission</strong><span>Export uses the browser save picker when available. Android builds declare media/storage access and can also copy the result before saving.</span></div></div>
 
         {song && <audio className="audio-preview" controls src={audioUrl} onLoadedMetadata={(event) => setDuration(event.currentTarget.duration)} />}
 
-        <section className="result-panel" aria-live="polite"><div className="result-header"><div><p className="eyebrow">Sync output</p><h2>{isReady ? 'Word timing preview' : 'Waiting for both uploads'}</h2></div><span className={isReady ? 'pill active' : 'pill'}>{isReady ? 'Ready' : 'Pending'}</span></div>{isReady ? (<><div className="word-list">{wordSync.slice(0, 80).map((item, index) => (<span className="word-chip" key={`${item.word}-${item.start}-${index}`} title={item.line}><b>{item.word}</b><small>{formatTime(item.start)} · {item.confidence}%</small></span>))}</div><textarea className="output-text" readOnly value={outputText} aria-label="Enhanced synced lyrics output" /><div className="actions"><button type="button" onClick={saveOutput}>Overwrite / save synced lyrics</button><span>{saveStatus}</span></div></>) : (<p className="empty-state">Add an audio file and timestamped lyrics to generate a work-ready word sync timeline.</p>)}</section>
+        <section className="result-panel" aria-live="polite"><div className="result-header"><div><p className="eyebrow">Sync output</p><h2>{isReady ? 'Word timing preview' : 'Waiting for both uploads'}</h2></div><span className={isReady ? 'pill active' : 'pill'}>{isReady ? 'Ready' : 'Pending'}</span></div>{isReady ? (<><div className="word-list">{wordSync.slice(0, 80).map((item, index) => (<span className="word-chip" key={`${item.word}-${item.start}-${index}`} title={item.line}><b>{item.word}</b><small>{formatTime(item.start)} · {item.confidence}%</small></span>))}</div><textarea className="output-text" readOnly value={outputText} aria-label="Enhanced synced lyrics output" /><div className="actions"><button type="button" onClick={copyOutput}>Copy synced lyrics</button><button type="button" onClick={saveOutput}>Overwrite / save synced lyrics</button><span>{saveStatus}</span></div></>) : (<p className="empty-state">Add an audio file and timestamped lyrics to generate a work-ready word sync timeline.</p>)}</section>
       </section>
     </main>
   )
