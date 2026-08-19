@@ -4,6 +4,8 @@ import './App.css'
 const TIMESTAMP_PATTERN = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g
 const WORD_PATTERN = /[\p{L}\p{N}]+(?:[\p{L}\p{N}'’.-]*[\p{L}\p{N}])?[!?.,;:…)]*|[(]+[\p{L}\p{N}]+(?:[\p{L}\p{N}'’.-]*[\p{L}\p{N}])?[!?.,;:…)]*/gu
 const ANGLE_TIMESTAMP_PATTERN = /<\d{1,2}:\d{2}(?:[.:]\d{1,3})?>/g
+const ANGLE_TIMESTAMP_CAPTURE_PATTERN = /<(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?>/g
+const BACKGROUND_LINE_PATTERN = /^\s*\[bg:\s*(.*?)\]\s*$/i
 const MIN_WORD_GAP = 0.045
 const MAX_WORD_GAP = 1.2
 
@@ -37,19 +39,25 @@ function parseTimedLyrics(rawLyrics) {
 
   return rawLyrics
     .split(/\r?\n/)
-    .flatMap((line) => {
-      const timestamps = [...line.matchAll(TIMESTAMP_PATTERN)]
-      const text = line.replace(TIMESTAMP_PATTERN, '').replace(ANGLE_TIMESTAMP_PATTERN, '').trim()
-      if (!timestamps.length || !text) return []
+    .map((line, order) => {
+      const backgroundMatch = line.match(BACKGROUND_LINE_PATTERN)
+      const source = backgroundMatch ? backgroundMatch[1] : line
+      const lineTimestamp = [...source.matchAll(TIMESTAMP_PATTERN)][0]
+      const firstWordTimestamp = [...source.matchAll(ANGLE_TIMESTAMP_CAPTURE_PATTERN)][0]
+      const anchor = lineTimestamp ?? firstWordTimestamp
+      const text = source.replace(TIMESTAMP_PATTERN, '').replace(ANGLE_TIMESTAMP_PATTERN, '').trim()
+      if (!anchor || !text) return null
 
-      return timestamps.map((match) => ({
-        time: timestampToSeconds(match[1], match[2], match[3]),
+      return {
+        time: timestampToSeconds(anchor[1], anchor[2], anchor[3]),
+        order,
         text,
         words: parseWords(text),
-      }))
+        isBackground: Boolean(backgroundMatch),
+      }
     })
-    .filter((line) => line.words.length)
-    .sort((a, b) => a.time - b.time)
+    .filter((line) => line?.words.length)
+    .sort((a, b) => a.time - b.time || a.order - b.order)
 }
 
 function wordWeight(word) {
@@ -80,7 +88,7 @@ function buildWordSync(lines, duration, vocalCues = []) {
       const confidence = Math.round(Math.min(99, Math.max(80, 88 + (cue?.strength ?? 0) * 10 + (cues.length ? 3 : 0))))
       cursor = Math.min(lineEnd, start + Math.min(MAX_WORD_GAP, Math.max(MIN_WORD_GAP, availableTime * (weights[wordIndex] / totalWeight) * 0.72)))
 
-      return { word, line: line.text, lineStart: line.time, lineEnd, start, confidence }
+      return { word, line: line.text, lineStart: line.time, lineEnd, start, confidence, isBackground: line.isBackground }
     })
 
     return items.map((item, index) => ({
@@ -98,15 +106,16 @@ function exportEnhancedLrc(wordSync) {
 
   wordSync.forEach((item) => {
     if (item.isLineStart && currentLine.length) {
-      lines.push(currentLine.join(' ').replace('] <', ']<'))
+      lines.push(currentLine.join(' ').replace('] <', ']<').replace('> ]', '>]'))
       currentLine = []
     }
 
-    if (item.isLineStart) currentLine.push(`[${formatLrcTime(item.lineStart)}]`)
+    if (item.isLineStart) currentLine.push(item.isBackground ? '[bg:' : `[${formatLrcTime(item.lineStart)}]`)
     currentLine.push(`<${formatLrcTime(item.start)}>${item.word}${item.isLineEnd ? `<${formatLrcTime(item.lineEnd)}>` : ''}`)
+    if (item.isLineEnd && item.isBackground) currentLine.push(']')
   })
 
-  if (currentLine.length) lines.push(currentLine.join(' ').replace('] <', ']<'))
+  if (currentLine.length) lines.push(currentLine.join(' ').replace('] <', ']<').replace('> ]', '>]'))
   return lines.join('\n')
 }
 
