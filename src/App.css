@@ -202,6 +202,18 @@ h2 {
   }
 }
 
+.lyrics-editor {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0 0;
+}
+
+.lyrics-editor span {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.lyrics-editor textarea,
 .output-text {
   width: 100%;
   min-height: 170px;
@@ -213,6 +225,10 @@ h2 {
   background: rgba(3, 7, 18, 0.72);
   font: 0.84rem/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   resize: vertical;
+}
+
+.lyrics-editor textarea {
+  margin-top: 0;
 }
 
 .actions {
